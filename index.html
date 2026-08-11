@@ -226,6 +226,7 @@ tfoot td{padding:8px 10px;font-weight:700;border-top:2px solid var(--dark)}
   <button class="tab-btn active" onclick="aba('midia',this)">Mídia paga</button>
   <button class="tab-btn" onclick="aba('conc',this)">Meta × CRM</button>
   <button class="tab-btn" onclick="aba('comercial',this)">Comercial e financeiro</button>
+  <button class="tab-btn" onclick="aba('nps',this)">NPS</button>
   <button class="tab-btn" onclick="aba('conf',this)">Conferência</button>
 </div>
 
@@ -334,6 +335,49 @@ tfoot td{padding:8px 10px;font-weight:700;border-top:2px solid var(--dark)}
   </div>
 </div>
 
+<!-- ============ NPS ============ -->
+<div class="panel" id="panel-nps">
+  <div id="npsVazio"></div>
+  <div id="npsTopo"></div>
+  <div class="kpi-grid" id="npsKpis"></div>
+
+  <div class="section-title">Como cada unidade foi no período</div>
+  <p style="font-size:11.5px;color:var(--gray-text);margin:0 0 4px">
+    A unidade de cada resposta é reconstruída pelo telefone: agendamento na Doctor em até três dias
+    antes do envio da pesquisa. Resposta ambígua ou sem agendamento na janela entra no consolidado
+    e em nenhuma unidade.</p>
+  <table id="npsUnid"></table>
+
+  <div class="chart-row" style="margin-top:18px">
+    <div class="chart-card"><h4>Respostas por dia</h4>
+      <div class="cv baixa"><canvas id="cNpsDia"></canvas></div></div>
+    <div class="chart-card"><h4>Tempo de espera relatado</h4>
+      <div class="cv baixa"><canvas id="cNpsEspera"></canvas></div></div>
+  </div>
+
+  <div class="chart-row">
+    <div class="chart-card"><h4>Subnotas do formulário — médias de 1 a 5</h4>
+      <div class="cv baixa"><canvas id="cNpsSub"></canvas></div></div>
+    <div class="chart-card"><h4>Motivos marcados — o que sustenta a nota</h4>
+      <div class="cv baixa"><canvas id="cNpsMot"></canvas></div></div>
+  </div>
+
+  <div id="npsEscala"></div>
+
+  <div class="nota neutra">
+    <b>Como ler um NPS de base pequena</b>
+    <span id="npsSensib"></span>
+  </div>
+
+  <div class="nota">
+    <b>Por que os comentários dos pacientes não estão aqui</b>
+    Os PDFs internos trazem as vozes na íntegra, e devem continuar trazendo — é lá que elas ajudam
+    a operação. Esta página é pública e indexável: comentário sobre atendimento, junto com data e
+    unidade, é informação de saúde de alguém potencialmente identificável. O que sai aqui é
+    contagem, média e tema. Se a equipe precisar do texto, o lugar é o relatório diário.
+  </div>
+</div>
+
 <!-- ============ CONFERÊNCIA ============ -->
 <div class="panel" id="panel-conf">
   <div class="section-title" style="margin-top:0">Conferência contra o relatório da agência</div>
@@ -384,6 +428,7 @@ const BRL0 = v => 'R$ ' + Math.round(v).toLocaleString('pt-BR');
 const N    = v => v.toLocaleString('pt-BR');
 const PCT  = v => v.toFixed(2).replace('.',',') + '%';
 const PCT0 = v => (isFinite(v) ? v.toFixed(0) : '0') + '%';
+const PCT1 = v => (isFinite(v) ? v.toFixed(1).replace('.',',') : '0') + '%';
 const fmtBR = d => d.slice(8,10)+'/'+d.slice(5,7)+'/'+d.slice(0,4);
 const ddmm  = d => d.slice(8,10)+'/'+d.slice(5,7);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -577,7 +622,186 @@ function render(){
   pintaMidia(t, camp, ads, cob, tudoFora);
   pintaConciliacao(t, camp, ads, extra, cob, diasFora, tudoFora);
   pintaComercial(t, cob);
+  pintaNps();
   pintaConferencia();
+}
+
+/* ============ NPS ============ */
+const ESPERA_ROTULO = {ate_20:'Até 20 min', '20_30':'20–30 min', '30_45':'30–45 min',
+                       '45_60':'45–60 min', mais_1h:'Mais de 1h'};
+const MOTIVO_ROTULO = {qualidade:'Qualidade', preco:'Preço', equipe:'Equipe',
+                       comodidade:'Comodidade', pagamento:'Pagamento', contratada:'Contratada'};
+const rotulo = (m, v) => m[v] || (v.charAt(0).toUpperCase() + v.slice(1).replace(/_/g,' '));
+let cNpsDia, cNpsEspera, cNpsSub, cNpsMot;
+
+function medianaDe(v){
+  if(!v.length) return null;
+  const a = v.slice().sort((x,y) => x - y), i = a.length >> 1;
+  return a.length % 2 ? a[i] : (a[i-1] + a[i]) / 2;
+}
+function faixaNps(n){ return n >= 75 ? 'boa' : n >= 50 ? 'media' : 'ruim'; }
+
+function pintaNps(){
+  const NP = D.nps;   /* NP, não N: N é o formatador de número, global */
+  const naJanela = r => r.d >= de && r.d <= ate;
+  const resp = (NP?.resp || []).filter(naJanela);
+  const envio = (NP?.envio || []).filter(naJanela);
+
+  const vazio = document.getElementById('npsVazio');
+  if(!resp.length){
+    vazio.innerHTML = `<div class="vazio">Nenhuma resposta de NPS entre ${fmtBR(de)} e ${fmtBR(ate)}.
+      <br><span style="font-size:11.5px">A pesquisa começou a rodar em ${NP?.resp?.length ? fmtBR(NP.resp[0].d) : 'agosto de 2026'}.</span></div>`;
+    for(const id of ['npsTopo','npsKpis','npsUnid','npsEscala','npsSensib']) document.getElementById(id).innerHTML = '';
+    for(const c of [cNpsDia,cNpsEspera,cNpsSub,cNpsMot]) if(c) c.destroy();
+    cNpsDia = cNpsEspera = cNpsSub = cNpsMot = null;
+    return;
+  }
+  vazio.innerHTML = '';
+
+  /* soma os agregados por dia e unidade; NPS de janela é exato assim */
+  const zeroN = () => ({p:0, n:0, x:0, sc:0, q:0, e:0, c:0, nq:0, susp:0, min:[], env:0});
+  const tot = zeroN(), porU = new Map();
+  const pega = u => { const k = (u === null || u === undefined) ? 'sem' : String(u);
+                      if(!porU.has(k)) porU.set(k, zeroN()); return porU.get(k); };
+  for(const r of resp){
+    for(const o of [tot, pega(r.u)]){
+      o.p += r.p; o.n += r.n; o.x += r.x; o.sc += r.sc;
+      o.q += r.q || 0; o.e += r.e || 0; o.c += r.c || 0; o.nq += r.nq || 0;
+      o.susp += r.susp || 0; o.min.push(...(r.min || []));
+    }
+  }
+  for(const r of envio){ tot.env += r.n; pega(r.u).env += r.n; }
+
+  const resps = o => o.p + o.n + o.x;
+  const nps = o => resps(o) ? 100*o.p/resps(o) - 100*o.x/resps(o) : 0;
+  const R = resps(tot), NPS = nps(tot);
+  const med = medianaDe(tot.min);
+
+  document.getElementById('npsTopo').innerHTML = `
+    <div class="saude ${faixaNps(NPS)==='boa'?'':faixaNps(NPS)==='media'?'media':'ruim'}">
+      <div><div class="cob-v" style="${faixaNps(NPS)==='boa'?'color:var(--green)':''}">${NPS>=0?'+':''}${NPS.toFixed(0)}</div>
+        <div class="cob-l">NPS DO PERÍODO</div></div>
+      <div class="txt"><b>${N(tot.p)} promotores, ${N(tot.n)} neutros e ${N(tot.x)} detratores em ${N(R)} respostas.</b>
+        O índice vai de −100 a +100 e é a diferença entre a fatia de promotores (notas 9–10) e a de
+        detratores (0–6); os neutros não entram na conta, mas ocupam a base.
+        <div class="barra"><i style="width:${((NPS+100)/2).toFixed(1)}%;background:${NPS>=75?'var(--green)':NPS>=50?'var(--orange)':'var(--red)'}"></i></div></div>
+    </div>`;
+
+  document.getElementById('npsKpis').innerHTML = [
+    [N(R), 'Respostas'],
+    [N(tot.env), 'Pesquisas enviadas'],
+    [tot.env ? PCT1(100*R/tot.env) : '—', 'Taxa de resposta'],
+    [(tot.sc/R).toFixed(2).replace('.',','), 'Nota média (0 a 10)'],
+    [tot.nq ? (tot.q/tot.nq).toFixed(2).replace('.',',') : '—', 'Qualidade (1 a 5)'],
+    [tot.nq ? (tot.e/tot.nq).toFixed(2).replace('.',',') : '—', 'Equipe (1 a 5)'],
+    [tot.nq ? (tot.c/tot.nq).toFixed(2).replace('.',',') : '—', 'Comunicação (1 a 5)'],
+    [med === null ? '—' : med.toFixed(1).replace('.',',') + ' min', 'Mediana até responder'],
+  ].map(([v,l]) => `<div class="kpi-card"><div class="kpi-val">${v}</div><div class="kpi-label">${l}</div></div>`).join('');
+
+  /* tabela por unidade, com a linha sem unidade explícita em vez de escondida */
+  const linhas = [...porU.entries()]
+    .map(([k,o]) => ({k, o, nome: k === 'sem' ? 'Sem unidade identificada' : D.unid[k]}))
+    .sort((a,b) => resps(b.o) - resps(a.o));
+  document.getElementById('npsUnid').innerHTML = `
+    <thead><tr><th>Unidade</th><th class="num">NPS</th><th class="num">Respostas</th>
+    <th class="num">Enviadas</th><th class="num">Taxa</th><th class="num">Prom.</th>
+    <th class="num">Neu.</th><th class="num">Det.</th><th class="num">Nota média</th>
+    <th class="num">Mediana</th></tr></thead>
+    <tbody>${linhas.map(({k,o,nome}) => { const n = nps(o), m = medianaDe(o.min); return `<tr>
+      <td>${k === 'sem'
+            ? `<span style="color:var(--gray-text)">${nome}</span>`
+            : `<b>${nome}</b> <span style="color:var(--gray-text)">· id ${k}</span>`}</td>
+      <td class="num"><span class="cob ${k==='sem'?'nula':faixaNps(n)}">${n>=0?'+':''}${n.toFixed(0)}</span></td>
+      <td class="num">${N(resps(o))}</td>
+      <td class="num">${o.env ? N(o.env) : '—'}</td>
+      <td class="num">${o.env ? PCT1(100*resps(o)/o.env) : '—'}</td>
+      <td class="num">${N(o.p)}</td><td class="num">${N(o.n)}</td><td class="num">${N(o.x)}</td>
+      <td class="num">${(o.sc/resps(o)).toFixed(2).replace('.',',')}</td>
+      <td class="num">${m === null ? '—' : m.toFixed(1).replace('.',',')+' min'}</td></tr>`;}).join('')}</tbody>
+    <tfoot><tr><td>Consolidado da rede</td>
+      <td class="num">${NPS>=0?'+':''}${NPS.toFixed(0)}</td><td class="num">${N(R)}</td>
+      <td class="num">${N(tot.env)}</td><td class="num">${tot.env?PCT1(100*R/tot.env):'—'}</td>
+      <td class="num">${N(tot.p)}</td><td class="num">${N(tot.n)}</td><td class="num">${N(tot.x)}</td>
+      <td class="num">${(tot.sc/R).toFixed(2).replace('.',',')}</td>
+      <td class="num">${med===null?'—':med.toFixed(1).replace('.',',')+' min'}</td></tr></tfoot>`;
+
+  /* ---- gráficos ---- */
+  for(const c of [cNpsDia,cNpsEspera,cNpsSub,cNpsMot]) if(c) c.destroy();
+  const barra = {responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}},
+                 scales:{x:{grid:{display:false}}, y:{beginAtZero:true}}};
+
+  const porDia = new Map();
+  for(const r of resp){
+    if(!porDia.has(r.d)) porDia.set(r.d, {n:0, x:0});
+    const o = porDia.get(r.d); o.n += r.p + r.n + r.x; o.x += r.x;
+  }
+  const ds = [...porDia].sort((a,b) => a[0] < b[0] ? -1 : 1);
+  cNpsDia = new Chart(document.getElementById('cNpsDia'), {type:'bar',
+    data:{labels: ds.map(d => ddmm(d[0])), datasets:[
+      {label:'Respostas', data: ds.map(d => d[1].n - d[1].x), backgroundColor:C.verde, borderRadius:3, stack:'a'},
+      {label:'Detratores', data: ds.map(d => d[1].x), backgroundColor:C.rosa, borderRadius:3, stack:'a'}]},
+    options:{...barra, plugins:{legend:{position:'top',align:'start',
+      labels:{boxWidth:10,boxHeight:10,usePointStyle:true,pointStyle:'circle'}}},
+      scales:{x:{grid:{display:false},stacked:true},y:{beginAtZero:true,stacked:true}}}});
+
+  const esp = new Map();
+  for(const r of (NP.espera || []).filter(naJanela)) esp.set(r.f, (esp.get(r.f) || 0) + r.n);
+  const es = [...esp].sort((a,b) => b[1] - a[1]);
+  cNpsEspera = new Chart(document.getElementById('cNpsEspera'), {type:'bar',
+    data:{labels: es.map(e => rotulo(ESPERA_ROTULO, e[0])),
+          datasets:[{data: es.map(e => e[1]), backgroundColor:C.laranja, borderRadius:3}]},
+    options:{...barra, indexAxis:'y', scales:{y:{grid:{display:false}}, x:{beginAtZero:true}},
+      plugins:{legend:{display:false}, tooltip:{callbacks:{
+        label: c => c.parsed.x + ' de ' + R + ' respostas (' + PCT0(100*c.parsed.x/R) + ')'}}}}});
+
+  cNpsSub = new Chart(document.getElementById('cNpsSub'), {type:'bar',
+    data:{labels:['Qualidade','Equipe','Comunicação'],
+          datasets:[{data: tot.nq ? [tot.q/tot.nq, tot.e/tot.nq, tot.c/tot.nq] : [0,0,0],
+                     backgroundColor:[C.roxo, C.azul, C.rosa], borderRadius:3}]},
+    options:{...barra, scales:{x:{grid:{display:false}},
+      y:{beginAtZero:false, min:4, max:5, ticks:{stepSize:0.2}}},
+      plugins:{legend:{display:false}, tooltip:{callbacks:{label: c => c.parsed.y.toFixed(2).replace('.',',') + ' de 5'}}}}});
+
+  const mot = new Map();
+  for(const r of (NP.motivos || []).filter(naJanela)) mot.set(r.m, (mot.get(r.m) || 0) + r.n);
+  const ms = [...mot].sort((a,b) => b[1] - a[1]);
+  const totalMarc = ms.reduce((a,m) => a + m[1], 0);
+  cNpsMot = new Chart(document.getElementById('cNpsMot'), {type:'bar',
+    data:{labels: ms.map(m => rotulo(MOTIVO_ROTULO, m[0])),
+          datasets:[{data: ms.map(m => m[1]), backgroundColor:C.verde, borderRadius:3}]},
+    options:{...barra, indexAxis:'y', scales:{y:{grid:{display:false}}, x:{beginAtZero:true}},
+      plugins:{legend:{display:false}, tooltip:{callbacks:{
+        label: c => c.parsed.x + ' de ' + totalMarc + ' marcações (multiescolha)'}}}}});
+
+  /* ---- verificação de escala invertida ---- */
+  const semSusp = R - tot.susp;
+  const npsSem = semSusp ? 100*tot.p/semSusp - 100*(tot.x - tot.susp)/semSusp : null;
+  document.getElementById('npsEscala').innerHTML = tot.susp ? `
+    <div class="section-title">Verificação de escala</div>
+    <div class="nota aviso"><b>${N(tot.susp)} ${tot.susp===1?'resposta combina':'respostas combinam'} nota baixa com subnotas altas</b>
+    Nota 6 ou menos no NPS, e média 3 ou mais nas subnotas de qualidade, equipe e comunicação — o
+    padrão de quem leu a régua ao contrário. Sem ${tot.susp===1?'ela':'elas'}, o NPS do período seria
+    <b>${npsSem>=0?'+':''}${npsSem.toFixed(0)}</b> em vez de <b>${NPS>=0?'+':''}${NPS.toFixed(0)}</b>.
+    O número oficial continua sendo o primeiro: a diferença fica registrada, não corrigida por conta
+    própria — descartar resposta que não agrada é como painel deixa de ser confiável.</div>` : `
+    <div class="section-title">Verificação de escala</div>
+    <div class="nota neutra"><b>Nenhuma nota baixa com subnota alta no período</b>
+    Nenhuma resposta combinou nota ≤ 6 com média ≥ 3 nas subnotas, então não há suspeita de régua
+    invertida aqui. O NPS de ${NPS>=0?'+':''}${NPS.toFixed(0)} não tem asterisco.</div>`;
+
+  /* 100/n, não 200/n: é quanto o índice anda quando UMA resposta muda de faixa
+     (promotor vira neutro, por exemplo). 200/n seria o salto de promotor direto
+     para detrator — acontece menos e assusta mais. Os PDFs usam 100/n. */
+  const porResposta = R ? 100/R : 0;
+  const menor = linhas.filter(l => l.k !== 'sem').sort((a,b) => resps(a.o) - resps(b.o))[0];
+  document.getElementById('npsSensib').innerHTML =
+    `Com <b>${N(R)} respostas</b> no consolidado, cada resposta que muda de faixa move o índice em
+     cerca de <b>${porResposta.toFixed(1).replace('.',',')} ponto${porResposta>=2?'s':''}</b>.` +
+    (menor ? ` Na ${D.unid[menor.k]}, que tem a menor base do período com ${N(resps(menor.o))} respostas,
+     cada uma vale <b>${(100/resps(menor.o)).toFixed(1).replace('.',',')} pontos</b> — nessa escala o
+     número serve como termômetro, não como estatística.` : '') +
+    ` Taxa de resposta de ${tot.env?PCT1(100*R/tot.env):'—'} também importa: quem responde pesquisa
+     não é uma amostra aleatória de quem foi atendido.`;
 }
 
 function pintaSaude(t, cob, tudoFora){
