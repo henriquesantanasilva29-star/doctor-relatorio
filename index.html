@@ -643,6 +643,13 @@ function medianaDe(v){
 }
 function faixaNps(n){ return n >= 75 ? 'boa' : n >= 50 ? 'media' : 'ruim'; }
 
+/* O começo da pesquisa é o primeiro ENVIO, não a primeira resposta: alguém pode
+   receber num dia e responder no outro, e aí a data de corte sairia adiantada. */
+function inicioNps(){
+  const ds = [...(D.nps?.envio || []), ...(D.nps?.resp || [])].map(r => r.d).filter(Boolean);
+  return ds.length ? fmtBR(ds.reduce((a, b) => a < b ? a : b)) : 'agosto de 2026';
+}
+
 function pintaNps(){
   const NP = D.nps;   /* NP, não N: N é o formatador de número, global */
   const naJanela = r => r.d >= de && r.d <= ate;
@@ -652,7 +659,7 @@ function pintaNps(){
   const vazio = document.getElementById('npsVazio');
   if(!resp.length){
     vazio.innerHTML = `<div class="vazio">Nenhuma resposta de NPS entre ${fmtBR(de)} e ${fmtBR(ate)}.
-      <br><span style="font-size:11.5px">A pesquisa começou a rodar em ${NP?.resp?.length ? fmtBR(NP.resp[0].d) : 'agosto de 2026'}.</span></div>`;
+      <br><span style="font-size:11.5px">A pesquisa começou a rodar em ${inicioNps()}.</span></div>`;
     for(const id of ['npsTopo','npsKpis','npsUnid','npsEscala','npsSensib']) document.getElementById(id).innerHTML = '';
     for(const c of [cNpsDia,cNpsEspera,cNpsSub,cNpsMot]) if(c) c.destroy();
     cNpsDia = cNpsEspera = cNpsSub = cNpsMot = null;
