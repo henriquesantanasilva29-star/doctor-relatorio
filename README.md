@@ -1,43 +1,68 @@
 # Doctor Mais Saúde — relatório de performance
 
-Dois documentos estáticos, sem servidor e sem banco: todo o dado vai embutido e o
-cálculo acontece no navegador. Abrem offline depois de baixados.
+**https://henriquesantanasilva29-star.github.io/doctor-relatorio/**
 
-| Arquivo | O que é |
-|---|---|
-| `index.html` | Relatório de performance — mídia paga, Meta × CRM, comercial e financeiro, conferência. Período editável no cabeçalho. |
-| `painel.html` | Painel de mídia, mais enxuto, com a mesma conciliação Meta × CRM. |
+Abre em qualquer dia e mostra o dado até aquele dia. Ninguém precisa gerar nada.
+
+## Como se atualiza
+
+```
+Meta Ads ─┐
+Feegow   ─┼─► coleta automática ─► Supabase ─► publica-relatorio ─► este repositório
+Life CRM ─┘   (de 2 em 2 min a       (banco)     (cron 05:30)         (GitHub Pages)
+               1x por dia)
+```
+
+| Arquivo | Quem escreve | Quando |
+|---|---|---|
+| `index.html` | pessoa | quando o relatório muda de forma |
+| `dados.json` | `publica-relatorio` | todo dia às 05:30, se algum número mudou |
+| `criativos.json` | `publica-relatorio` | quando entra anúncio novo |
+
+O commit só acontece se algum número mudou de verdade — dia sem veiculação não
+gera commit. Assim o histórico do repositório continua dizendo alguma coisa.
+
+## Se o relatório parar
+
+Ele avisa sozinho: passando de 36 horas sem publicação, aparece uma tarja no
+topo da página dizendo há quantos dias está parado. A causa se descobre em uma
+consulta:
+
+```sql
+select * from v_publicacao_saude;
+```
+
+Ela separa as duas falhas possíveis — a coleta parou, ou só a publicação parou —
+porque o conserto é diferente em cada caso. O histórico de tentativas fica em
+`publicacao_log`.
+
+A causa mais provável de parada é o token do GitHub expirar. Ele é um
+fine-grained token com `Contents: read and write` neste repositório, guardado no
+Supabase como `GITHUB_TOKEN_RELATORIO`.
 
 ## O que o relatório responde
 
 - **Mídia paga** — investimento, impressões, cliques, CTR, CPC, CPM e conversas
-  iniciadas por campanha, na conta `act_1400309970874524`.
+  por campanha. Clicar numa especialidade abre os anúncios: imagem, texto,
+  chamada e o funil de cada um.
 - **Meta × CRM** — o que cada sistema conta e por que os números diferem. A Meta
-  conta conversa (evento, creditada ao dia do anúncio); o Life CRM conta contato
-  (pessoa, no dia da mensagem). Em julho/2026 a lacuna foi de 545 conversas, e
-  522 delas eram gente que já estava no CRM e voltou a conversar.
+  conta conversa (evento, no dia do anúncio); o Life CRM conta contato (pessoa,
+  no dia da mensagem). Nunca batem, e a diferença tem causa medida.
 - **Comercial e financeiro** — propostas, execução, faturamento e caixa das
   unidades 0, 2 e 4.
-- **Conferência** — nossa coleta contra o relatório de julho da agência,
-  linha a linha.
+- **Conferência** — nossa coleta contra o relatório de julho da agência.
 
-Clicar numa especialidade abre os anúncios dela: miniatura, texto, chamada e o
-funil de cada um, do investimento à receita executada.
+## Três coisas que ele não faz, de propósito
 
-## Três coisas que o documento não faz, de propósito
+1. **Não publica alcance nem frequência.** São desduplicadas; somar dia a dia
+   infla o número em cerca de duas vezes.
+2. **Não mede cobertura antes de 03/06/2026**, quando o espelho de contatos do
+   CRM começa. Número baixo antes disso é ausência de fonte, não rastreio
+   quebrado — e a página avisa.
+3. **Não trata receita rastreada como receita total.** A ponte telefone →
+   paciente resolve cerca de 17%. O que aparece é piso, e está dito em cada painel.
 
-1. **Não publica alcance nem frequência.** São métricas desduplicadas; somar dia
-   a dia infla o número em cerca de duas vezes (707.535 somado contra 313.926
-   reais, em julho).
-2. **Não mede cobertura antes de 03/06/2026.** O espelho de contatos do CRM
-   começa nessa data. Cobertura baixa antes disso é ausência de fonte, não
-   rastreio quebrado — e o relatório avisa em vez de deixar a conclusão errada
-   acontecer.
-3. **Não trata receita rastreada como receita total.** A ponte que liga telefone
-   do CRM a paciente do Feegow resolve cerca de 17% dos contatos. O que aparece
-   é piso, e está dito em cada painel.
+## Não tem dado pessoal
 
-## Dado que não está aqui
-
-Nenhum dado pessoal. Não há nome, telefone, CPF, e-mail nem identificador de
-paciente — só agregados por dia, campanha, anúncio e unidade.
+Nenhum nome, telefone, CPF, e-mail ou identificador de paciente. Só agregados
+por dia, campanha, anúncio e unidade.
