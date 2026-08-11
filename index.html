@@ -421,11 +421,11 @@ tfoot td{padding:8px 10px;font-weight:700;border-top:2px solid var(--dark)}
   </div><!-- /npsCorpo -->
 
   <div class="nota">
-    <b>Esta página não é pública</b>
-    Ela mostra nome de paciente junto com a opinião sobre o atendimento, que é informação de saúde
-    de gente identificável. Por isso saiu do endereço aberto e só abre por link com chave, um por
-    pessoa, revogável sozinho. Não repasse o seu link: peça uma chave nova para quem precisar, para
-    que dê para desligar depois sem derrubar o acesso de todo mundo.
+    <b>Este dado não é público</b>
+    A aba mostra nome de paciente junto com a opinião sobre o atendimento, que é informação de saúde
+    de gente identificável. O endereço da página é aberto, mas ele sozinho não traz número nenhum:
+    o dado só vem para quem abre com a chave no fim do link. Não repasse o seu — peça uma chave nova
+    para quem precisar, para que dê para desligar depois sem derrubar o acesso de todo mundo.
   </div>
 </div>
 
@@ -1272,18 +1272,68 @@ function falhou(msg){
      <span style="font-size:11.5px">A página está no ar; o que faltou foi o arquivo de dados.
      Se persistir, confira <code>v_publicacao_saude</code> no banco — ela diz há quanto tempo
      a publicação automática não roda.</span></div>`;
+  travaControles();
 }
 
-/* Quando a página é servida atrás de chave, quem entrega injeta __FONTE__ com o
-   prefixo que carrega a chave adiante. Sem isso o fetch relativo cairia fora da
-   função que autentica e voltaria 404. */
-const FONTE = n => (window.__FONTE__ ? window.__FONTE__ + n : n);
+/* ---- de onde vem o dado ---------------------------------------------------
+   Esta página não tem número nenhum dentro dela: é só a casca. O dado mora no
+   banco e sai por um endpoint que exige chave, porque a aba de NPS mostra o que
+   cada paciente escreveu, com nome.
+
+   A chave viaja no FRAGMENTO da URL (#k=...), e não na query. Fragmento o
+   navegador não manda para servidor nenhum — nem para quem hospeda esta página.
+   Quem tiver o endereço sem a chave abre a casca vazia e não vê dado nenhum. */
+const API = 'https://myiqdeonxuznvhtsvfxg.supabase.co/functions/v1/relatorio';
+
+function chaveDaUrl(){
+  const doHash = new URLSearchParams(location.hash.replace(/^#/, '')).get('k');
+  if(doHash) return doHash.trim();
+  /* Aceita ?k= também, porque link colado à mão costuma vir assim — mas move
+     para o fragmento na hora, para não ficar pendurado na barra de endereço. */
+  const daQuery = new URLSearchParams(location.search).get('k');
+  if(daQuery){
+    try { history.replaceState(null, '', location.pathname + '#k=' + daQuery.trim()); } catch(e){}
+    return daQuery.trim();
+  }
+  return '';
+}
+
+/* Sem dado carregado, filtro e aba não têm o que fazer e quebram se alguém
+   clicar. Desliga os dois — página que não funciona é melhor do que página que
+   parece funcionar e responde com erro no console. */
+function travaControles(){
+  document.querySelectorAll('.preset, .chip-data, .tab-btn').forEach(b => {
+    b.disabled = true;
+    b.style.opacity = .45;
+    b.style.cursor = 'not-allowed';
+    b.onclick = null;
+  });
+}
+
+function semChave(){
+  document.getElementById('atualizado').textContent = 'este relatório precisa de um link com chave';
+  document.getElementById('saudeMidia').innerHTML =
+    `<div class="vazio"><b>Falta a chave no link.</b><br>
+     Este relatório mostra o que cada paciente escreveu na pesquisa, com nome, então o dado não fica
+     num endereço aberto — ele só sai para quem abre pelo link completo, com a chave no final.<br>
+     <span style="font-size:11.5px">Se o seu link parou de funcionar, peça outro: as chaves são
+     revogadas uma a uma, e a sua pode ter sido desligada sem afetar as demais.</span></div>`;
+  travaControles();
+}
+
+const CHAVE = chaveDaUrl();
+const FONTE = n => API + '?k=' + encodeURIComponent(CHAVE) + '&f=' + n;
 
 if(PRE){
   iniciar(PRE.d, PRE.i);
+} else if(!CHAVE){
+  semChave();
 } else {
   Promise.all([
-    fetch(FONTE('dados.json'), {cache:'no-cache'}).then(r => r.ok ? r.json() : Promise.reject('dados.json: HTTP '+r.status)),
+    fetch(FONTE('dados.json'), {cache:'no-cache'}).then(r => r.ok ? r.json()
+      : Promise.reject(r.status === 404
+          ? 'a chave deste link não vale mais — peça outra'
+          : 'dados.json: HTTP ' + r.status)),
     fetch(FONTE('criativos.json'), {cache:'no-cache'}).then(r => r.ok ? r.json() : {}).catch(() => ({})),
   ]).then(([d, i]) => iniciar(d, i)).catch(e => falhou(String(e)));
 }
