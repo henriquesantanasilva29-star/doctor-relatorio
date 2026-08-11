@@ -339,6 +339,7 @@ tfoot td{padding:8px 10px;font-weight:700;border-top:2px solid var(--dark)}
 <div class="panel" id="panel-nps">
   <div id="npsVazio"></div>
   <div id="npsTopo"></div>
+  <div id="npsCorpo">
   <div class="kpi-grid" id="npsKpis"></div>
 
   <div class="section-title">Como cada unidade foi no período</div>
@@ -368,6 +369,7 @@ tfoot td{padding:8px 10px;font-weight:700;border-top:2px solid var(--dark)}
     <b>Como ler um NPS de base pequena</b>
     <span id="npsSensib"></span>
   </div>
+  </div><!-- /npsCorpo -->
 
   <div class="nota">
     <b>Por que os comentários dos pacientes não estão aqui</b>
@@ -654,9 +656,11 @@ function pintaNps(){
     for(const id of ['npsTopo','npsKpis','npsUnid','npsEscala','npsSensib']) document.getElementById(id).innerHTML = '';
     for(const c of [cNpsDia,cNpsEspera,cNpsSub,cNpsMot]) if(c) c.destroy();
     cNpsDia = cNpsEspera = cNpsSub = cNpsMot = null;
+    document.getElementById('npsCorpo').style.display = 'none';
     return;
   }
   vazio.innerHTML = '';
+  document.getElementById('npsCorpo').style.display = '';
 
   /* soma os agregados por dia e unidade; NPS de janela é exato assim */
   const zeroN = () => ({p:0, n:0, x:0, sc:0, q:0, e:0, c:0, nq:0, susp:0, min:[], env:0});
