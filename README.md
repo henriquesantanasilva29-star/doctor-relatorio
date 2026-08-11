@@ -50,7 +50,22 @@ Supabase como `GITHUB_TOKEN_RELATORIO`.
   no dia da mensagem). Nunca batem, e a diferença tem causa medida.
 - **Comercial e financeiro** — propostas, execução, faturamento e caixa das
   unidades 0, 2 e 4.
+- **NPS** — índice, taxa de resposta, nota média, subnotas do formulário, tempo
+  de espera relatado e motivos, por unidade e por dia. É o mesmo dado dos quatro
+  PDFs diários, conferido contra eles dígito a dígito em 01–10/08/2026.
 - **Conferência** — nossa coleta contra o relatório de julho da agência.
+
+### Sobre o NPS
+
+A pesquisa não grava a unidade — ela é remontada pelo telefone, procurando
+agendamento na Doctor em até três dias antes do envio. Quando a janela devolve
+mais de uma unidade, ou nenhuma, a resposta entra no consolidado e em unidade
+nenhuma. Por isso **a soma das três unidades é menor que o total**, e a linha
+"sem unidade identificada" está na tabela para a conta fechar à vista.
+
+A aba também mostra quantas respostas combinam nota baixa com subnotas altas —
+o padrão de quem leu a régua ao contrário. Elas continuam contando no número
+oficial; o que a página faz é dizer quanto o índice mudaria sem elas.
 
 ## Três coisas que ele não faz, de propósito
 
@@ -66,3 +81,8 @@ Supabase como `GITHUB_TOKEN_RELATORIO`.
 
 Nenhum nome, telefone, CPF, e-mail ou identificador de paciente. Só agregados
 por dia, campanha, anúncio e unidade.
+
+**Comentário de paciente também não entra.** Esta página é pública e indexável;
+comentário sobre atendimento, junto de data e unidade, é informação de saúde de
+alguém potencialmente identificável. O que sai aqui é contagem, média e tema —
+as vozes na íntegra continuam nos PDFs internos, que é onde ajudam a operação.
