@@ -187,6 +187,50 @@ tfoot td{padding:8px 10px;font-weight:700;border-top:2px solid var(--dark)}
 .ok{color:var(--green);font-weight:700}
 .vazio{padding:40px;text-align:center;color:var(--gray-text);font-size:13px;
   border:1px dashed var(--border);border-radius:var(--r-md);background:#fff}
+
+/* ---- barras horizontais, no formato dos relatórios diários ----------------
+   Rótulo à esquerda, trilho cinza, preenchimento rosa, valor à direita. É a
+   mesma leitura do PDF: a pessoa compara comprimento sem procurar eixo. */
+.bl{display:grid;gap:7px;margin-top:2px}
+.bl-row{display:grid;grid-template-columns:96px 1fr 42px;align-items:center;gap:10px}
+.bl-l{font-size:11px;color:var(--gray-text);text-align:right;line-height:1.25}
+.bl-t{height:9px;background:var(--gray-bg);border-radius:999px;overflow:hidden}
+.bl-t i{display:block;height:100%;background:var(--red);border-radius:999px;
+  transition:width .25s ease}
+.bl-v{font-size:12px;font-weight:700;color:var(--dark);text-align:right;
+  font-variant-numeric:tabular-nums}
+.bl-row.fraca .bl-t i{background:#F7A8C6}
+.bl-nota{font-size:10.5px;color:var(--gray-text);margin-top:10px;line-height:1.45}
+
+/* ---- filtro de unidade ---- */
+.filtro-uni{display:flex;gap:7px;flex-wrap:wrap;align-items:center;margin:2px 0 16px}
+.filtro-uni .rot{font-size:10px;font-weight:700;letter-spacing:.3px;
+  color:var(--gray-text);margin-right:2px}
+.chip-uni{border:1px solid var(--border);background:#fff;color:var(--dark);
+  border-radius:999px;padding:6px 14px;font:inherit;font-size:11.5px;cursor:pointer;
+  transition:.15s}
+.chip-uni:hover{border-color:var(--red);color:var(--red)}
+.chip-uni.on{background:var(--red);border-color:var(--red);color:#fff;font-weight:600}
+.chip-uni .q{opacity:.6;font-size:10px;margin-left:5px}
+.chip-uni.on .q{opacity:.85}
+
+/* ---- vozes dos pacientes ---- */
+.voz{border:1px solid var(--border);border-left:3px solid var(--border);
+  border-radius:6px;padding:13px 16px;margin-bottom:10px;background:#fff}
+.voz.promotor{border-left-color:var(--green);background:#F3FBF7}
+.voz.neutro  {border-left-color:var(--gray-text);background:var(--gray-bg)}
+.voz.detrator{border-left-color:var(--red);background:var(--alert-bg)}
+.voz-topo{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin-bottom:7px}
+.voz-nota{font-size:9.5px;font-weight:700;letter-spacing:.3px;border-radius:999px;
+  padding:3px 9px;background:#fff;border:1px solid var(--border);color:var(--dark)}
+.voz.promotor .voz-nota{border-color:#B9E7D2;color:#0C7A50}
+.voz.detrator .voz-nota{border-color:#F8C0D6;color:#B00E51}
+.voz-quem{font-size:12.5px;font-weight:700;color:var(--dark)}
+.voz-meta{font-size:10.5px;color:var(--gray-text)}
+.voz-txt{font-size:12.5px;color:var(--dark);line-height:1.55;font-style:italic}
+.voz-sug{font-size:12px;color:var(--dark);line-height:1.5;margin-top:7px;
+  padding-top:7px;border-top:1px dashed var(--border)}
+.voz-sug b{font-style:normal}
 .footer{margin-top:34px;background:var(--dark);color:#C9C4DB;padding:14px 18px;border-radius:var(--r-md);
   font-size:11px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px}
 .footer b{color:#fff}
@@ -337,10 +381,29 @@ tfoot td{padding:8px 10px;font-weight:700;border-top:2px solid var(--dark)}
 
 <!-- ============ NPS ============ -->
 <div class="panel" id="panel-nps">
+  <div class="filtro-uni" id="npsFiltro"></div>
   <div id="npsVazio"></div>
   <div id="npsTopo"></div>
   <div id="npsCorpo">
   <div class="kpi-grid" id="npsKpis"></div>
+
+  <div class="chart-row" style="margin-top:18px">
+    <div class="chart-card"><h4>SUBNOTAS DO FORMULÁRIO — médias de 1 a 5</h4>
+      <div id="blSub"></div></div>
+    <div class="chart-card"><h4>TEMPO DE ESPERA RELATADO — respostas por faixa</h4>
+      <div id="blEspera"></div></div>
+  </div>
+
+  <div class="chart-row">
+    <div class="chart-card"><h4>MOTIVOS MARCADOS — o que sustenta a nota</h4>
+      <div id="blMotivos"></div></div>
+    <div class="chart-card"><h4>RESPOSTAS POR DIA — série do período</h4>
+      <div id="blDia"></div></div>
+  </div>
+
+  <div class="section-title">Vozes dos pacientes</div>
+  <p style="font-size:11.5px;color:var(--gray-text);margin:0 0 12px" id="vozesIntro"></p>
+  <div id="npsVozes"></div>
 
   <div class="section-title">Como cada unidade foi no período</div>
   <p style="font-size:11.5px;color:var(--gray-text);margin:0 0 4px">
@@ -348,20 +411,6 @@ tfoot td{padding:8px 10px;font-weight:700;border-top:2px solid var(--dark)}
     antes do envio da pesquisa. Resposta ambígua ou sem agendamento na janela entra no consolidado
     e em nenhuma unidade.</p>
   <table id="npsUnid"></table>
-
-  <div class="chart-row" style="margin-top:18px">
-    <div class="chart-card"><h4>Respostas por dia</h4>
-      <div class="cv baixa"><canvas id="cNpsDia"></canvas></div></div>
-    <div class="chart-card"><h4>Tempo de espera relatado</h4>
-      <div class="cv baixa"><canvas id="cNpsEspera"></canvas></div></div>
-  </div>
-
-  <div class="chart-row">
-    <div class="chart-card"><h4>Subnotas do formulário — médias de 1 a 5</h4>
-      <div class="cv baixa"><canvas id="cNpsSub"></canvas></div></div>
-    <div class="chart-card"><h4>Motivos marcados — o que sustenta a nota</h4>
-      <div class="cv baixa"><canvas id="cNpsMot"></canvas></div></div>
-  </div>
 
   <div id="npsEscala"></div>
 
@@ -372,11 +421,11 @@ tfoot td{padding:8px 10px;font-weight:700;border-top:2px solid var(--dark)}
   </div><!-- /npsCorpo -->
 
   <div class="nota">
-    <b>Por que os comentários dos pacientes não estão aqui</b>
-    Os PDFs internos trazem as vozes na íntegra, e devem continuar trazendo — é lá que elas ajudam
-    a operação. Esta página é pública e indexável: comentário sobre atendimento, junto com data e
-    unidade, é informação de saúde de alguém potencialmente identificável. O que sai aqui é
-    contagem, média e tema. Se a equipe precisar do texto, o lugar é o relatório diário.
+    <b>Esta página não é pública</b>
+    Ela mostra nome de paciente junto com a opinião sobre o atendimento, que é informação de saúde
+    de gente identificável. Por isso saiu do endereço aberto e só abre por link com chave, um por
+    pessoa, revogável sozinho. Não repasse o seu link: peça uma chave nova para quem precisar, para
+    que dê para desligar depois sem derrubar o acesso de todo mundo.
   </div>
 </div>
 
@@ -634,7 +683,9 @@ const ESPERA_ROTULO = {ate_20:'Até 20 min', '20_30':'20–30 min', '30_45':'30�
 const MOTIVO_ROTULO = {qualidade:'Qualidade', preco:'Preço', equipe:'Equipe',
                        comodidade:'Comodidade', pagamento:'Pagamento', contratada:'Contratada'};
 const rotulo = (m, v) => m[v] || (v.charAt(0).toUpperCase() + v.slice(1).replace(/_/g,' '));
-let cNpsDia, cNpsEspera, cNpsSub, cNpsMot;
+
+/* Unidade escolhida no filtro: 'tudo', o id como texto, ou 'sem'. */
+let uniNps = 'tudo';
 
 function medianaDe(v){
   if(!v.length) return null;
@@ -642,6 +693,40 @@ function medianaDe(v){
   return a.length % 2 ? a[i] : (a[i-1] + a[i]) / 2;
 }
 function faixaNps(n){ return n >= 75 ? 'boa' : n >= 50 ? 'media' : 'ruim'; }
+
+const chaveU = u => (u === null || u === undefined) ? 'sem' : String(u);
+const nomeU  = k => k === 'tudo' ? 'toda a rede'
+                  : k === 'sem'  ? 'respostas sem unidade identificada'
+                  : (D.unid[k] || ('unidade ' + k));
+
+/* Barras horizontais no formato dos relatórios diários: rótulo à esquerda,
+   trilho cinza, preenchimento rosa, valor à direita. Sem eixo — a comparação
+   é de comprimento, e o número exato fica escrito do lado. */
+function barras(id, itens, opt){
+  opt = opt || {};
+  const el = document.getElementById(id);
+  if(!el) return;
+  if(!itens.length){ el.innerHTML = '<div class="bl-nota">Sem dado no período.</div>'; return; }
+  const piso = opt.min !== undefined ? opt.min : 0;
+  const teto = opt.max !== undefined ? opt.max : Math.max.apply(null, itens.map(i => i.v));
+  const vao  = teto - piso;
+  el.innerHTML = '<div class="bl">' + itens.map(i => {
+    const larg = vao > 0 ? 100 * (i.v - piso) / vao : 0;
+    return '<div class="bl-row' + (i.fraca ? ' fraca' : '') + '">' +
+      '<div class="bl-l">' + i.l + '</div>' +
+      '<div class="bl-t"><i style="width:' + Math.max(0, Math.min(100, larg)).toFixed(1) + '%"></i></div>' +
+      '<div class="bl-v">' + (i.txt !== undefined ? i.txt : N(i.v)) + '</div></div>';
+  }).join('') + '</div>' + (opt.nota ? '<div class="bl-nota">' + opt.nota + '</div>' : '');
+}
+
+/* "seg 3/8" — o mesmo rótulo dos PDFs. O dia da semana importa: fila de segunda
+   não se compara com fila de domingo. */
+const DIA_SEMANA = ['dom','seg','ter','qua','qui','sex','sáb'];
+function rotuloDia(iso){
+  const p = iso.split('-');
+  const d = new Date(+p[0], +p[1] - 1, +p[2]);
+  return DIA_SEMANA[d.getDay()] + ' ' + (+p[2]) + '/' + (+p[1]);
+}
 
 /* O começo da pesquisa é o primeiro ENVIO, não a primeira resposta: alguém pode
    receber num dia e responder no outro, e aí a data de corte sairia adiantada. */
@@ -653,26 +738,26 @@ function inicioNps(){
 function pintaNps(){
   const NP = D.nps;   /* NP, não N: N é o formatador de número, global */
   const naJanela = r => r.d >= de && r.d <= ate;
-  const resp = (NP?.resp || []).filter(naJanela);
+  const resp  = (NP?.resp  || []).filter(naJanela);
   const envio = (NP?.envio || []).filter(naJanela);
 
   const vazio = document.getElementById('npsVazio');
   if(!resp.length){
     vazio.innerHTML = `<div class="vazio">Nenhuma resposta de NPS entre ${fmtBR(de)} e ${fmtBR(ate)}.
       <br><span style="font-size:11.5px">A pesquisa começou a rodar em ${inicioNps()}.</span></div>`;
-    for(const id of ['npsTopo','npsKpis','npsUnid','npsEscala','npsSensib']) document.getElementById(id).innerHTML = '';
-    for(const c of [cNpsDia,cNpsEspera,cNpsSub,cNpsMot]) if(c) c.destroy();
-    cNpsDia = cNpsEspera = cNpsSub = cNpsMot = null;
+    for(const id of ['npsTopo','npsKpis','npsUnid','npsEscala','npsSensib','npsFiltro','npsVozes','vozesIntro'])
+      document.getElementById(id).innerHTML = '';
     document.getElementById('npsCorpo').style.display = 'none';
     return;
   }
   vazio.innerHTML = '';
   document.getElementById('npsCorpo').style.display = '';
 
-  /* soma os agregados por dia e unidade; NPS de janela é exato assim */
+  /* ---- soma por unidade, sempre a rede inteira: o filtro escolhe o que
+         mostrar, mas a tabela de comparação precisa de todas as unidades ---- */
   const zeroN = () => ({p:0, n:0, x:0, sc:0, q:0, e:0, c:0, nq:0, susp:0, min:[], env:0});
   const tot = zeroN(), porU = new Map();
-  const pega = u => { const k = (u === null || u === undefined) ? 'sem' : String(u);
+  const pega = u => { const k = chaveU(u);
                       if(!porU.has(k)) porU.set(k, zeroN()); return porU.get(k); };
   for(const r of resp){
     for(const o of [tot, pega(r.u)]){
@@ -684,15 +769,33 @@ function pintaNps(){
   for(const r of envio){ tot.env += r.n; pega(r.u).env += r.n; }
 
   const resps = o => o.p + o.n + o.x;
-  const nps = o => resps(o) ? 100*o.p/resps(o) - 100*o.x/resps(o) : 0;
-  const R = resps(tot), NPS = nps(tot);
-  const med = medianaDe(tot.min);
+  const nps   = o => resps(o) ? 100*o.p/resps(o) - 100*o.x/resps(o) : 0;
+
+  /* ---- filtro de unidade ---- */
+  if(!porU.has(uniNps) && uniNps !== 'tudo') uniNps = 'tudo';
+  const ordem = [...porU.entries()].sort((a,b) => resps(b[1]) - resps(a[1]));
+  document.getElementById('npsFiltro').innerHTML =
+    '<span class="rot">UNIDADE</span>' +
+    [['tudo', tot]].concat(ordem).map(([k, o]) =>
+      `<button class="chip-uni${k === uniNps ? ' on' : ''}" onclick="trocaUniNps('${k}')">` +
+      (k === 'tudo' ? 'Tudo' : k === 'sem' ? 'Sem vínculo' : D.unid[k]) +
+      `<span class="q">${N(resps(o))}</span></button>`).join('');
+
+  /* Daqui para baixo, "alvo" é o recorte escolhido. Com 'tudo' é a rede. */
+  const soDaUni = r => uniNps === 'tudo' || chaveU(r.u) === uniNps;
+  const alvo = uniNps === 'tudo' ? tot : porU.get(uniNps);
+  const R    = resps(alvo);
+  const NPS  = nps(alvo);
+  const med  = medianaDe(alvo.min);
+  const recorte = uniNps === 'tudo' ? '' :
+    ` <span style="opacity:.85">· ${D.unid[uniNps] || 'sem vínculo de unidade'}</span>`;
 
   document.getElementById('npsTopo').innerHTML = `
     <div class="saude ${faixaNps(NPS)==='boa'?'':faixaNps(NPS)==='media'?'media':'ruim'}">
       <div><div class="cob-v" style="${faixaNps(NPS)==='boa'?'color:var(--green)':''}">${NPS>=0?'+':''}${NPS.toFixed(0)}</div>
-        <div class="cob-l">NPS DO PERÍODO</div></div>
-      <div class="txt"><b>${N(tot.p)} promotores, ${N(tot.n)} neutros e ${N(tot.x)} detratores em ${N(R)} respostas.</b>
+        <div class="cob-l">NPS DO PERÍODO${recorte ? ' ·' : ''}</div></div>
+      <div class="txt"><b>${N(alvo.p)} promotores, ${N(alvo.n)} neutros e ${N(alvo.x)} detratores em ${N(R)} respostas${
+        uniNps === 'tudo' ? '' : ' de ' + nomeU(uniNps)}.</b>
         O índice vai de −100 a +100 e é a diferença entre a fatia de promotores (notas 9–10) e a de
         detratores (0–6); os neutros não entram na conta, mas ocupam a base.
         <div class="barra"><i style="width:${((NPS+100)/2).toFixed(1)}%;background:${NPS>=75?'var(--green)':NPS>=50?'var(--orange)':'var(--red)'}"></i></div></div>
@@ -700,16 +803,96 @@ function pintaNps(){
 
   document.getElementById('npsKpis').innerHTML = [
     [N(R), 'Respostas'],
-    [N(tot.env), 'Pesquisas enviadas'],
-    [tot.env ? PCT1(100*R/tot.env) : '—', 'Taxa de resposta'],
-    [(tot.sc/R).toFixed(2).replace('.',','), 'Nota média (0 a 10)'],
-    [tot.nq ? (tot.q/tot.nq).toFixed(2).replace('.',',') : '—', 'Qualidade (1 a 5)'],
-    [tot.nq ? (tot.e/tot.nq).toFixed(2).replace('.',',') : '—', 'Equipe (1 a 5)'],
-    [tot.nq ? (tot.c/tot.nq).toFixed(2).replace('.',',') : '—', 'Comunicação (1 a 5)'],
+    [N(alvo.env), 'Pesquisas enviadas'],
+    [alvo.env ? PCT1(100*R/alvo.env) : '—', 'Taxa de resposta'],
+    [(alvo.sc/R).toFixed(2).replace('.',','), 'Nota média (0 a 10)'],
+    [alvo.nq ? (alvo.q/alvo.nq).toFixed(2).replace('.',',') : '—', 'Qualidade (1 a 5)'],
+    [alvo.nq ? (alvo.e/alvo.nq).toFixed(2).replace('.',',') : '—', 'Equipe (1 a 5)'],
+    [alvo.nq ? (alvo.c/alvo.nq).toFixed(2).replace('.',',') : '—', 'Comunicação (1 a 5)'],
     [med === null ? '—' : med.toFixed(1).replace('.',',') + ' min', 'Mediana até responder'],
   ].map(([v,l]) => `<div class="kpi-card"><div class="kpi-val">${v}</div><div class="kpi-label">${l}</div></div>`).join('');
 
-  /* tabela por unidade, com a linha sem unidade explícita em vez de escondida */
+  /* ---- barras, no formato dos relatórios diários ---- */
+
+  /* Escala de 4,0 a 5,0, e está escrito embaixo. Numa escala de 0 a 5 as três
+     barras ficariam do mesmo tamanho e o gráfico não diria nada — mas eixo
+     cortado sem aviso é o jeito clássico de mentir com barra, então avisa. */
+  const sub = alvo.nq ? [
+    {l:'Qualidade',   v: alvo.q/alvo.nq},
+    {l:'Equipe',      v: alvo.e/alvo.nq},
+    {l:'Comunicação', v: alvo.c/alvo.nq},
+  ] : [];
+  const menorSub = sub.length ? sub.slice().sort((a,b) => a.v - b.v)[0] : null;
+  barras('blSub', sub.map(s => ({...s, txt: s.v.toFixed(2).replace('.',',')})),
+    {min:4, max:5, nota: menorSub
+      ? `Escala de 4,0 a 5,0 para a diferença aparecer — nas três a média passa de 4,6.
+         ${menorSub.l} é a menor das três.`
+      : 'Sem subnota preenchida no período.'});
+
+  const esp = new Map();
+  for(const r of (NP.espera || []).filter(naJanela).filter(soDaUni)) esp.set(r.f, (esp.get(r.f) || 0) + r.n);
+  const es = [...esp].sort((a,b) => b[1] - a[1]);
+  const ateMeia = ['ate_20','20_30'].reduce((a,f) => a + (esp.get(f) || 0), 0);
+  const meiaMais = ['30_45','45_60','mais_1h'].reduce((a,f) => a + (esp.get(f) || 0), 0);
+  const totEsp = ateMeia + meiaMais + (esp.get('Não informado') || 0);
+  barras('blEspera', es.map(e => ({l: rotulo(ESPERA_ROTULO, e[0]), v: e[1],
+                                   fraca: e[0] === 'Não informado'})),
+    {nota: totEsp ? `${PCT0(100*ateMeia/totEsp)} até 30 min; ${N(meiaMais)} ${
+      meiaMais === 1 ? 'resposta relatou' : 'respostas relataram'} 30 minutos ou mais.
+      É espera declarada por quem respondeu, não medida na recepção.` : ''});
+
+  const mot = new Map();
+  for(const r of (NP.motivos || []).filter(naJanela).filter(soDaUni)) mot.set(r.m, (mot.get(r.m) || 0) + r.n);
+  const ms = [...mot].sort((a,b) => b[1] - a[1]);
+  const totalMarc = ms.reduce((a,m) => a + m[1], 0);
+  const tresPrimeiros = ms.slice(0,3).reduce((a,m) => a + m[1], 0);
+  barras('blMotivos', ms.map(m => ({l: rotulo(MOTIVO_ROTULO, m[0]), v: m[1]})),
+    {nota: totalMarc ? `${ms.slice(0,3).map(m => rotulo(MOTIVO_ROTULO, m[0]).toLowerCase()).join(', ')}
+      somam ${N(tresPrimeiros)} das ${N(totalMarc)} marcações. Cada paciente marca quantos quiser,
+      então a soma passa das ${N(R)} respostas — são marcações, não porcentagem de gente.` : ''});
+
+  const porDia = new Map();
+  for(const r of resp.filter(soDaUni)){
+    if(!porDia.has(r.d)) porDia.set(r.d, {n:0, x:0});
+    const o = porDia.get(r.d); o.n += r.p + r.n + r.x; o.x += r.x;
+  }
+  const ds = [...porDia].sort((a,b) => a[0] < b[0] ? -1 : 1);
+  const comDet = ds.filter(d => d[1].x > 0);
+  barras('blDia', ds.map(d => ({l: rotuloDia(d[0]), v: d[1].n})),
+    {nota: comDet.length
+      ? `Detratores em ${comDet.map(d => rotuloDia(d[0]) + ' (' + d[1].x + ')').join(', ')}.
+         Os outros dias fecharam sem nota 6 ou menos.`
+      : 'Nenhum dia do período teve detrator.'});
+
+  /* ---- vozes dos pacientes ---- */
+  const FAIXA_ROTULO = {promotor:'promotor', neutro:'neutro', detrator:'detrator'};
+  const vozes = (NP.vozes || []).filter(naJanela).filter(soDaUni);
+  const comTexto = vozes.length;
+  document.getElementById('vozesIntro').innerHTML = comTexto
+    ? `${N(comTexto)} das ${N(R)} respostas ${uniNps === 'tudo' ? '' : 'de ' + nomeU(uniNps) + ' '}vieram
+       com texto — o campo é opcional, então a maioria responde só as notas. As mais duras estão em cima.`
+      + (uniNps === 'tudo' ? '' : ` A unidade aqui é a mesma reconstruída pelo telefone: se o vínculo
+       estiver errado, a fala aparece na unidade errada. Em caso de dúvida, leia no <b>Tudo</b>.`)
+    : `Nenhuma resposta ${uniNps === 'tudo' ? '' : 'de ' + nomeU(uniNps) + ' '}trouxe texto neste período.
+       O campo é opcional e a maioria responde só as notas.`;
+
+  const pesoFaixa = {detrator:0, neutro:1, promotor:2};
+  document.getElementById('npsVozes').innerHTML = comTexto
+    ? vozes.slice().sort((a,b) =>
+        (pesoFaixa[a.f] - pesoFaixa[b.f]) || (a.d < b.d ? 1 : -1)).map(v => `
+      <div class="voz ${v.f}">
+        <div class="voz-topo">
+          <span class="voz-nota">Nota ${v.nota} · ${FAIXA_ROTULO[v.f] || v.f}</span>
+          <span class="voz-quem">${esc(v.quem || 'Sem nome no cadastro')}</span>
+          <span class="voz-meta">${fmtBR(v.d)}${v.u !== null && v.u !== undefined && D.unid[v.u]
+            ? ' · ' + D.unid[v.u] : ' · sem vínculo de unidade'}${v.susp ? ' · possível régua invertida' : ''}</span>
+        </div>
+        ${v.txt ? `<div class="voz-txt">“${esc(v.txt)}”</div>` : ''}
+        ${v.sug ? `<div class="voz-sug"><b>Sugestão:</b> “${esc(v.sug)}”</div>` : ''}
+      </div>`).join('')
+    : '';
+
+  /* ---- tabela por unidade: sempre a rede inteira, com a escolhida marcada ---- */
   const linhas = [...porU.entries()]
     .map(([k,o]) => ({k, o, nome: k === 'sem' ? 'Sem unidade identificada' : D.unid[k]}))
     .sort((a,b) => resps(b.o) - resps(a.o));
@@ -718,7 +901,8 @@ function pintaNps(){
     <th class="num">Enviadas</th><th class="num">Taxa</th><th class="num">Prom.</th>
     <th class="num">Neu.</th><th class="num">Det.</th><th class="num">Nota média</th>
     <th class="num">Mediana</th></tr></thead>
-    <tbody>${linhas.map(({k,o,nome}) => { const n = nps(o), m = medianaDe(o.min); return `<tr>
+    <tbody>${linhas.map(({k,o,nome}) => { const n = nps(o), m = medianaDe(o.min); return `<tr${
+      k === uniNps ? ' style="background:var(--alert-bg)"' : ''}>
       <td>${k === 'sem'
             ? `<span style="color:var(--gray-text)">${nome}</span>`
             : `<b>${nome}</b> <span style="color:var(--gray-text)">· id ${k}</span>`}</td>
@@ -730,68 +914,21 @@ function pintaNps(){
       <td class="num">${(o.sc/resps(o)).toFixed(2).replace('.',',')}</td>
       <td class="num">${m === null ? '—' : m.toFixed(1).replace('.',',')+' min'}</td></tr>`;}).join('')}</tbody>
     <tfoot><tr><td>Consolidado da rede</td>
-      <td class="num">${NPS>=0?'+':''}${NPS.toFixed(0)}</td><td class="num">${N(R)}</td>
-      <td class="num">${N(tot.env)}</td><td class="num">${tot.env?PCT1(100*R/tot.env):'—'}</td>
+      <td class="num">${nps(tot)>=0?'+':''}${nps(tot).toFixed(0)}</td><td class="num">${N(resps(tot))}</td>
+      <td class="num">${N(tot.env)}</td><td class="num">${tot.env?PCT1(100*resps(tot)/tot.env):'—'}</td>
       <td class="num">${N(tot.p)}</td><td class="num">${N(tot.n)}</td><td class="num">${N(tot.x)}</td>
-      <td class="num">${(tot.sc/R).toFixed(2).replace('.',',')}</td>
-      <td class="num">${med===null?'—':med.toFixed(1).replace('.',',')+' min'}</td></tr></tfoot>`;
-
-  /* ---- gráficos ---- */
-  for(const c of [cNpsDia,cNpsEspera,cNpsSub,cNpsMot]) if(c) c.destroy();
-  const barra = {responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}},
-                 scales:{x:{grid:{display:false}}, y:{beginAtZero:true}}};
-
-  const porDia = new Map();
-  for(const r of resp){
-    if(!porDia.has(r.d)) porDia.set(r.d, {n:0, x:0});
-    const o = porDia.get(r.d); o.n += r.p + r.n + r.x; o.x += r.x;
-  }
-  const ds = [...porDia].sort((a,b) => a[0] < b[0] ? -1 : 1);
-  cNpsDia = new Chart(document.getElementById('cNpsDia'), {type:'bar',
-    data:{labels: ds.map(d => ddmm(d[0])), datasets:[
-      {label:'Respostas', data: ds.map(d => d[1].n - d[1].x), backgroundColor:C.verde, borderRadius:3, stack:'a'},
-      {label:'Detratores', data: ds.map(d => d[1].x), backgroundColor:C.rosa, borderRadius:3, stack:'a'}]},
-    options:{...barra, plugins:{legend:{position:'top',align:'start',
-      labels:{boxWidth:10,boxHeight:10,usePointStyle:true,pointStyle:'circle'}}},
-      scales:{x:{grid:{display:false},stacked:true},y:{beginAtZero:true,stacked:true}}}});
-
-  const esp = new Map();
-  for(const r of (NP.espera || []).filter(naJanela)) esp.set(r.f, (esp.get(r.f) || 0) + r.n);
-  const es = [...esp].sort((a,b) => b[1] - a[1]);
-  cNpsEspera = new Chart(document.getElementById('cNpsEspera'), {type:'bar',
-    data:{labels: es.map(e => rotulo(ESPERA_ROTULO, e[0])),
-          datasets:[{data: es.map(e => e[1]), backgroundColor:C.laranja, borderRadius:3}]},
-    options:{...barra, indexAxis:'y', scales:{y:{grid:{display:false}}, x:{beginAtZero:true}},
-      plugins:{legend:{display:false}, tooltip:{callbacks:{
-        label: c => c.parsed.x + ' de ' + R + ' respostas (' + PCT0(100*c.parsed.x/R) + ')'}}}}});
-
-  cNpsSub = new Chart(document.getElementById('cNpsSub'), {type:'bar',
-    data:{labels:['Qualidade','Equipe','Comunicação'],
-          datasets:[{data: tot.nq ? [tot.q/tot.nq, tot.e/tot.nq, tot.c/tot.nq] : [0,0,0],
-                     backgroundColor:[C.roxo, C.azul, C.rosa], borderRadius:3}]},
-    options:{...barra, scales:{x:{grid:{display:false}},
-      y:{beginAtZero:false, min:4, max:5, ticks:{stepSize:0.2}}},
-      plugins:{legend:{display:false}, tooltip:{callbacks:{label: c => c.parsed.y.toFixed(2).replace('.',',') + ' de 5'}}}}});
-
-  const mot = new Map();
-  for(const r of (NP.motivos || []).filter(naJanela)) mot.set(r.m, (mot.get(r.m) || 0) + r.n);
-  const ms = [...mot].sort((a,b) => b[1] - a[1]);
-  const totalMarc = ms.reduce((a,m) => a + m[1], 0);
-  cNpsMot = new Chart(document.getElementById('cNpsMot'), {type:'bar',
-    data:{labels: ms.map(m => rotulo(MOTIVO_ROTULO, m[0])),
-          datasets:[{data: ms.map(m => m[1]), backgroundColor:C.verde, borderRadius:3}]},
-    options:{...barra, indexAxis:'y', scales:{y:{grid:{display:false}}, x:{beginAtZero:true}},
-      plugins:{legend:{display:false}, tooltip:{callbacks:{
-        label: c => c.parsed.x + ' de ' + totalMarc + ' marcações (multiescolha)'}}}}});
+      <td class="num">${(tot.sc/resps(tot)).toFixed(2).replace('.',',')}</td>
+      <td class="num">${medianaDe(tot.min)===null?'—':medianaDe(tot.min).toFixed(1).replace('.',',')+' min'}</td></tr></tfoot>`;
 
   /* ---- verificação de escala invertida ---- */
-  const semSusp = R - tot.susp;
-  const npsSem = semSusp ? 100*tot.p/semSusp - 100*(tot.x - tot.susp)/semSusp : null;
-  document.getElementById('npsEscala').innerHTML = tot.susp ? `
+  const semSusp = R - alvo.susp;
+  const npsSem = semSusp ? 100*alvo.p/semSusp - 100*(alvo.x - alvo.susp)/semSusp : null;
+  document.getElementById('npsEscala').innerHTML = alvo.susp ? `
     <div class="section-title">Verificação de escala</div>
-    <div class="nota aviso"><b>${N(tot.susp)} ${tot.susp===1?'resposta combina':'respostas combinam'} nota baixa com subnotas altas</b>
+    <div class="nota aviso"><b>${N(alvo.susp)} ${alvo.susp===1?'resposta combina':'respostas combinam'} nota baixa com subnotas altas</b>
     Nota 6 ou menos no NPS, e média 3 ou mais nas subnotas de qualidade, equipe e comunicação — o
-    padrão de quem leu a régua ao contrário. Sem ${tot.susp===1?'ela':'elas'}, o NPS do período seria
+    padrão de quem leu a régua ao contrário. Sem ${alvo.susp===1?'ela':'elas'}, o NPS ${
+      uniNps === 'tudo' ? 'do período' : 'de ' + nomeU(uniNps)} seria
     <b>${npsSem>=0?'+':''}${npsSem.toFixed(0)}</b> em vez de <b>${NPS>=0?'+':''}${NPS.toFixed(0)}</b>.
     O número oficial continua sendo o primeiro: a diferença fica registrada, não corrigida por conta
     própria — descartar resposta que não agrada é como painel deixa de ser confiável.</div>` : `
@@ -806,14 +943,17 @@ function pintaNps(){
   const porResposta = R ? 100/R : 0;
   const menor = linhas.filter(l => l.k !== 'sem').sort((a,b) => resps(a.o) - resps(b.o))[0];
   document.getElementById('npsSensib').innerHTML =
-    `Com <b>${N(R)} respostas</b> no consolidado, cada resposta que muda de faixa move o índice em
-     cerca de <b>${porResposta.toFixed(1).replace('.',',')} ponto${porResposta>=2?'s':''}</b>.` +
-    (menor ? ` Na ${D.unid[menor.k]}, que tem a menor base do período com ${N(resps(menor.o))} respostas,
+    `Com <b>${N(R)} respostas</b> ${uniNps === 'tudo' ? 'no consolidado' : 'em ' + nomeU(uniNps)},
+     cada resposta que muda de faixa move o índice em cerca de
+     <b>${porResposta.toFixed(1).replace('.',',')} ponto${porResposta>=2?'s':''}</b>.` +
+    (uniNps === 'tudo' && menor ? ` Na ${D.unid[menor.k]}, que tem a menor base do período com ${N(resps(menor.o))} respostas,
      cada uma vale <b>${(100/resps(menor.o)).toFixed(1).replace('.',',')} pontos</b> — nessa escala o
      número serve como termômetro, não como estatística.` : '') +
-    ` Taxa de resposta de ${tot.env?PCT1(100*R/tot.env):'—'} também importa: quem responde pesquisa
+    ` Taxa de resposta de ${alvo.env?PCT1(100*R/alvo.env):'—'} também importa: quem responde pesquisa
      não é uma amostra aleatória de quem foi atendido.`;
 }
+
+function trocaUniNps(k){ uniNps = k; pintaNps(); }
 
 function pintaSaude(t, cob, tudoFora){
   const cls = tudoFora ? 'nula' : classeCob(cob);
@@ -1134,12 +1274,17 @@ function falhou(msg){
      a publicação automática não roda.</span></div>`;
 }
 
+/* Quando a página é servida atrás de chave, quem entrega injeta __FONTE__ com o
+   prefixo que carrega a chave adiante. Sem isso o fetch relativo cairia fora da
+   função que autentica e voltaria 404. */
+const FONTE = n => (window.__FONTE__ ? window.__FONTE__ + n : n);
+
 if(PRE){
   iniciar(PRE.d, PRE.i);
 } else {
   Promise.all([
-    fetch('dados.json', {cache:'no-cache'}).then(r => r.ok ? r.json() : Promise.reject('dados.json: HTTP '+r.status)),
-    fetch('criativos.json', {cache:'no-cache'}).then(r => r.ok ? r.json() : {}).catch(() => ({})),
+    fetch(FONTE('dados.json'), {cache:'no-cache'}).then(r => r.ok ? r.json() : Promise.reject('dados.json: HTTP '+r.status)),
+    fetch(FONTE('criativos.json'), {cache:'no-cache'}).then(r => r.ok ? r.json() : {}).catch(() => ({})),
   ]).then(([d, i]) => iniciar(d, i)).catch(e => falhou(String(e)));
 }
 </script></body></html>
