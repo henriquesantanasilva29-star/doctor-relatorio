@@ -81,6 +81,8 @@ h1,h2,h3,h4,.kpi-val,.result-num,.ad-name,.passo .pv,.et .v,.esc-v,.cob-v{font-f
 .kpi-val{font-size:19px;font-weight:700;line-height:1.1;color:var(--dark)}
 .kpi-card.pend .kpi-val{color:var(--gray-text);font-size:15px}
 .kpi-label{font-size:9.5px;color:var(--gray-text);font-weight:700;margin-top:4px;letter-spacing:.3px}
+/* terceira linha do cartão: a ressalva que impede o número de ser lido sozinho */
+.kpi-det{font-size:9.5px;color:var(--gray-text);margin-top:3px;line-height:1.35}
 .saude{background:#fff;border:1px solid var(--border);border-left:4px solid var(--green);
   border-radius:var(--r-md);padding:14px 18px;margin-bottom:16px;display:flex;gap:20px;
   align-items:center;flex-wrap:wrap;box-shadow:var(--shadow-xs)}
@@ -270,6 +272,7 @@ tfoot td{padding:8px 10px;font-weight:700;border-top:2px solid var(--dark)}
   <button class="tab-btn active" onclick="aba('midia',this)">Mídia paga</button>
   <button class="tab-btn" onclick="aba('conc',this)">Meta × CRM</button>
   <button class="tab-btn" onclick="aba('comercial',this)">Comercial e financeiro</button>
+  <button class="tab-btn" onclick="aba('agenda',this)">Agenda</button>
   <button class="tab-btn" onclick="aba('nps',this)">NPS</button>
   <button class="tab-btn" onclick="aba('conf',this)">Conferência</button>
 </div>
@@ -376,6 +379,33 @@ tfoot td{padding:8px 10px;font-weight:700;border-top:2px solid var(--dark)}
     Estes números dividem o investimento de mídia pelo resultado <b>total</b> do período, e nem toda
     proposta veio de anúncio. São o teto do que a mídia custou por resultado, não o custo atribuível.
     O bloco anterior traz o lado oposto: só o que foi possível rastrear. O verdadeiro está entre os dois.
+  </div>
+</div>
+
+<!-- ============ AGENDA ============ -->
+<div class="panel" id="panel-agenda">
+  <div id="agVazio"></div>
+  <div id="agCorpo">
+  <div class="kpi-grid" id="kpisAgenda"></div>
+
+  <div class="nota aviso" id="agAviso"></div>
+
+  <div class="section-title">Como cada unidade fechou a agenda</div>
+  <table id="tAgenda"></table>
+
+  <div class="chart-row" style="margin-top:18px">
+    <div class="chart-card"><h4>AGENDAMENTOS POR DIA</h4>
+      <div id="blAgDia"></div></div>
+  </div>
+
+  <div class="nota">
+    <b>Como estas taxas são calculadas</b>
+    <b>Comparecimento</b> divide atendidos por <code>atendidos + faltas</code> — só o que tem desfecho
+    lançado. Agendamento passado que ficou como "marcado" não entra em nenhum dos dois lados: não dá
+    para afirmar que a pessoa veio nem que faltou. Ele aparece separado, na coluna <b>sem desfecho</b>.
+    Cancelamento do paciente e da clínica ficam apartados de propósito: o primeiro é demanda, o segundo
+    é operação, e somar os dois esconde o segundo.
+  </div>
   </div>
 </div>
 
@@ -654,6 +684,10 @@ function render(){
   document.getElementById('rodape').textContent =
     'Doctor Mais Saúde · ' + fmtBR(de) + ' a ' + fmtBR(ate) + ' · ' + t.dias.size + ' dias com veiculação';
 
+  /* Antes do retorno adiantado abaixo: a agenda não depende de ter havido
+     veiculação de mídia no período, e não faz sentido apagá-la junto. */
+  pintaAgenda();
+
   if(!camp.length){
     for(const id of ['kpisMidia','tCamp','tConc','esteira','tUnid','rastreado','eficiencia','escada'])
       document.getElementById(id).innerHTML = '';
@@ -675,6 +709,106 @@ function render(){
   pintaComercial(t, cob);
   pintaNps();
   pintaConferencia();
+}
+
+/* ============ AGENDA ============ */
+/* Status terminais e status em aberto. A separação é o eixo desta aba inteira:
+   na Doctor, quase um terço dos agendamentos já passados continua em aberto,
+   e é isso que torna "comparecimento sobre o total" um número inventado. */
+const AG_ATEND  = new Set(['atendido','em_atendimento']);
+const AG_ABERTO = new Set(['marcado','confirmado','aguardando','chamando','aguardando_pagamento']);
+
+function pintaAgenda(){
+  const vazio = document.getElementById('agVazio'), corpo = document.getElementById('agCorpo');
+  /* Sem o bloco: é a cópia offline, que não carrega agenda. Com o bloco e sem
+     linhas na janela: existe agenda, só não neste período. São coisas diferentes
+     e dizer "sem agendamento" nos dois casos seria mentira num deles. */
+  if(!D.agenda || !D.agenda.linhas){
+    vazio.innerHTML = '<div class="vazio">A agenda não viaja nesta cópia offline. ' +
+      'Ela está no relatório publicado, que lê o banco com a chave.</div>';
+    corpo.style.display = 'none'; return;
+  }
+  const naJanela = D.agenda.linhas.filter(r => r.d >= de && r.d <= ate);
+  if(!naJanela.length){
+    vazio.innerHTML = '<div class="vazio">Sem agendamento no período escolhido.</div>';
+    corpo.style.display = 'none'; return;
+  }
+  vazio.innerHTML = ''; corpo.style.display = '';
+
+  /* "Passado" é o que já aconteceu até o último dia que o dado alcança.
+     Agendamento de amanhã em aberto é normal; o de mês passado não é. */
+  const hoje = D.ate;
+  const zera = () => ({n:0, at:0, fa:0, cp:0, cc:0, re:0, ab:0, passados:0});
+  const tot = zera(), porU = new Map(), porDia = new Map();
+
+  for(const r of naJanela){
+    const k = chaveU(r.u);
+    if(!porU.has(k)) porU.set(k, zera());
+    const u = porU.get(k);
+    const soma = (o) => {
+      o.n += r.n;
+      if(AG_ATEND.has(r.s)) o.at += r.n;
+      else if(r.s === 'nao_compareceu') o.fa += r.n;
+      else if(r.s === 'desmarcado_paciente') o.cp += r.n;
+      else if(r.s === 'cancelado_profissional') o.cc += r.n;
+      else if(r.s === 'remarcado') o.re += r.n;
+      if(r.d < hoje){ o.passados += r.n; if(AG_ABERTO.has(r.s)) o.ab += r.n; }
+    };
+    soma(tot); soma(u);
+    porDia.set(r.d, (porDia.get(r.d) || 0) + r.n);
+  }
+
+  const comp = o => (o.at + o.fa) ? 100 * o.at / (o.at + o.fa) : null;
+  const pctAb = o => o.passados ? 100 * o.ab / o.passados : 0;
+
+  document.getElementById('kpisAgenda').innerHTML = [
+    [N(tot.n), 'Agendamentos', 'no período escolhido'],
+    [N(tot.at), 'Atendidos', 'desfecho lançado'],
+    [N(tot.fa), 'Faltas registradas', 'desfecho lançado'],
+    [N(tot.ab), 'Sem desfecho', tot.passados ? PCT0(pctAb(tot)) + ' do que já passou' : '—'],
+    [comp(tot) === null ? '—' : PCT(comp(tot)), 'Comparecimento', 'só sobre o que tem desfecho'],
+    [N(tot.cp + tot.cc), 'Cancelados', N(tot.cp) + ' paciente · ' + N(tot.cc) + ' clínica'],
+  ].map(([v,l,d]) => `<div class="kpi-card"><div class="kpi-val">${v}</div>
+      <div class="kpi-label">${l}</div><div class="kpi-det">${d}</div></div>`).join('');
+
+  /* O aviso não é decorativo: sem ele o comparecimento da Doctor parece ótimo
+     porque quem faltou nunca foi marcado como falta. */
+  const av = document.getElementById('agAviso');
+  const p = pctAb(tot);
+  if(p >= 5){
+    av.style.display = '';
+    av.innerHTML = `<b>Leia o comparecimento com esta ressalva</b>
+      <b>${N(tot.ab)} agendamentos</b> com data já passada — <b>${PCT0(p)}</b> de tudo que
+      passou no período — continuam com status de agendamento em aberto no Feegow. Ninguém lançou o
+      desfecho. Não dá para saber se essas pessoas vieram ou faltaram, então elas ficam fora da conta
+      de comparecimento nos dois lados.<br><br>
+      Isso empurra o comparecimento para cima artificialmente: quem falta e não é marcado como falta
+      simplesmente some. Para comparação, nas unidades da Acesso Saúde a fatia em aberto fica entre
+      0,1% e 1,4% — lá a agenda é fechada. Aqui não é. Enquanto continuar assim, o número acima diz
+      mais sobre a rotina de lançamento do que sobre o paciente.`;
+  } else { av.style.display = 'none'; av.innerHTML = ''; }
+
+  const us = [...porU.entries()].map(([k,o]) => ({k, o})).sort((a,b) => b.o.n - a.o.n);
+  document.getElementById('tAgenda').innerHTML = `
+    <thead><tr><th>Unidade</th><th class="num">Agendados</th><th class="num">Atendidos</th>
+      <th class="num">Faltas</th><th class="num">Cancelou paciente</th>
+      <th class="num">Cancelou clínica</th><th class="num">Sem desfecho</th>
+      <th class="num">Comparecimento</th></tr></thead>
+    <tbody>${us.map(({k,o}) => `<tr><td><b>${k === 'sem' ? 'Sem unidade' : (D.unid[k] || ('unidade ' + k))}</b>
+      <span style="color:var(--gray-text)">· id ${k}</span></td>
+      <td class="num">${N(o.n)}</td><td class="num">${N(o.at)}</td><td class="num">${N(o.fa)}</td>
+      <td class="num">${N(o.cp)}</td><td class="num">${N(o.cc)}</td>
+      <td class="num">${N(o.ab)}${o.passados ? ' <span style="color:var(--gray-text)">('
+        + PCT0(pctAb(o)) + ')</span>' : ''}</td>
+      <td class="num">${comp(o) === null ? '—' : PCT(comp(o))}</td></tr>`).join('')}</tbody>
+    <tfoot><tr><td>Total</td><td class="num">${N(tot.n)}</td><td class="num">${N(tot.at)}</td>
+      <td class="num">${N(tot.fa)}</td><td class="num">${N(tot.cp)}</td><td class="num">${N(tot.cc)}</td>
+      <td class="num">${N(tot.ab)}</td>
+      <td class="num">${comp(tot) === null ? '—' : PCT(comp(tot))}</td></tr></tfoot>`;
+
+  const ds = [...porDia.entries()].sort((a,b) => a[0] < b[0] ? -1 : 1);
+  barras('blAgDia', ds.slice(-21).map(([d,q]) => ({l: rotuloDia(d), v: q})),
+    {nota: ds.length > 21 ? `Últimos 21 dias com agenda, de ${ds.length} no período.` : ''});
 }
 
 /* ============ NPS ============ */
