@@ -674,13 +674,23 @@ document.querySelectorAll('.preset[data-p]').forEach(b => b.onclick = () => {
 const zero = () => ({inv:0,imp:0,cli:0,conv:0,rast:0,cards:0,pac:0,prop:0,exec:0,valor:0,
                      naoexec:0,vnaoexec:0,pago:0,dias:new Set()});
 function somaCrm(alvo, c){ alvo.rast+=c.r; alvo.cards+=c.k; alvo.pac+=c.p; alvo.prop+=c.o;
-                           alvo.exec+=c.e; alvo.valor+=c.v;
-                           alvo.naoexec  += c.ne  || 0;
-                           alvo.vnaoexec += c.vne || 0;
-                           alvo.pago     += c.pg  || 0; }
+                           alvo.exec+=c.e; alvo.valor+=c.v; }
+/* Não executado e pago vêm de `crmfluxo`, indexado por anúncio, e não das
+   linhas diárias de `crm`. Motivo: na Doctor o bloco de funil junta duas rotas
+   de rastreio e estes três vêm só da rota do utm, que é a que existe nas duas
+   marcas. Somar por anúncio uma vez evita contar o mesmo paciente em cada dia
+   em que ele aparece. */
+function somaFluxo(alvo, adId){
+  const f = (D.crmfluxo || {})[adId];
+  if(!f) return;
+  alvo.naoexec  += f.ne  || 0;
+  alvo.vnaoexec += f.vne || 0;
+  alvo.pago     += f.pg  || 0;
+}
 
 function agrega(){
   const camp = new Map(), ads = new Map(), adCamp = new Map(), t = zero();
+  const fluxoFeito = new Set();   // um anúncio conta uma vez, não uma por dia
   for(const r of MIDIA){
     if(r[0] < de || r[0] > ate) continue;
     const nome = r[1].trim(), id = r[3];
@@ -698,6 +708,10 @@ function agrega(){
     const a = ads.get(c.a);
     if(!a){ somaCrm(extra, c); continue; }
     somaCrm(a, c); somaCrm(camp.get(adCamp.get(c.a)), c); somaCrm(t, c);
+    if(!fluxoFeito.has(c.a)){
+      fluxoFeito.add(c.a);
+      somaFluxo(a, c.a); somaFluxo(camp.get(adCamp.get(c.a)), c.a); somaFluxo(t, c.a);
+    }
   }
   return {camp:[...camp.values()], ads, t, extra};
 }
@@ -1632,7 +1646,7 @@ function iniciar(dados, imagens){
        ela aparecer zerada lá — o mesmo erro que este relatório inteiro existe
        para não cometer. Quando o pipeline da Doctor passar a mandar, a coluna
        acende sozinha. */
-    fluxo: Array.isArray(D.crm) && D.crm.some(c => c.ne != null || c.vne != null || c.pg != null),
+    fluxo: !!(D.crmfluxo && Object.keys(D.crmfluxo).length),
     proc:  !!(D.crmproc && Object.keys(D.crmproc).length),
   };
   escondeAbas();
