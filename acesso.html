@@ -395,6 +395,11 @@ tfoot td{padding:8px 10px;font-weight:700;border-top:2px solid var(--dark)}
     Elas não batem entre si e não deviam: são objetos diferentes, com datas diferentes. Existe fatura
     sem proposta — consulta avulsa, retorno, convênio — e proposta que nunca vira fatura.
   </div>
+  <div class="section-title" id="tFinTitulo">Contas a receber — pago e em aberto</div>
+  <div class="kpi-grid" id="kpisFin"></div>
+  <table id="tFin"></table>
+  <div id="notaFin"></div>
+
   <div class="section-title">Propostas por unidade</div>
   <table id="tUnid"></table>
   <div class="section-title">O que a mídia rendeu, medido de ponta a ponta</div>
@@ -680,7 +685,7 @@ document.querySelectorAll('.preset[data-p]').forEach(b => b.onclick = () => {
    a mesma coisa que uma com R$ 10 mil e nada parado. E executado ainda não é
    dinheiro em caixa — daí o pago, que vem das contas a receber. */
 const zero = () => ({inv:0,imp:0,cli:0,conv:0,rast:0,cards:0,pac:0,prop:0,exec:0,valor:0,
-                     naoexec:0,vnaoexec:0,pago:0,dias:new Set()});
+                     naoexec:0,vnaoexec:0,fatv:0,pago:0,aberto:0,nfat:0,dias:new Set()});
 function somaCrm(alvo, c){ alvo.rast+=c.r; alvo.cards+=c.k; alvo.pac+=c.p; alvo.prop+=c.o;
                            alvo.exec+=c.e; alvo.valor+=c.v; }
 /* Não executado e pago vêm de `crmfluxo`, que é série com data, e não das
@@ -697,7 +702,10 @@ function somaFluxo(alvo, f){
   if(!alvo) return;
   alvo.naoexec  += f.ne  || 0;
   alvo.vnaoexec += f.vne || 0;
+  alvo.fatv     += f.fv  || 0;
   alvo.pago     += f.pg  || 0;
+  alvo.aberto   += f.ab  || 0;
+  alvo.nfat     += f.nf  || 0;
 }
 
 function agrega(){
@@ -743,7 +751,9 @@ function cartaoAnuncio(a, i){
     [a.conv?BRL(a.inv/a.conv):'—','Custo/conversa'],
     [N(a.rast),'No CRM'], [N(a.pac),'Pacientes'],
     [N(a.exec),'Executadas'], [a.valor?BRL0(a.valor):'—','Receita'],
-    ...(TEM.fluxo ? [[a.vnaoexec?BRL0(a.vnaoexec):'—','Não executado']] : []),
+    ...(TEM.fluxo ? [[a.vnaoexec?BRL0(a.vnaoexec):'—','Não executado'],
+                     [a.pago?BRL0(a.pago):'—','Recebido'],
+                     [a.aberto?BRL0(a.aberto):'—','Em aberto']] : []),
   ].map(([v,l]) => `<div><span class="mv">${v}</span><span class="ml">${l}</span></div>`).join('')
   /* O botão só existe se houver o que abrir: "detalhado" que abre vazio é pior
      do que não ter botão. */
@@ -843,6 +853,10 @@ function detalhe(c, ads, idx){
       ${passo(c.valor?BRL0(c.valor):'R$ 0','Executado',c.exec?BRL0(c.valor/c.exec)+' por proposta':'nada executado')}
       ${TEM.fluxo ? passo(c.vnaoexec?BRL0(c.vnaoexec):'R$ 0','Não executado',
           c.naoexec?N(c.naoexec)+' propostas paradas':'nada parado') : ''}
+      ${TEM.fluxo ? passo(c.pago?BRL0(c.pago):'R$ 0','Recebido',
+          c.nfat?N(c.nfat)+' faturas conciliadas':'nenhuma fatura amarrada') : ''}
+      ${TEM.fluxo ? passo(c.aberto?BRL0(c.aberto):'R$ 0','Em aberto',
+          c.fatv?PCT0(100*c.aberto/c.fatv)+' do faturado amarrado':'—') : ''}
 
     </div>
     <p>Investimento de <b>${BRL(c.inv)}</b> nesta campanha, contra <b>${BRL0(c.valor)}</b> de receita
@@ -1452,23 +1466,27 @@ function pintaMidia(t, camp, ads, cob, tudoFora){
   const colsCrm = TEM.crm;          // executado rastreado
   const colsFluxo = TEM.crm && TEM.fluxo;  // não executado / paradas / pago
   tabelaExpansivel('tCamp', {
-    n: 5 + (colsCrm ? 1 : 0) + (colsFluxo ? 2 : 0),
+    n: 5 + (colsCrm ? 1 : 0) + (colsFluxo ? 4 : 0),
     cab: `<th>Especialidade</th><th class="num">Dias no ar</th><th class="num">Investimento</th>
           <th class="num">Conversas</th><th class="num">Custo/conversa</th>`
       + (colsCrm ? `<th class="num">Executado rastreado</th>` : '')
-      + (colsFluxo ? `<th class="num">Não executado</th><th class="num">Propostas paradas</th>` : ''),
+      + (colsFluxo ? `<th class="num">Não executado</th><th class="num">Propostas paradas</th>
+          <th class="num">Recebido</th><th class="num">Em aberto</th>` : ''),
     linha: c => `<td title="${esc(c.nome.trim())}">${curto(c.nome)}</td>
       <td class="num">${c.dias.size}</td><td class="num">${BRL(c.inv)}</td>
       <td class="num">${N(c.conv)}</td>
       <td class="num">${c.conv?BRL(c.inv/c.conv):'—'}</td>`
       + (colsCrm ? `<td class="num">${c.valor?BRL0(c.valor):'—'}</td>` : '')
       + (colsFluxo ? `<td class="num">${c.vnaoexec?BRL0(c.vnaoexec):'—'}</td>
-      <td class="num">${c.naoexec?N(c.naoexec):'—'}</td>` : ''),
+      <td class="num">${c.naoexec?N(c.naoexec):'—'}</td>
+      <td class="num">${c.pago?BRL0(c.pago):'—'}</td>
+      <td class="num">${c.aberto?BRL0(c.aberto):'—'}</td>` : ''),
     pe: `<tfoot><tr><td colspan="2">Total — ${camp.length} campanhas</td>
       <td class="num">${BRL(t.inv)}</td><td class="num">${N(t.conv)}</td>
       <td class="num">${t.conv?BRL(t.inv/t.conv):'—'}</td>`
       + (colsCrm ? `<td class="num">${BRL0(t.valor)}</td>` : '')
-      + (colsFluxo ? `<td class="num">${BRL0(t.vnaoexec)}</td><td class="num">${N(t.naoexec)}</td>` : '') + `</tr></tfoot>`,
+      + (colsFluxo ? `<td class="num">${BRL0(t.vnaoexec)}</td><td class="num">${N(t.naoexec)}</td>
+      <td class="num">${BRL0(t.pago)}</td><td class="num">${BRL0(t.aberto)}</td>` : '') + `</tr></tfoot>`,
   }, porInv, ads, 'm');
 
   /* O leitor precisa saber que "pago" e "executado" não são a mesma coisa antes
@@ -1478,12 +1496,14 @@ function pintaMidia(t, camp, ads, cob, tudoFora){
     <b>Executado</b> é proposta que o paciente aceitou e a clínica realizou.
     <b>Não executado</b> é proposta feita e ainda não realizada — dinheiro parado na mesa, e é
     onde costuma haver mais a ganhar do que em campanha nova.
-    <b>Pago não aparece aqui, e isso é deliberado.</b> A única ponte possível hoje entre fatura e
-    paciente é o <code>agendamento_id</code> do item da fatura — e a Feegow preenche esse campo em
-    apenas 17% dos itens (11.790 de 67.800). Uma coluna montada sobre isso mostraria algo perto de
-    10% do executado e seria lida como inadimplência gigante, quando na verdade é a junção que não
-    enxerga. Enquanto a Feegow não expuser o paciente na fatura, receita paga por anúncio não é
-    mensurável — e número errado é pior do que número ausente.</div>`; });
+    <b>Recebido</b> e <b>Em aberto</b> vêm das contas a receber, amarradas ao paciente pelo
+    <code>conta_id</code> da fatura. <b>São piso, e por uma razão específica:</b> a Feegow não expõe
+    o paciente na fatura nem aceita filtro por paciente na API, então a conta é aprendida pelas
+    faturas que trazem <code>agendamento_id</code> (17% dos itens) e propagada para as demais
+    faturas da mesma conta. Isso resolve <b>26% das faturas de serviço</b> — cada conta apontando
+    para um único paciente, sem ambiguidade, mas cobrindo um quarto do dinheiro.
+    Para o número completo de recebimento, use o bloco <b>Contas a receber</b> acima, que não
+    depende de ponte nenhuma e fecha com o caixa.</div>`; });
 }
 
 function pintaConciliacao(t, camp, ads, extra, cob, diasFora, tudoFora){
@@ -1563,7 +1583,59 @@ function pintaConciliacao(t, camp, ads, extra, cob, diasFora, tudoFora){
     esse pedaço — e por isso ele aparece separado aqui, em vez de ser somado por baixo do pano.</div>` : '';
 }
 
+/* CONTAS A RECEBER — faturado, pago e em aberto, por unidade.
+   Este bloco não passa por ponte nenhuma: a fatura já traz unidade, data, valor
+   e valor pago, e "em aberto" é a diferença. Cobre 100% do que está em banco, e
+   é o número que fecha com o caixa. Fica separado do rastreio por anúncio de
+   propósito — lá a atribuição alcança um quarto das faturas, aqui alcança tudo,
+   e misturar faria o menor contaminar o maior. */
+function pintaFinanceiro(){
+  const F = (D.fin || []).filter(r => r.d >= de && r.d <= ate);
+  const alvos = ['tFinTitulo','kpisFin','tFin','notaFin'];
+  if(!F.length){ alvos.forEach(id => sePuder(id, el => { el.style.display = 'none'; })); return; }
+  alvos.forEach(id => sePuder(id, el => { el.style.display = ''; }));
+
+  const zeroF = () => ({n:0, v:0, pg:0, ab:0, np:0});
+  const tot = zeroF(), porU = new Map();
+  for(const r of F){
+    const k = chaveU(r.u);
+    if(!porU.has(k)) porU.set(k, zeroF());
+    for(const o of [tot, porU.get(k)]){
+      o.n += r.n||0; o.v += r.v||0; o.pg += r.pg||0; o.ab += r.ab||0; o.np += r.np||0;
+    }
+  }
+  const pct = o => o.v ? 100*o.pg/o.v : null;
+
+  sePuder('kpisFin', el => { el.innerHTML = [
+    [BRL0(tot.v), 'Faturado', N(tot.n) + ' faturas no período'],
+    [BRL0(tot.pg), 'Recebido', pct(tot) === null ? '—' : PCT(pct(tot)) + ' do faturado'],
+    [BRL0(tot.ab), 'Em aberto', tot.v ? PCT(100*tot.ab/tot.v) + ' do faturado' : '—'],
+    [N(tot.np), 'Faturas quitadas', tot.n ? PCT0(100*tot.np/tot.n) + ' das faturas' : '—'],
+  ].map(([v,l,d]) => `<div class="kpi-card"><div class="kpi-val">${v}</div>
+      <div class="kpi-label">${l}</div><div class="kpi-det">${d}</div></div>`).join(''); });
+
+  const us = [...porU.entries()].sort((a,b) => b[1].v - a[1].v);
+  sePuder('tFin', el => { el.innerHTML = `
+    <thead><tr><th>Unidade</th><th class="num">Faturas</th><th class="num">Faturado</th>
+      <th class="num">Recebido</th><th class="num">Em aberto</th><th class="num">% recebido</th></tr></thead>
+    <tbody>${us.map(([k,o]) => `<tr><td><b>${k === 'sem' ? 'Sem unidade' : (D.unid[k] || ('unidade ' + k))}</b></td>
+      <td class="num">${N(o.n)}</td><td class="num">${BRL0(o.v)}</td>
+      <td class="num">${BRL0(o.pg)}</td><td class="num">${BRL0(o.ab)}</td>
+      <td class="num">${pct(o) === null ? '—' : PCT(pct(o))}</td></tr>`).join('')}</tbody>
+    <tfoot><tr><td>Total</td><td class="num">${N(tot.n)}</td><td class="num">${BRL0(tot.v)}</td>
+      <td class="num">${BRL0(tot.pg)}</td><td class="num">${BRL0(tot.ab)}</td>
+      <td class="num">${pct(tot) === null ? '—' : PCT(pct(tot))}</td></tr></tfoot>`; });
+
+  sePuder('notaFin', el => { el.innerHTML = `<div class="nota">
+    <b>Em aberto não é o mesmo que inadimplência</b>
+    A conta entra aqui na data em que foi lançada, e boa parte do que aparece em aberto é parcela
+    que ainda não venceu. Para separar atraso de prazo seria preciso a data de vencimento, que a
+    Feegow não devolve nesta rota. Leia como <b>a receber</b>, e desconfie quando a fatia em aberto
+    crescer mês a mês numa unidade e ficar estável nas outras — aí é cobrança, não calendário.</div>`; });
+}
+
 function pintaComercial(t, cob){
+  pintaFinanceiro();
   const naJanela = r => r.d >= de && r.d <= ate;
   const prop = NEG.prop.filter(naJanela), fat = NEG.fat.filter(naJanela), card = NEG.card.filter(naJanela);
   const s = (a,k) => a.reduce((x,r) => x + r[k], 0);
