@@ -555,15 +555,48 @@ Chart.defaults.font.size = 11; Chart.defaults.color = '#7E7796';
    e o '[VG]' é a agência, não a especialidade. O que a pessoa procura é o termo
    do meio. Duas grafias convivem na conta — com e sem colchetes — e as duas
    precisam cair no mesmo rótulo, senão a mesma campanha aparece duas vezes. */
-const APELIDO = {RMKT:'Remarketing', SANGUE:'Coleta de sangue', APH:'APH',
-                 HIPERBARICA:'Hiperbárica', ENDOCRINO:'Endócrino',
-                 'CONSULTACARDIOLÓGICA':'Cardiológica', 'DIA DAS MÃES':'Dia das mães'};
+/* A MESMA agência nomeia as duas contas em ordem OPOSTA:
+     Doctor   [VG] [ESPECIALIDADE] [FORMATO]   → [VG] [PEDIATRIA] [ENG-WHATSAPP]
+     Acesso   [VG] [FORMATO] [ESPECIALIDADE]   → [VG] [MSG-WHATSAPP] [PEDIATRIA]
+   Por isso "pega o primeiro colchete que não é [VG]" funcionava numa conta e na
+   outra rotulava tudo de "Msg-whatsapp". Posição não serve.
+
+   A regra que serve: descarte o que é agência, formato, objetivo, público, data
+   ou valor — e o primeiro pedaço que sobrar é a especialidade. Vale para as
+   duas contas e para a nomenclatura que vier depois, desde que o lixo conhecido
+   esteja nesta lista. */
+const IGNORA = new Set([
+  'VG','ABO','ON','APH',                                          /* agência / conta */
+  'MSG','MSG-WHATSAPP','ENG-WHATSAPP','ENGAJAMENTO-WHATSAPP','ENGAJAMENTO',
+  'TRAFEGO','TRÁFEGO','WHATS','WPP','WHATSAPP','VIDEO','VÍDEO','CARD','TOPO',
+  'CONVERSAS','ALL','F+Q','SEGUIDORES','45+','REMARKETING',       /* formato / público */
+]);
+const APELIDO = {
+  RMKT:'Remarketing', SANGUE:'Coleta de sangue', APH:'APH', HIPERBARICA:'Hiperbárica',
+  ENDOCRINO:'Endócrino', 'CONSULTACARDIOLÓGICA':'Cardiológica', 'DIA DAS MÃES':'Dia das mães',
+  'PSICOLOGO/PSIQUIATRA':'Psicólogo / Psiquiatra', TOXICOLOGICO:'Toxicológico',
+  PROTESES:'Próteses', 'APARELHO ORTODONTICO':'Aparelho ortodôntico',
+  APARELHO:'Aparelho ortodôntico', ORTODONTIA:'Aparelho ortodôntico',
+  OFTALMO:'Oftalmologista', PROCEDIMENTOS:'Procedimentos',
+};
+const semAcento = s => s.normalize('NFD').replace(/[̀-ͯ]/g, '');
+const ehLixo = t => !t || IGNORA.has(t) || IGNORA.has(semAcento(t))
+  || /^\d{1,2}\/\d{1,2}\/\d{2,4}$/.test(t)      /* [05/08/26] */
+  || /^\$?\s*[\d.,]+$/.test(t);                 /* $ 35 */
 function curto(nome){
-  const cx = (nome.match(/\[([^\]]+)\]/g) || [])
-    .map(x => x.slice(1, -1).trim()).filter(x => x.toUpperCase() !== 'VG');
-  const t = (cx.length ? cx[0]
-    : nome.replace(/^VG\s+/, '').trim().split(/\s{2,}|\s(?=ENG|MSG)/)[0]).trim();
-  return APELIDO[t.toUpperCase()] || (t.charAt(0).toUpperCase() + t.slice(1).toLowerCase());
+  const cru = String(nome || '').trim();
+  /* Post impulsionado não tem taxonomia: o nome da campanha é a legenda do post. */
+  if(/^publica[cç][aã]o do instagram/i.test(cru)) return 'Publicação impulsionada';
+  const colchetes = (cru.match(/\[([^\]]*)\]/g) || []).map(x => x.slice(1, -1).trim());
+  const pedacos = colchetes.length ? colchetes : cru.split('|').map(x => x.trim());
+  /* "APARELHO ORTODONTICO 02" e "ORTODONTIA (02)" são a mesma especialidade
+     numerada; sem tirar o sufixo ela aparece duas vezes na tabela. */
+  const util = pedacos
+    .map(t => t.replace(/\s*\(\d+\)\s*$/, '').replace(/\s+\d{1,2}$/, '').trim())
+    .find(t => !ehLixo(t.toUpperCase()));
+  if(!util) return 'Sem classificação';
+  const chave = util.toUpperCase();
+  return APELIDO[chave] || (util.charAt(0).toUpperCase() + util.slice(1).toLowerCase());
 }
 function classeCob(c){ return c >= 70 ? 'boa' : c >= 50 ? 'media' : 'ruim'; }
 
