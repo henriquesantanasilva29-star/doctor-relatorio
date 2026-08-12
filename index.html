@@ -675,14 +675,18 @@ const zero = () => ({inv:0,imp:0,cli:0,conv:0,rast:0,cards:0,pac:0,prop:0,exec:0
                      naoexec:0,vnaoexec:0,pago:0,dias:new Set()});
 function somaCrm(alvo, c){ alvo.rast+=c.r; alvo.cards+=c.k; alvo.pac+=c.p; alvo.prop+=c.o;
                            alvo.exec+=c.e; alvo.valor+=c.v; }
-/* Não executado e pago vêm de `crmfluxo`, indexado por anúncio, e não das
-   linhas diárias de `crm`. Motivo: na Doctor o bloco de funil junta duas rotas
-   de rastreio e estes três vêm só da rota do utm, que é a que existe nas duas
-   marcas. Somar por anúncio uma vez evita contar o mesmo paciente em cada dia
-   em que ele aparece. */
-function somaFluxo(alvo, adId){
-  const f = (D.crmfluxo || {})[adId];
-  if(!f) return;
+/* Não executado e pago vêm de `crmfluxo`, que é série com data, e não das
+   linhas de `crm`. Motivo: na Doctor o bloco de funil junta duas rotas de
+   rastreio e estes três vêm só da rota do utm, que é a que existe nas duas
+   marcas.
+
+   A DATA AQUI NÃO É DETALHE. A primeira versão indexava só por anúncio, sem
+   dia, e o detalhe ignorava o filtro de período: a linha da campanha dizia
+   R$ 6.587 executados no mês e o painel abria com R$ 25.412 da janela inteira.
+   Número que não fecha com o de cima derruba a confiança no relatório todo,
+   ainda que cada um esteja certo no seu escopo. */
+function somaFluxo(alvo, f){
+  if(!alvo) return;
   alvo.naoexec  += f.ne  || 0;
   alvo.vnaoexec += f.vne || 0;
   alvo.pago     += f.pg  || 0;
@@ -690,7 +694,6 @@ function somaFluxo(alvo, adId){
 
 function agrega(){
   const camp = new Map(), ads = new Map(), adCamp = new Map(), t = zero();
-  const fluxoFeito = new Set();   // um anúncio conta uma vez, não uma por dia
   for(const r of MIDIA){
     if(r[0] < de || r[0] > ate) continue;
     const nome = r[1].trim(), id = r[3];
@@ -708,10 +711,14 @@ function agrega(){
     const a = ads.get(c.a);
     if(!a){ somaCrm(extra, c); continue; }
     somaCrm(a, c); somaCrm(camp.get(adCamp.get(c.a)), c); somaCrm(t, c);
-    if(!fluxoFeito.has(c.a)){
-      fluxoFeito.add(c.a);
-      somaFluxo(a, c.a); somaFluxo(camp.get(adCamp.get(c.a)), c.a); somaFluxo(t, c.a);
-    }
+  }
+  /* Mesmo recorte de data do bloco acima: se este ignorar o filtro, as colunas
+     de não executado e pago param de fechar com as de executado ao lado. */
+  for(const f of (D.crmfluxo || [])){
+    if(f.d < de || f.d > ate) continue;
+    somaFluxo(ads.get(f.a), f);
+    somaFluxo(camp.get(adCamp.get(f.a)), f);
+    somaFluxo(t, f);
   }
   return {camp:[...camp.values()], ads, t, extra};
 }
@@ -728,10 +735,12 @@ function cartaoAnuncio(a, i){
     [a.conv?BRL(a.inv/a.conv):'—','Custo/conversa'],
     [N(a.rast),'No CRM'], [N(a.pac),'Pacientes'],
     [N(a.exec),'Executadas'], [a.valor?BRL0(a.valor):'—','Receita'],
+    ...(TEM.fluxo ? [[a.vnaoexec?BRL0(a.vnaoexec):'—','Não executado'],
+                     [a.pago?BRL0(a.pago):'—','Pago']] : []),
   ].map(([v,l]) => `<div><span class="mv">${v}</span><span class="ml">${l}</span></div>`).join('')
   /* O botão só existe se houver o que abrir: "detalhado" que abre vazio é pior
      do que não ter botão. */
-  + ((TEM.proc && D.crmproc[a.id])
+  + (TEM.proc
       ? `<div><button class="detalhe-btn" onclick="abreProc('${a.id}',${i},this)">detalhado</button></div>`
       : '');
   const copia = cr.b ? `<div class="copy" id="cp${i}">${esc(cr.b)}</div>
@@ -762,7 +771,15 @@ function abreProc(adId, i, btn){
   const el = document.getElementById('pr' + i);
   if(!el) return;
   if(el.style.display !== 'none'){ el.style.display = 'none'; btn.textContent = 'detalhado'; return; }
-  const itens = (D.crmproc || {})[adId] || [];
+  /* Agrega na hora, respeitando o período escolhido — a série vem por dia. */
+  const acc = new Map();
+  for(const r of (D.crmproc || [])){
+    if(r.a !== adId || r.d < de || r.d > ate) continue;
+    if(!acc.has(r.c)) acc.set(r.c, {n:r.c, qe:0, ve:0, qn:0, vn:0});
+    const o = acc.get(r.c);
+    o.qe += r.qe||0; o.ve += r.ve||0; o.qn += r.qn||0; o.vn += r.vn||0;
+  }
+  const itens = [...acc.values()].sort((a,b) => b.ve - a.ve || b.qe - a.qe);
   const soma = (k) => itens.reduce((a, x) => a + (x[k] || 0), 0);
   el.innerHTML = !itens.length
     ? '<div class="bl-nota">Nenhum procedimento amarrado a este anúncio.</div>'
@@ -775,13 +792,20 @@ function abreProc(adId, i, btn){
           <td class="num">${x.ve ? BRL0(x.ve) : '—'}</td>
           <td class="num">${x.qn ? N(x.qn) : '—'}</td>
           <td class="num">${x.vn ? BRL0(x.vn) : '—'}</td></tr>`).join('')}</tbody>
-        <tfoot><tr><td>Total dos ${itens.length} maiores</td>
+        <tfoot><tr><td>Total do período</td>
           <td class="num">${N(soma('qe'))}</td><td class="num">${BRL0(soma('ve'))}</td>
           <td class="num">${N(soma('qn'))}</td><td class="num">${BRL0(soma('vn'))}</td></tr></tfoot>
       </table>
-      <div class="bl-nota">Consulta e exame saem da mesma lista de procedimentos da proposta, e
-      aparecem com o nome que a clínica cadastrou no Feegow. A soma acima é dos maiores por valor
-      executado — pode ficar abaixo do total do anúncio quando a cauda for longa.</div>`;
+      <div class="bl-nota">Consulta e exame saem da mesma lista de procedimentos da proposta, já
+      com desconto e acréscimo aplicados. A categoria é deduzida do nome cadastrado no Feegow, que
+      não traz categoria — o que não casa com nenhuma regra fica em "Outros procedimentos" em vez
+      de ser empurrado para uma delas. Este bloco respeita o período escolhido lá em cima.
+      <b>Este total não fecha com "Executado rastreado" da linha de cima, e não deveria:</b>
+      aquela coluna vem do bloco de funil, que junta as duas rotas de rastreio (o clique registrado
+      na Evolution e o utm do contato); este painel vem só da rota do utm, que é a única que existe
+      nas duas clínicas. Some ainda a proposta lançada sem itemização, que entra no valor e não
+      entra em categoria nenhuma. Use o painel para saber a <b>composição</b> — quanto foi exame de
+      laboratório, imagem, coração — e a linha de cima para o total.</div>`;
   el.style.display = '';
   btn.textContent = 'fechar detalhe';
 }
@@ -806,7 +830,11 @@ function detalhe(c, ads, idx){
       ${passo(N(c.pac),'Pacientes no Feegow',c.rast?PCT0(100*c.pac/c.rast)+' das rastreadas':'—')}
       ${passo(N(c.prop),'Propostas',c.pac?(c.prop/c.pac).toFixed(1).replace('.',',')+' por paciente':'—')}
       ${passo(N(c.exec),'Executadas',c.prop?PCT0(100*c.exec/c.prop)+' das propostas':'—')}
-      ${passo(c.valor?BRL0(c.valor):'R$ 0','Executado',c.exec?BRL0(c.valor/c.exec)+' por procedimento':'nada executado')}
+      ${passo(c.valor?BRL0(c.valor):'R$ 0','Executado',c.exec?BRL0(c.valor/c.exec)+' por proposta':'nada executado')}
+      ${TEM.fluxo ? passo(c.vnaoexec?BRL0(c.vnaoexec):'R$ 0','Não executado',
+          c.naoexec?N(c.naoexec)+' propostas paradas':'nada parado') : ''}
+      ${TEM.fluxo ? passo(c.pago?BRL0(c.pago):'R$ 0','Pago',
+          c.valor?PCT0(100*c.pago/c.valor)+' do executado':'—') : ''}
     </div>
     <p>Investimento de <b>${BRL(c.inv)}</b> nesta campanha, contra <b>${BRL0(c.valor)}</b> de receita
     executada que foi possível amarrar a ela. <b>Este valor é piso, não total:</b> a ponte de telefone
