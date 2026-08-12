@@ -83,6 +83,16 @@ h1,h2,h3,h4,.kpi-val,.result-num,.ad-name,.passo .pv,.et .v,.esc-v,.cob-v{font-f
 .kpi-label{font-size:9.5px;color:var(--gray-text);font-weight:700;margin-top:4px;letter-spacing:.3px}
 /* terceira linha do cartão: a ressalva que impede o número de ser lido sozinho */
 .kpi-det{font-size:9.5px;color:var(--gray-text);margin-top:3px;line-height:1.35}
+.detalhe-btn{border:1.5px solid var(--border);background:#fff;color:var(--red);font-family:inherit;
+  font-size:10.5px;font-weight:700;padding:5px 12px;border-radius:999px;cursor:pointer;white-space:nowrap}
+.detalhe-btn:hover{border-color:var(--red)}
+.proc{margin-top:12px}
+.tproc{width:100%;border-collapse:collapse;font-size:11.5px;margin-top:4px}
+.tproc th{text-align:left;padding:6px 8px;border-bottom:1.5px solid var(--border);
+  font-size:9.5px;letter-spacing:.3px;color:var(--gray-text);text-transform:uppercase}
+.tproc td{padding:6px 8px;border-bottom:1px solid var(--border)}
+.tproc tfoot td{font-weight:700;border-top:1.5px solid var(--dark);border-bottom:none}
+.tproc .num{text-align:right;font-variant-numeric:tabular-nums}
 /* seletor de marca — nasce escondido e só aparece depois que a chave provou
    valer, porque é o endpoint com chave que entrega a lista de marcas irmãs */
 .marcas{display:none;gap:8px;justify-content:center;margin:0 0 16px;flex-wrap:wrap}
@@ -324,6 +334,7 @@ tfoot td{padding:8px 10px;font-weight:700;border-top:2px solid var(--dark)}
     Clique numa especialidade para abrir os anúncios dela — imagem, texto e o funil de cada um,
     do investimento à receita executada.</p>
   <table id="tCamp"></table>
+  <div id="notaColunas"></div>
 </div>
 
 <!-- ============ META × CRM ============ -->
@@ -656,9 +667,17 @@ document.querySelectorAll('.preset[data-p]').forEach(b => b.onclick = () => {
 });
 
 /* ---------- agregação ---------- */
-const zero = () => ({inv:0,imp:0,cli:0,conv:0,rast:0,cards:0,pac:0,prop:0,exec:0,valor:0,dias:new Set()});
+/* `naoexec`/`vnaoexec` e `pago` entram porque executado sozinho conta meia
+   história: campanha com R$ 10 mil executados e R$ 40 mil parados na mesa não é
+   a mesma coisa que uma com R$ 10 mil e nada parado. E executado ainda não é
+   dinheiro em caixa — daí o pago, que vem das contas a receber. */
+const zero = () => ({inv:0,imp:0,cli:0,conv:0,rast:0,cards:0,pac:0,prop:0,exec:0,valor:0,
+                     naoexec:0,vnaoexec:0,pago:0,dias:new Set()});
 function somaCrm(alvo, c){ alvo.rast+=c.r; alvo.cards+=c.k; alvo.pac+=c.p; alvo.prop+=c.o;
-                           alvo.exec+=c.e; alvo.valor+=c.v; }
+                           alvo.exec+=c.e; alvo.valor+=c.v;
+                           alvo.naoexec  += c.ne  || 0;
+                           alvo.vnaoexec += c.vne || 0;
+                           alvo.pago     += c.pg  || 0; }
 
 function agrega(){
   const camp = new Map(), ads = new Map(), adCamp = new Map(), t = zero();
@@ -695,7 +714,12 @@ function cartaoAnuncio(a, i){
     [a.conv?BRL(a.inv/a.conv):'—','Custo/conversa'],
     [N(a.rast),'No CRM'], [N(a.pac),'Pacientes'],
     [N(a.exec),'Executadas'], [a.valor?BRL0(a.valor):'—','Receita'],
-  ].map(([v,l]) => `<div><span class="mv">${v}</span><span class="ml">${l}</span></div>`).join('');
+  ].map(([v,l]) => `<div><span class="mv">${v}</span><span class="ml">${l}</span></div>`).join('')
+  /* O botão só existe se houver o que abrir: "detalhado" que abre vazio é pior
+     do que não ter botão. */
+  + ((TEM.proc && D.crmproc[a.id])
+      ? `<div><button class="detalhe-btn" onclick="abreProc('${a.id}',${i},this)">detalhado</button></div>`
+      : '');
   const copia = cr.b ? `<div class="copy" id="cp${i}">${esc(cr.b)}</div>
       <button class="mais" onclick="maisCopy(${i},this)">ver texto completo</button>` : '';
   const tags = [
@@ -711,7 +735,41 @@ function cartaoAnuncio(a, i){
     ${copia}
     <div class="tagrow">${tags}</div>
     <div class="mini">${mini}</div>
+    <div class="proc" id="pr${i}" style="display:none"></div>
   </div></div>`;
+}
+
+/* O QUE FOI VENDIDO, item a item.
+   "R$ 10.305 executados" não diz se foram consultas caras ou uma enxurrada de
+   exame barato — e é essa diferença que decide se vale insistir na campanha.
+   O bloco vem pronto do banco (crm_procedimentos), já ordenado por valor
+   executado e cortado nos maiores; o resto vira uma linha de resumo. */
+function abreProc(adId, i, btn){
+  const el = document.getElementById('pr' + i);
+  if(!el) return;
+  if(el.style.display !== 'none'){ el.style.display = 'none'; btn.textContent = 'detalhado'; return; }
+  const itens = (D.crmproc || {})[adId] || [];
+  const soma = (k) => itens.reduce((a, x) => a + (x[k] || 0), 0);
+  el.innerHTML = !itens.length
+    ? '<div class="bl-nota">Nenhum procedimento amarrado a este anúncio.</div>'
+    : `<table class="tproc">
+        <thead><tr><th>Procedimento</th><th class="num">Executados</th><th class="num">Valor executado</th>
+          <th class="num">Não executados</th><th class="num">Valor parado</th></tr></thead>
+        <tbody>${itens.map(x => `<tr>
+          <td title="${esc(x.n)}">${esc(x.n.length > 62 ? x.n.slice(0,60) + '…' : x.n)}</td>
+          <td class="num">${x.qe ? N(x.qe) : '—'}</td>
+          <td class="num">${x.ve ? BRL0(x.ve) : '—'}</td>
+          <td class="num">${x.qn ? N(x.qn) : '—'}</td>
+          <td class="num">${x.vn ? BRL0(x.vn) : '—'}</td></tr>`).join('')}</tbody>
+        <tfoot><tr><td>Total dos ${itens.length} maiores</td>
+          <td class="num">${N(soma('qe'))}</td><td class="num">${BRL0(soma('ve'))}</td>
+          <td class="num">${N(soma('qn'))}</td><td class="num">${BRL0(soma('vn'))}</td></tr></tfoot>
+      </table>
+      <div class="bl-nota">Consulta e exame saem da mesma lista de procedimentos da proposta, e
+      aparecem com o nome que a clínica cadastrou no Feegow. A soma acima é dos maiores por valor
+      executado — pode ficar abaixo do total do anúncio quando a cauda for longa.</div>`;
+  el.style.display = '';
+  btn.textContent = 'fechar detalhe';
 }
 function maisCopy(i, btn){
   const el = document.getElementById('cp'+i);
@@ -1338,20 +1396,44 @@ function pintaMidia(t, camp, ads, cob, tudoFora){
       afterBody:i=>{const k=porConv[i[0].dataIndex];
         return k.conv ? 'custo por conversa: '+BRL(k.inv/k.conv) : '';}}}}}});
 
+  /* Sem rastreio não há o que colocar nas três últimas colunas, e cabeçalho de
+     coluna sempre vazia é convite para alguém ler zero. */
+  const colsCrm = TEM.crm;          // executado rastreado
+  const colsFluxo = TEM.crm && TEM.fluxo;  // não executado / paradas / pago
   tabelaExpansivel('tCamp', {
-    n: 6,
+    n: 5 + (colsCrm ? 1 : 0) + (colsFluxo ? 3 : 0),
     cab: `<th>Especialidade</th><th class="num">Dias no ar</th><th class="num">Investimento</th>
-          <th class="num">Conversas</th><th class="num">Custo/conversa</th><th class="num">Executado rastreado</th>`,
+          <th class="num">Conversas</th><th class="num">Custo/conversa</th>`
+      + (colsCrm ? `<th class="num">Executado rastreado</th>` : '')
+      + (colsFluxo ? `<th class="num">Não executado</th><th class="num">Propostas paradas</th>
+          <th class="num">Pago</th>` : ''),
     linha: c => `<td title="${esc(c.nome.trim())}">${curto(c.nome)}</td>
       <td class="num">${c.dias.size}</td><td class="num">${BRL(c.inv)}</td>
       <td class="num">${N(c.conv)}</td>
-      <td class="num">${c.conv?BRL(c.inv/c.conv):'—'}</td>
-      <td class="num">${c.valor?BRL0(c.valor):'—'}</td>`,
+      <td class="num">${c.conv?BRL(c.inv/c.conv):'—'}</td>`
+      + (colsCrm ? `<td class="num">${c.valor?BRL0(c.valor):'—'}</td>` : '')
+      + (colsFluxo ? `<td class="num">${c.vnaoexec?BRL0(c.vnaoexec):'—'}</td>
+      <td class="num">${c.naoexec?N(c.naoexec):'—'}</td>
+      <td class="num">${c.pago?BRL0(c.pago):'—'}</td>` : ''),
     pe: `<tfoot><tr><td colspan="2">Total — ${camp.length} campanhas</td>
       <td class="num">${BRL(t.inv)}</td><td class="num">${N(t.conv)}</td>
-      <td class="num">${t.conv?BRL(t.inv/t.conv):'—'}</td>
-      <td class="num">${BRL0(t.valor)}</td></tr></tfoot>`,
+      <td class="num">${t.conv?BRL(t.inv/t.conv):'—'}</td>`
+      + (colsCrm ? `<td class="num">${BRL0(t.valor)}</td>` : '')
+      + (colsFluxo ? `<td class="num">${BRL0(t.vnaoexec)}</td><td class="num">${N(t.naoexec)}</td>
+      <td class="num">${BRL0(t.pago)}</td>` : '') + `</tr></tfoot>`,
   }, porInv, ads, 'm');
+
+  /* O leitor precisa saber que "pago" e "executado" não são a mesma coisa antes
+     de comparar as duas colunas, senão a diferença vira suspeita de erro. */
+  sePuder('notaColunas', el => { el.innerHTML = !colsFluxo ? '' : `<div class="nota">
+    <b>Executado, não executado e pago são três momentos, não três versões do mesmo número</b>
+    <b>Executado</b> é proposta que o paciente aceitou e a clínica realizou.
+    <b>Não executado</b> é proposta feita e ainda não realizada — dinheiro parado na mesa, e é
+    onde costuma haver mais a ganhar do que em campanha nova.
+    <b>Pago</b> é o que entrou em caixa, vindo das contas a receber pela ponte
+    fatura → item → agendamento → paciente. Ele fica abaixo do executado por dois motivos legítimos:
+    parcela que ainda não venceu, e execução faturada depois. Diferença grande e persistente entre
+    os dois é inadimplência, não erro de conta.</div>`; });
 }
 
 function pintaConciliacao(t, camp, ads, extra, cob, diasFora, tudoFora){
@@ -1545,6 +1627,13 @@ function iniciar(dados, imagens){
     agenda: !!(D.agenda && (D.agenda.linhas || []).length),
     fat:    !!(D.neg && (D.neg.fat || []).length),
     faltas: !!(D.faltas && Object.keys(D.faltas).length),
+    /* Não por marca, por DADO: o bloco de CRM da Doctor vem de outro caminho e
+       ainda não carrega não-executado nem pago. Ligar a coluna pela marca faria
+       ela aparecer zerada lá — o mesmo erro que este relatório inteiro existe
+       para não cometer. Quando o pipeline da Doctor passar a mandar, a coluna
+       acende sozinha. */
+    fluxo: Array.isArray(D.crm) && D.crm.some(c => c.ne != null || c.vne != null || c.pg != null),
+    proc:  !!(D.crmproc && Object.keys(D.crmproc).length),
   };
   escondeAbas();
   if(TEM.faltas) pintaFaltas();
