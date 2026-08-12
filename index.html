@@ -83,15 +83,23 @@ h1,h2,h3,h4,.kpi-val,.result-num,.ad-name,.passo .pv,.et .v,.esc-v,.cob-v{font-f
 .kpi-label{font-size:9.5px;color:var(--gray-text);font-weight:700;margin-top:4px;letter-spacing:.3px}
 /* terceira linha do cartão: a ressalva que impede o número de ser lido sozinho */
 .kpi-det{font-size:9.5px;color:var(--gray-text);margin-top:3px;line-height:1.35}
-.detalhe-btn{border:1.5px solid var(--border);background:#fff;color:var(--red);font-family:inherit;
-  font-size:10.5px;font-weight:700;padding:5px 12px;border-radius:999px;cursor:pointer;white-space:nowrap}
-.detalhe-btn:hover{border-color:var(--red)}
-.proc{margin-top:12px}
-.tproc{width:100%;border-collapse:collapse;font-size:11.5px;margin-top:4px}
-.tproc th{text-align:left;padding:6px 8px;border-bottom:1.5px solid var(--border);
-  font-size:9.5px;letter-spacing:.3px;color:var(--gray-text);text-transform:uppercase}
-.tproc td{padding:6px 8px;border-bottom:1px solid var(--border)}
-.tproc tfoot td{font-weight:700;border-top:1.5px solid var(--dark);border-bottom:none}
+.proc-acao{display:flex;justify-content:flex-end;margin-top:10px}
+.detalhe-btn{border:1.5px solid var(--border);background:#fff;color:var(--gray-text);
+  font-family:inherit;font-size:10.5px;font-weight:700;padding:6px 14px;border-radius:999px;
+  cursor:pointer;white-space:nowrap;transition:background .15s,border-color .15s,color .15s}
+.detalhe-btn:hover{border-color:var(--red);color:var(--dark)}
+/* Aberto, ele é o mesmo chip rosa que marca seleção no resto do relatório —
+   antes virava um contorno vermelho que não existia em nenhum outro lugar. */
+.detalhe-btn.aberto{background:var(--red);border-color:var(--red);color:#fff}
+.proc{margin-top:10px}
+/* Mesma tabela do resto do app: cabeçalho no cinza da marca, zebra a cada
+   quatro linhas, rodapé com régua escura. Tinha inventado um estilo próprio. */
+.tproc{width:100%;border-collapse:collapse;font-size:12px;margin-top:4px;background:#fff}
+.tproc thead th{background:var(--gray-bg);color:var(--dark);text-align:left;padding:9px 10px;
+  font-weight:600;font-size:11px;border-bottom:1px solid var(--border)}
+.tproc tbody td{padding:7px 10px;border-bottom:1px solid var(--border)}
+.tproc tbody tr:nth-child(odd){background:var(--gray-bg)}
+.tproc tfoot td{padding:8px 10px;font-weight:700;border-top:2px solid var(--dark)}
 .tproc .num{text-align:right;font-variant-numeric:tabular-nums}
 /* seletor de marca — nasce escondido e só aparece depois que a chave provou
    valer, porque é o endpoint com chave que entrega a lista de marcas irmãs */
@@ -735,14 +743,11 @@ function cartaoAnuncio(a, i){
     [a.conv?BRL(a.inv/a.conv):'—','Custo/conversa'],
     [N(a.rast),'No CRM'], [N(a.pac),'Pacientes'],
     [N(a.exec),'Executadas'], [a.valor?BRL0(a.valor):'—','Receita'],
-    ...(TEM.fluxo ? [[a.vnaoexec?BRL0(a.vnaoexec):'—','Não executado'],
-                     [a.pago?BRL0(a.pago):'—','Pago']] : []),
+    ...(TEM.fluxo ? [[a.vnaoexec?BRL0(a.vnaoexec):'—','Não executado']] : []),
   ].map(([v,l]) => `<div><span class="mv">${v}</span><span class="ml">${l}</span></div>`).join('')
   /* O botão só existe se houver o que abrir: "detalhado" que abre vazio é pior
      do que não ter botão. */
-  + (TEM.proc
-      ? `<div><button class="detalhe-btn" onclick="abreProc('${a.id}',${i},this)">detalhado</button></div>`
-      : '');
+;
   const copia = cr.b ? `<div class="copy" id="cp${i}">${esc(cr.b)}</div>
       <button class="mais" onclick="maisCopy(${i},this)">ver texto completo</button>` : '';
   const tags = [
@@ -758,6 +763,8 @@ function cartaoAnuncio(a, i){
     ${copia}
     <div class="tagrow">${tags}</div>
     <div class="mini">${mini}</div>
+    ${TEM.proc ? `<div class="proc-acao">
+      <button class="detalhe-btn" onclick="abreProc('${a.id}',${i},this)">detalhado</button></div>` : ''}
     <div class="proc" id="pr${i}" style="display:none"></div>
   </div></div>`;
 }
@@ -770,7 +777,9 @@ function cartaoAnuncio(a, i){
 function abreProc(adId, i, btn){
   const el = document.getElementById('pr' + i);
   if(!el) return;
-  if(el.style.display !== 'none'){ el.style.display = 'none'; btn.textContent = 'detalhado'; return; }
+  if(el.style.display !== 'none'){
+    el.style.display = 'none'; btn.textContent = 'detalhado'; btn.classList.remove('aberto'); return;
+  }
   /* Agrega na hora, respeitando o período escolhido — a série vem por dia. */
   const acc = new Map();
   for(const r of (D.crmproc || [])){
@@ -808,6 +817,7 @@ function abreProc(adId, i, btn){
       laboratório, imagem, coração — e a linha de cima para o total.</div>`;
   el.style.display = '';
   btn.textContent = 'fechar detalhe';
+  btn.classList.add('aberto');
 }
 function maisCopy(i, btn){
   const el = document.getElementById('cp'+i);
@@ -833,8 +843,7 @@ function detalhe(c, ads, idx){
       ${passo(c.valor?BRL0(c.valor):'R$ 0','Executado',c.exec?BRL0(c.valor/c.exec)+' por proposta':'nada executado')}
       ${TEM.fluxo ? passo(c.vnaoexec?BRL0(c.vnaoexec):'R$ 0','Não executado',
           c.naoexec?N(c.naoexec)+' propostas paradas':'nada parado') : ''}
-      ${TEM.fluxo ? passo(c.pago?BRL0(c.pago):'R$ 0','Pago',
-          c.valor?PCT0(100*c.pago/c.valor)+' do executado':'—') : ''}
+
     </div>
     <p>Investimento de <b>${BRL(c.inv)}</b> nesta campanha, contra <b>${BRL0(c.valor)}</b> de receita
     executada que foi possível amarrar a ela. <b>Este valor é piso, não total:</b> a ponte de telefone
@@ -1443,26 +1452,23 @@ function pintaMidia(t, camp, ads, cob, tudoFora){
   const colsCrm = TEM.crm;          // executado rastreado
   const colsFluxo = TEM.crm && TEM.fluxo;  // não executado / paradas / pago
   tabelaExpansivel('tCamp', {
-    n: 5 + (colsCrm ? 1 : 0) + (colsFluxo ? 3 : 0),
+    n: 5 + (colsCrm ? 1 : 0) + (colsFluxo ? 2 : 0),
     cab: `<th>Especialidade</th><th class="num">Dias no ar</th><th class="num">Investimento</th>
           <th class="num">Conversas</th><th class="num">Custo/conversa</th>`
       + (colsCrm ? `<th class="num">Executado rastreado</th>` : '')
-      + (colsFluxo ? `<th class="num">Não executado</th><th class="num">Propostas paradas</th>
-          <th class="num">Pago</th>` : ''),
+      + (colsFluxo ? `<th class="num">Não executado</th><th class="num">Propostas paradas</th>` : ''),
     linha: c => `<td title="${esc(c.nome.trim())}">${curto(c.nome)}</td>
       <td class="num">${c.dias.size}</td><td class="num">${BRL(c.inv)}</td>
       <td class="num">${N(c.conv)}</td>
       <td class="num">${c.conv?BRL(c.inv/c.conv):'—'}</td>`
       + (colsCrm ? `<td class="num">${c.valor?BRL0(c.valor):'—'}</td>` : '')
       + (colsFluxo ? `<td class="num">${c.vnaoexec?BRL0(c.vnaoexec):'—'}</td>
-      <td class="num">${c.naoexec?N(c.naoexec):'—'}</td>
-      <td class="num">${c.pago?BRL0(c.pago):'—'}</td>` : ''),
+      <td class="num">${c.naoexec?N(c.naoexec):'—'}</td>` : ''),
     pe: `<tfoot><tr><td colspan="2">Total — ${camp.length} campanhas</td>
       <td class="num">${BRL(t.inv)}</td><td class="num">${N(t.conv)}</td>
       <td class="num">${t.conv?BRL(t.inv/t.conv):'—'}</td>`
       + (colsCrm ? `<td class="num">${BRL0(t.valor)}</td>` : '')
-      + (colsFluxo ? `<td class="num">${BRL0(t.vnaoexec)}</td><td class="num">${N(t.naoexec)}</td>
-      <td class="num">${BRL0(t.pago)}</td>` : '') + `</tr></tfoot>`,
+      + (colsFluxo ? `<td class="num">${BRL0(t.vnaoexec)}</td><td class="num">${N(t.naoexec)}</td>` : '') + `</tr></tfoot>`,
   }, porInv, ads, 'm');
 
   /* O leitor precisa saber que "pago" e "executado" não são a mesma coisa antes
@@ -1472,10 +1478,12 @@ function pintaMidia(t, camp, ads, cob, tudoFora){
     <b>Executado</b> é proposta que o paciente aceitou e a clínica realizou.
     <b>Não executado</b> é proposta feita e ainda não realizada — dinheiro parado na mesa, e é
     onde costuma haver mais a ganhar do que em campanha nova.
-    <b>Pago</b> é o que entrou em caixa, vindo das contas a receber pela ponte
-    fatura → item → agendamento → paciente. Ele fica abaixo do executado por dois motivos legítimos:
-    parcela que ainda não venceu, e execução faturada depois. Diferença grande e persistente entre
-    os dois é inadimplência, não erro de conta.</div>`; });
+    <b>Pago não aparece aqui, e isso é deliberado.</b> A única ponte possível hoje entre fatura e
+    paciente é o <code>agendamento_id</code> do item da fatura — e a Feegow preenche esse campo em
+    apenas 17% dos itens (11.790 de 67.800). Uma coluna montada sobre isso mostraria algo perto de
+    10% do executado e seria lida como inadimplência gigante, quando na verdade é a junção que não
+    enxerga. Enquanto a Feegow não expuser o paciente na fatura, receita paga por anúncio não é
+    mensurável — e número errado é pior do que número ausente.</div>`; });
 }
 
 function pintaConciliacao(t, camp, ads, extra, cob, diasFora, tudoFora){
