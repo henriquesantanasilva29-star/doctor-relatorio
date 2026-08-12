@@ -678,11 +678,21 @@ function pintaAgenda(){
 }
 
 /* ============ faltas ============ */
-const ROTULO_FALTA = {financeiro:'Financeiro', rastreio:'Rastreio de anúncio até paciente', nps:'NPS'};
+/* A ordem vem daqui, não do JSON: jsonb devolve as chaves por tamanho de nome,
+   o que colocava "financeiro" por último sem nenhum motivo de leitura. */
+const ROTULO_FALTA = {
+  financeiro: 'Financeiro',
+  propostas:  'Histórico de propostas',
+  rastreio:   'Rastreio de anúncio até paciente',
+  nps:        'NPS'
+};
 function pintaFaltas(){
+  const F = D.faltas || {};
+  const ordem = [...Object.keys(ROTULO_FALTA).filter(k => F[k]),
+                 ...Object.keys(F).filter(k => !(k in ROTULO_FALTA))];
   document.getElementById('listaFaltas').innerHTML =
-    Object.entries(D.faltas || {}).map(([k,v]) =>
-      `<div class="nota"><b>${ROTULO_FALTA[k] || k}</b>${esc(v)}</div>`).join('');
+    ordem.map(k =>
+      `<div class="nota"><b>${ROTULO_FALTA[k] || k}</b>${esc(F[k])}</div>`).join('');
 
   const A = D.alcance || {};
   const rot = {midia:'Mídia paga (Meta Ads)', prop:'Propostas (Feegow)', agenda:'Agenda (Feegow)'};
