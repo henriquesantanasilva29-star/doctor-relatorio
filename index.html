@@ -280,12 +280,13 @@ tfoot td{padding:8px 10px;font-weight:700;border-top:2px solid var(--dark)}
 </div>
 
 <div class="tabs">
-  <button class="tab-btn active" onclick="aba('midia',this)">Mídia paga</button>
-  <button class="tab-btn" onclick="aba('conc',this)">Meta × CRM</button>
-  <button class="tab-btn" onclick="aba('comercial',this)">Comercial e financeiro</button>
-  <button class="tab-btn" onclick="aba('agenda',this)">Agenda</button>
-  <button class="tab-btn" onclick="aba('nps',this)">NPS</button>
-  <button class="tab-btn" onclick="aba('conf',this)">Conferência</button>
+  <button class="tab-btn active" data-aba="midia" onclick="aba('midia',this)">Mídia paga</button>
+  <button class="tab-btn" data-aba="conc" onclick="aba('conc',this)">Meta × CRM</button>
+  <button class="tab-btn" data-aba="comercial" onclick="aba('comercial',this)">Comercial e financeiro</button>
+  <button class="tab-btn" data-aba="agenda" onclick="aba('agenda',this)">Agenda</button>
+  <button class="tab-btn" data-aba="nps" onclick="aba('nps',this)">NPS</button>
+  <button class="tab-btn" data-aba="conf" onclick="aba('conf',this)">Conferência</button>
+  <button class="tab-btn" data-aba="faltas" onclick="aba('faltas',this)">O que não existe</button>
 </div>
 
 <!-- ============ MÍDIA ============ -->
@@ -391,6 +392,22 @@ tfoot td{padding:8px 10px;font-weight:700;border-top:2px solid var(--dark)}
     proposta veio de anúncio. São o teto do que a mídia custou por resultado, não o custo atribuível.
     O bloco anterior traz o lado oposto: só o que foi possível rastrear. O verdadeiro está entre os dois.
   </div>
+</div>
+
+<!-- ============ O QUE NÃO EXISTE ============ -->
+<div class="panel" id="panel-faltas">
+  <div class="section-title" style="margin-top:0">O que este relatório não mostra, e por quê</div>
+  <p style="font-size:12.5px;color:var(--gray-text);margin:0 0 14px">
+    Devolver zero para um dado que não foi coletado é a forma mais rápida de alguém ler queda onde
+    houve ausência. Então em vez de zero, esta aba diz o que falta e o motivo. Cada frase aqui lê o
+    banco na hora em que o relatório é gerado — se a lacuna for resolvida, o texto muda sozinho.</p>
+  <div id="listaFaltas"></div>
+
+  <div class="section-title">Até onde cada fonte enxerga</div>
+  <p style="font-size:11.5px;color:var(--gray-text);margin:0 0 6px">
+    Período anterior ao início de uma fonte devolve zero por falta de coleta, não por falta de
+    movimento. Confira aqui antes de comparar dois períodos.</p>
+  <table id="tAlcance"></table>
 </div>
 
 <!-- ============ AGENDA ============ -->
@@ -515,6 +532,11 @@ tfoot td{padding:8px 10px;font-weight:700;border-top:2px solid var(--dark)}
 const PRE = null;
 let D, MIDIA, CRM, CRI, NEG, VANG, ESPELHO, DIAS, MIN, MAX;
 
+/* O que ESTA marca tem. As duas páginas são o mesmo arquivo; o que muda é o
+   dado que chega. Aba sem dado se esconde em vez de mostrar zero — zero se lê
+   como queda, e "não medimos isso aqui" é outra coisa. */
+let TEM = {crm:false, vang:false, nps:false, agenda:false, fat:false};
+
 const BRL  = v => 'R$ ' + v.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
 const BRL0 = v => 'R$ ' + Math.round(v).toLocaleString('pt-BR');
 const N    = v => v.toLocaleString('pt-BR');
@@ -553,6 +575,27 @@ function aba(id, btn){
   document.getElementById('panel-' + id).classList.add('active');
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
+}
+/* Escreve num elemento só se ele ainda existir. Com abas removidas por marca,
+   um getElementById direto vira exceção e derruba o render inteiro. */
+function sePuder(id, faz){ const el = document.getElementById(id); if(el) faz(el); }
+
+/* Tira do ar as abas que esta marca não alimenta, e a primeira que sobrar vira
+   a ativa. Deixar a aba clicável e vazia é pior do que não ter: quem clica
+   conclui que o número é zero. */
+function escondeAbas(){
+  const exige = {conc:'crm', conf:'vang', nps:'nps', agenda:'agenda', faltas:'faltas'};
+  for(const [aba, chave] of Object.entries(exige)){
+    if(TEM[chave]) continue;
+    const btn = document.querySelector(`.tab-btn[data-aba="${aba}"]`);
+    const painel = document.getElementById('panel-' + aba);
+    if(btn) btn.remove();
+    if(painel) painel.remove();
+  }
+  const vivas = document.querySelectorAll('.tab-btn');
+  if(!vivas.length) return;
+  const ativa = document.querySelector('.tab-btn.active');
+  if(!ativa || !document.body.contains(ativa)) aba(vivas[0].dataset.aba, vivas[0]);
 }
 function abreEditor(){ document.getElementById('editor').classList.toggle('aberto'); }
 function aplicar(){
@@ -691,9 +734,13 @@ function render(){
   const {camp, ads, t, extra} = agrega();
   document.getElementById('rotuloData').textContent = fmtBR(de) + ' — ' + fmtBR(ate);
   document.getElementById('de').value = de; document.getElementById('ate').value = ate;
-  document.getElementById('contaConf').textContent = D.conta;
+  /* `sePuder`, e não getElementById direto: abas que esta marca não alimenta
+     são removidas do DOM em escondeAbas(), e escrever num elemento que não
+     existe mais derruba o render inteiro — a página fica em branco por causa de
+     um <code> de rodapé. */
+  sePuder('contaConf', el => { el.textContent = D.conta; });
   document.getElementById('rodape').textContent =
-    'Doctor Mais Saúde · ' + fmtBR(de) + ' a ' + fmtBR(ate) + ' · ' + t.dias.size + ' dias com veiculação';
+    (D.marca || 'Doctor Mais Saúde') + ' · ' + fmtBR(de) + ' a ' + fmtBR(ate) + ' · ' + t.dias.size + ' dias com veiculação';
 
   /* Antes do retorno adiantado abaixo: a agenda não depende de ter havido
      veiculação de mídia no período, e não faz sentido apagá-la junto. */
@@ -701,7 +748,7 @@ function render(){
 
   if(!camp.length){
     for(const id of ['kpisMidia','tCamp','tConc','esteira','tUnid','rastreado','eficiencia','escada'])
-      document.getElementById(id).innerHTML = '';
+      sePuder(id, el => { el.innerHTML = ''; });
     document.getElementById('saudeMidia').innerHTML =
       '<div class="vazio">Nenhuma veiculação neste período.</div>';
     document.getElementById('resNum').textContent = '0';
@@ -712,14 +759,44 @@ function render(){
   }
 
   const cob = t.conv ? 100*t.rast/t.conv : 0;
-  const diasFora = DIAS.filter(d => d >= de && d <= ate && d < ESPELHO).length;
-  const tudoFora = diasFora === t.dias.size;
+  const diasFora = ESPELHO ? DIAS.filter(d => d >= de && d <= ate && d < ESPELHO).length : 0;
+  const tudoFora = TEM.crm && diasFora === t.dias.size;
   pintaSaude(t, cob, tudoFora);
   pintaMidia(t, camp, ads, cob, tudoFora);
-  pintaConciliacao(t, camp, ads, extra, cob, diasFora, tudoFora);
+  if(TEM.crm)  pintaConciliacao(t, camp, ads, extra, cob, diasFora, tudoFora);
   pintaComercial(t, cob);
-  pintaNps();
-  pintaConferencia();
+  if(TEM.nps)  pintaNps();
+  if(TEM.vang) pintaConferencia();
+}
+
+/* ============ O QUE NÃO EXISTE ============ */
+/* A ordem vem daqui, não do JSON: jsonb devolve as chaves por tamanho de nome,
+   o que jogava "financeiro" para o fim sem nenhum motivo de leitura. */
+const ROTULO_FALTA = {
+  financeiro: 'Financeiro',
+  propostas:  'Histórico de propostas',
+  rastreio:   'Rastreio de anúncio até paciente',
+  nps:        'NPS',
+};
+const ROTULO_FONTE = {midia:'Mídia paga (Meta Ads)', prop:'Propostas (Feegow)',
+                      fat:'Faturamento (Feegow)', agenda:'Agenda (Feegow)',
+                      crm:'Contatos do CRM', nps:'Pesquisa de NPS'};
+function pintaFaltas(){
+  const F = D.faltas || {};
+  const ordem = [...Object.keys(ROTULO_FALTA).filter(k => F[k]),
+                 ...Object.keys(F).filter(k => !(k in ROTULO_FALTA))];
+  sePuder('listaFaltas', el => {
+    el.innerHTML = ordem.map(k =>
+      `<div class="nota"><b>${ROTULO_FALTA[k] || k}</b>${esc(F[k])}</div>`).join('');
+  });
+  sePuder('tAlcance', el => {
+    const A = D.alcance || {};
+    const linhas = Object.entries(A).filter(([,v]) => v && v.de);
+    el.innerHTML = !linhas.length ? '' : `
+      <thead><tr><th>Fonte</th><th>Primeiro dia</th><th>Último dia</th></tr></thead>
+      <tbody>${linhas.map(([k,v]) => `<tr><td><b>${ROTULO_FONTE[k] || k}</b></td>
+        <td>${fmtBR(v.de)}</td><td>${fmtBR(v.ate)}</td></tr>`).join('')}</tbody>`;
+  });
 }
 
 /* ============ AGENDA ============ */
@@ -794,9 +871,9 @@ function pintaAgenda(){
       desfecho. Não dá para saber se essas pessoas vieram ou faltaram, então elas ficam fora da conta
       de comparecimento nos dois lados.<br><br>
       Isso empurra o comparecimento para cima artificialmente: quem falta e não é marcado como falta
-      simplesmente some. Para comparação, nas unidades da Acesso Saúde a fatia em aberto fica entre
-      0,1% e 1,4% — lá a agenda é fechada. Aqui não é. Enquanto continuar assim, o número acima diz
-      mais sobre a rotina de lançamento do que sobre o paciente.`;
+      simplesmente some. Para efeito de comparação, uma operação que fecha a agenda direito mantém essa fatia
+      abaixo de 2%. Enquanto ela estiver alta, o número acima diz mais sobre a rotina de lançamento
+      do que sobre o paciente.`;
   } else { av.style.display = 'none'; av.innerHTML = ''; }
 
   const us = [...porU.entries()].map(([k,o]) => ({k, o})).sort((a,b) => b.o.n - a.o.n);
@@ -882,6 +959,33 @@ function inicioNps(){
 
 function pintaNps(){
   const NP = D.nps;   /* NP, não N: N é o formatador de número, global */
+
+  /* O canal muda o que dá para perguntar. A Doctor manda um formulário
+     (WhatsApp Flow) e recebe nota, subnotas, tempo de espera e texto livre. A
+     Acesso manda um modelo da LifeCRM — a WABA dela vive num portfólio Meta
+     fora do nosso alcance — e recebe só a nota. Blocos que o canal não coleta
+     saem da tela: "Sem dado no período" seria mentira, porque não houve
+     período nenhum em que a pergunta tenha sido feita. */
+  const some = (id, tem) => {
+    const el = document.getElementById(id);
+    const cartao = el && el.closest('.chart-card');
+    if(cartao) cartao.style.display = tem ? '' : 'none';
+  };
+  const temSub    = (NP.resp || []).some(r => r.nq > 0);
+  const temEspera = (NP.espera || []).length > 0;
+  const temMotivo = (NP.motivos || []).length > 0;
+  const temVoz    = (NP.vozes || []).length > 0;
+  some('blSub', temSub); some('blEspera', temEspera); some('blMotivos', temMotivo);
+  const secVoz = document.getElementById('npsVozes');
+  if(secVoz && !temVoz){
+    secVoz.innerHTML = `<div class="nota"><b>Esta pesquisa não colhe comentário</b>
+      A ${esc(D.marca || 'marca')} pergunta por modelo de mensagem da LifeCRM, e o paciente responde a
+      nota. O campo de texto livre — que é de onde saem as falas — só existe no formulário, e o
+      formulário depende de uma WABA que não está no nosso alcance. Enquanto for assim, aqui há
+      nota e não há voz.</div>`;
+    const intro = document.getElementById('vozesIntro');
+    if(intro) intro.style.display = 'none';
+  }
   const naJanela = r => r.d >= de && r.d <= ate;
   const resp  = (NP?.resp  || []).filter(naJanela);
   const envio = (NP?.envio || []).filter(naJanela);
@@ -946,14 +1050,19 @@ function pintaNps(){
         <div class="barra"><i style="width:${((NPS+100)/2).toFixed(1)}%;background:${NPS>=75?'var(--green)':NPS>=50?'var(--orange)':'var(--red)'}"></i></div></div>
     </div>`;
 
+  /* As três subnotas só entram se o canal desta marca as coletar. Três traços
+     numa linha de cartões parecem falha de cálculo; o que há é uma pergunta que
+     nunca foi feita, e isso está dito na aba "O que não existe". */
   document.getElementById('npsKpis').innerHTML = [
     [N(R), 'Respostas'],
     [N(alvo.env), 'Pesquisas enviadas'],
     [alvo.env ? PCT1(100*R/alvo.env) : '—', 'Taxa de resposta'],
     [(alvo.sc/R).toFixed(2).replace('.',','), 'Nota média (0 a 10)'],
-    [alvo.nq ? (alvo.q/alvo.nq).toFixed(2).replace('.',',') : '—', 'Qualidade (1 a 5)'],
-    [alvo.nq ? (alvo.e/alvo.nq).toFixed(2).replace('.',',') : '—', 'Equipe (1 a 5)'],
-    [alvo.nq ? (alvo.c/alvo.nq).toFixed(2).replace('.',',') : '—', 'Comunicação (1 a 5)'],
+    ...(temSub ? [
+      [(alvo.q/alvo.nq).toFixed(2).replace('.',','), 'Qualidade (1 a 5)'],
+      [(alvo.e/alvo.nq).toFixed(2).replace('.',','), 'Equipe (1 a 5)'],
+      [(alvo.c/alvo.nq).toFixed(2).replace('.',','), 'Comunicação (1 a 5)'],
+    ] : []),
     [med === null ? '—' : med.toFixed(1).replace('.',',') + ' min', 'Mediana até responder'],
   ].map(([v,l]) => `<div class="kpi-card"><div class="kpi-val">${v}</div><div class="kpi-label">${l}</div></div>`).join('');
 
@@ -1101,6 +1210,18 @@ function pintaNps(){
 function trocaUniNps(k){ uniNps = k; pintaNps(); }
 
 function pintaSaude(t, cob, tudoFora){
+  /* Sem a ponte anúncio→contato, cobertura não é zero: é inexistente. Desenhar
+     "0%" numa barra vermelha diria que o rastreio quebrou, quando ele nunca foi
+     montado nesta marca. São coisas diferentes e a barra não sabe distinguir. */
+  if(!TEM.crm){
+    document.getElementById('saudeMidia').innerHTML =
+      `<div class="saude nula"><div><div class="cob-v">não existe</div>
+        <div class="cob-l">RASTREIO ATÉ O PACIENTE</div></div>
+        <div class="txt">${esc((D.faltas && D.faltas.rastreio) ||
+          'Esta marca não tem a ponte que liga clique de anúncio a contato do CRM. ' +
+          'Mídia e comercial aparecem lado a lado, mas não se tocam.')}</div></div>`;
+    return;
+  }
   const cls = tudoFora ? 'nula' : classeCob(cob);
   const html = tudoFora
     ? `<div><div class="cob-v">sem espelho</div><div class="cob-l">COBERTURA DE RASTREIO</div></div>
@@ -1127,7 +1248,10 @@ function pintaMidia(t, camp, ads, cob, tudoFora){
      as campanhas são de mensagem. O que existe é o custo em cada etapa real, e
      mostrar as três lado a lado é o que impede alguém de comparar o R$ 2,97 da
      conversa com o CPL de uma conta que roda formulário. */
-  const etapas = [
+  /* Sem rastreio, as duas últimas etapas não são zero — são não medidas. Um
+     "0" ali seria lido como "a mídia não trouxe ninguém", que é o oposto do que
+     o dado diz: ele não diz nada. */
+  const etapas = TEM.crm ? [
     [N(t.conv), 'Conversas iniciadas', t.conv ? BRL(t.inv/t.conv)+' por conversa' : '—',
      'a Meta contou'],
     [tudoFora ? '—' : N(t.rast), 'Leads no CRM',
@@ -1136,6 +1260,11 @@ function pintaMidia(t, camp, ads, cob, tudoFora){
     [tudoFora ? '—' : N(t.pac), 'Viraram paciente',
      (!tudoFora && t.pac) ? BRL(t.inv/t.pac)+' por paciente' : 'sem espelho no período',
      (!tudoFora && t.rast) ? PCT0(100*t.pac/t.rast)+' dos leads' : ''],
+  ] : [
+    [N(t.conv), 'Conversas iniciadas', t.conv ? BRL(t.inv/t.conv)+' por conversa' : '—',
+     'a Meta contou'],
+    ['não medido', 'Leads no CRM', 'falta a ponte anúncio → contato', ''],
+    ['não medido', 'Viraram paciente', 'falta a ponte anúncio → contato', ''],
   ];
   document.getElementById('custoEtapa').innerHTML = etapas.map(([v,l,d,extra]) =>
     `<div class="et"><div class="v">${v}</div><div class="l">${l}</div>
@@ -1144,8 +1273,8 @@ function pintaMidia(t, camp, ads, cob, tudoFora){
   const vezes = (t.pac && t.conv) ? ((t.inv/t.pac)/(t.inv/t.conv)).toFixed(1).replace('.',',') : null;
   document.getElementById('notaCpl').innerHTML =
     `CPL é custo por <b>lead de formulário</b>, e a Meta só calcula isso em campanha de
-     formulário. As campanhas da Doctor são de mensagem no WhatsApp — em todo o período
-     coletado houve <b>1</b> lead de formulário, e nenhum criativo tem formulário anexado.
+     formulário. As campanhas da ${esc(D.marca || 'marca')} são de mensagem no WhatsApp, não de
+     formulário — e nenhum criativo tem formulário anexado.
      O que existe, acima, é o custo em cada etapa real do funil.
      ${vezes ? `Chamar conversa de lead faz o custo parecer <b>${vezes}×</b> melhor do que é:
      ${BRL(t.inv/t.conv)} por conversa contra ${BRL(t.inv/t.pac)} por paciente que de fato chegou.` : ''}
@@ -1202,7 +1331,7 @@ function pintaConciliacao(t, camp, ads, extra, cob, diasFora, tudoFora){
   const lacuna = t.conv - t.rast;
   document.getElementById('escada').innerHTML = [
     ['meta', N(t.conv), 'A META CONTOU',
-     `<b>Conversas iniciadas no WhatsApp</b> nas ${camp.length} campanhas da conta da Doctor, atribuídas ao dia do anúncio.`],
+     `<b>Conversas iniciadas no WhatsApp</b> nas ${camp.length} campanhas da ${esc(D.marca || 'marca')}, atribuídas ao dia do anúncio.`],
     ['crm', N(t.rast), 'O CRM REGISTROU',
      `<b>Contatos novos trazendo o ID do anúncio</b> — ${PCT0(cob)} do que a Meta contou. É a partir daqui que existe funil.`],
     ['gap', N(lacuna), 'DIFERENÇA',
@@ -1278,7 +1407,7 @@ function pintaComercial(t, cob){
   const cards = s(card,'n');
 
   document.getElementById('esteira').innerHTML = [
-    [BRL(t.inv),'Investido em mídia','Meta Ads · conta da Doctor'],
+    [BRL(t.inv),'Investido em mídia','Meta Ads · ' + (D.marca || '')],
     [N(t.conv),'Conversas iniciadas',t.conv?BRL(t.inv/t.conv)+' cada':'—'],
     [cards?N(cards):'—','Cards no CRM',cards?'de todas as origens':'espelho não cobre o período'],
     [N(P.n),'Propostas',BRL0(P.val)+' propostos'],
@@ -1374,7 +1503,18 @@ function pintaConferencia(){
 /* ---------- partida ---------- */
 function iniciar(dados, imagens){
   D = dados;
-  MIDIA = D.midia; CRM = D.crm; NEG = D.neg; VANG = D.vang; ESPELHO = D.espelho;
+  MIDIA = D.midia; CRM = D.crm || []; NEG = D.neg; VANG = D.vang; ESPELHO = D.espelho;
+
+  TEM = {
+    crm:    Array.isArray(D.crm) && D.crm.length > 0,
+    vang:   !!D.vang,
+    nps:    !!(D.nps && ((D.nps.envio || []).length || (D.nps.resp || []).length)),
+    agenda: !!(D.agenda && (D.agenda.linhas || []).length),
+    fat:    !!(D.neg && (D.neg.fat || []).length),
+    faltas: !!(D.faltas && Object.keys(D.faltas).length),
+  };
+  escondeAbas();
+  if(TEM.faltas) pintaFaltas();
   /* o texto do anúncio vem no dado diário; a imagem vem do arquivo separado,
      que só é reescrito quando entra criativo novo */
   CRI = {};
