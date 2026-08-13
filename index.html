@@ -83,6 +83,12 @@ h1,h2,h3,h4,.kpi-val,.result-num,.ad-name,.passo .pv,.et .v,.esc-v,.cob-v{font-f
 .kpi-label{font-size:9.5px;color:var(--gray-text);font-weight:700;margin-top:4px;letter-spacing:.3px}
 /* terceira linha do cartão: a ressalva que impede o número de ser lido sozinho */
 .kpi-det{font-size:9.5px;color:var(--gray-text);margin-top:3px;line-height:1.35}
+tr.faixa th{background:#fff;border-bottom:none;padding:0 10px 6px}
+.fx{font-size:9.5px;letter-spacing:.4px;text-transform:uppercase;font-weight:700;text-align:right}
+.fx-prop{color:var(--purple);border-bottom:2px solid var(--purple)}
+.fx-fat{color:var(--green);border-bottom:2px solid var(--green)}
+.corte-etapa{font-size:10.5px;color:var(--gray-text);font-weight:700;margin:10px 0 4px;
+  padding-top:9px;border-top:1px dashed var(--border)}
 .proc-acao{display:flex;justify-content:flex-end;margin-top:10px}
 .detalhe-btn{border:1.5px solid var(--border);background:#fff;color:var(--gray-text);
   font-family:inherit;font-size:10.5px;font-weight:700;padding:6px 14px;border-radius:999px;
@@ -839,7 +845,10 @@ function detalhe(c, ads, idx){
       ${passo(N(c.exec),'Executadas',c.prop?PCT0(100*c.exec/c.prop)+' das propostas':'—')}
       ${passo(c.valor?BRL0(c.valor):'R$ 0','Executado',c.exec?BRL0(c.valor/c.exec)+' por proposta':'nada executado')}
       ${TEM.fluxo ? passo(c.vnaoexec?BRL0(c.vnaoexec):'R$ 0','Não executado',
-          c.naoexec?N(c.naoexec)+' propostas paradas':'nada parado') : ''}
+          c.naoexec?N(c.naoexec)+' propostas paradas — serviço ainda não prestado':'nada parado') : ''}
+    </div>
+    <div class="corte-etapa">↓ o que foi executado vira fatura, e só então existe a receber</div>
+    <div class="passos">
       ${TEM.fluxo ? passo(c.fatv?BRL0(c.fatv):'R$ 0','Faturado',
           c.nfat?N(c.nfat)+' faturas':'nenhuma fatura') : ''}
       ${TEM.fluxo ? passo(c.pago?BRL0(c.pago):'R$ 0','Recebido',
@@ -858,7 +867,7 @@ function detalhe(c, ads, idx){
 }
 
 function tabelaExpansivel(alvo, cols, linhas, ads, pre){
-  document.getElementById(alvo).innerHTML = `<thead><tr>${cols.cab}</tr></thead>
+  document.getElementById(alvo).innerHTML = `<thead>${cols.faixa || ''}<tr>${cols.cab}</tr></thead>
     <tbody>${linhas.map((c,i) => {
       const id = pre + i, aberto = abertas.has(c.nome);
       return `<tr class="camp-row ${aberto?'aberta':''}" onclick="abre('${pre}',${i},'${esc(c.nome)}')" id="r${id}">
@@ -1455,12 +1464,21 @@ function pintaMidia(t, camp, ads, cob, tudoFora){
   const colsCrm = TEM.crm;          // executado rastreado
   const colsFluxo = TEM.crm && TEM.fluxo;  // não executado / paradas / pago
   tabelaExpansivel('tCamp', {
-    n: 5 + (colsCrm ? 1 : 0) + (colsFluxo ? 4 : 0),
+    n: 5 + (colsCrm ? 1 : 0) + (colsFluxo ? 5 : 0),
+    /* Duas faixas no cabeçalho. Sem elas, "Não executado" e "Em aberto" ficam
+       lado a lado numa fileira plana e todo mundo pergunta por que não batem —
+       são estágios diferentes: um é serviço não prestado, o outro é serviço
+       prestado e não pago. Uma proposta não executada não gera conta a receber. */
+    faixa: !colsCrm ? '' : `<tr class="faixa">
+        <th colspan="5"></th>
+        <th colspan="${colsFluxo ? 3 : 1}" class="fx fx-prop">Proposta — o que a clínica vendeu</th>
+        ${colsFluxo ? `<th colspan="3" class="fx fx-fat">Fatura — o que virou dinheiro</th>` : ''}
+      </tr>`,
     cab: `<th>Especialidade</th><th class="num">Dias no ar</th><th class="num">Investimento</th>
           <th class="num">Conversas</th><th class="num">Custo/conversa</th>`
-      + (colsCrm ? `<th class="num">Executado rastreado</th>` : '')
+      + (colsCrm ? `<th class="num">Executado</th>` : '')
       + (colsFluxo ? `<th class="num">Não executado</th><th class="num">Propostas paradas</th>
-          <th class="num">Recebido</th><th class="num">Em aberto</th>` : ''),
+          <th class="num">Conciliado</th><th class="num">Recebido</th><th class="num">Em aberto</th>` : ''),
     linha: c => `<td title="${esc(c.nome.trim())}">${curto(c.nome)}</td>
       <td class="num">${c.dias.size}</td><td class="num">${BRL(c.inv)}</td>
       <td class="num">${N(c.conv)}</td>
@@ -1468,6 +1486,8 @@ function pintaMidia(t, camp, ads, cob, tudoFora){
       + (colsCrm ? `<td class="num">${c.valor?BRL0(c.valor):'—'}</td>` : '')
       + (colsFluxo ? `<td class="num">${c.vnaoexec?BRL0(c.vnaoexec):'—'}</td>
       <td class="num">${c.naoexec?N(c.naoexec):'—'}</td>
+      <td class="num" title="Pacientes cujo financeiro conseguimos amarrar">${
+        c.pac ? PCT0(100*c.pconc/c.pac) : '—'}</td>
       <td class="num">${c.pago?BRL0(c.pago):'—'}</td>
       <td class="num">${c.aberto?BRL0(c.aberto):'—'}</td>` : ''),
     pe: `<tfoot><tr><td colspan="2">Total — ${camp.length} campanhas</td>
@@ -1475,13 +1495,28 @@ function pintaMidia(t, camp, ads, cob, tudoFora){
       <td class="num">${t.conv?BRL(t.inv/t.conv):'—'}</td>`
       + (colsCrm ? `<td class="num">${BRL0(t.valor)}</td>` : '')
       + (colsFluxo ? `<td class="num">${BRL0(t.vnaoexec)}</td><td class="num">${N(t.naoexec)}</td>
+      <td class="num">${t.pac?PCT0(100*t.pconc/t.pac):'—'}</td>
       <td class="num">${BRL0(t.pago)}</td><td class="num">${BRL0(t.aberto)}</td>` : '') + `</tr></tfoot>`,
   }, porInv, ads, 'm');
 
   /* O leitor precisa saber que "pago" e "executado" não são a mesma coisa antes
      de comparar as duas colunas, senão a diferença vira suspeita de erro. */
   sePuder('notaColunas', el => { el.innerHTML = !colsFluxo ? '' : `<div class="nota">
-    <b>Executado, não executado e pago são três momentos, não três versões do mesmo número</b>
+    <b>Por que "Não executado" e "Em aberto" nunca vão bater</b>
+    São estágios diferentes do mesmo dinheiro, não duas medidas da mesma coisa.
+    <b>Não executado</b> é proposta aceita e serviço <b>ainda não prestado</b> — não existe fatura,
+    logo não existe nada a receber. <b>Em aberto</b> é serviço <b>já prestado e faturado</b> e ainda
+    não pago. Uma proposta só entra na conta a receber depois de ser executada e faturada:
+    proposta → (parada na mesa) ou (executada → faturada → recebida ou em aberto).
+    Somar os dois, ou esperar que sejam iguais, mistura trabalho não feito com dinheiro não recebido.
+    <br><br><b>E "Executado" também não bate com "Recebido", por dois motivos que se somam</b>
+    O primeiro é <b>alcance</b>, e é o que a coluna <b>Conciliado</b> mede: o executado sai das
+    propostas, que temos de todos os pacientes atribuídos; o faturado sai das contas a receber, que
+    só alcançamos em parte dos pacientes, porque a Feegow não expõe o paciente na fatura. Onde
+    Conciliado está em 20%, esperar que Recebido se pareça com Executado é esperar o impossível.
+    O segundo é <b>tempo</b>: o que foi executado esta semana costuma ser faturado depois, e pago
+    depois disso. Executado é serviço prestado; recebido é caixa. Eles convergem, mas nunca no
+    mesmo dia.
     <b>Executado</b> é proposta que o paciente aceitou e a clínica realizou.
     <b>Não executado</b> é proposta feita e ainda não realizada — dinheiro parado na mesa, e é
     onde costuma haver mais a ganhar do que em campanha nova.
