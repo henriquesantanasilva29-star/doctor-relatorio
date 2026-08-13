@@ -793,37 +793,39 @@ function abreProc(adId, i, btn){
   const acc = new Map();
   for(const r of (D.crmproc || [])){
     if(r.a !== adId || r.d < de || r.d > ate) continue;
-    if(!acc.has(r.c)) acc.set(r.c, {n:r.c, qe:0, ve:0, qn:0, vn:0});
+    if(!acc.has(r.c)) acc.set(r.c, {n:r.c, qe:0, ve:0, vp:0, qn:0, vn:0});
     const o = acc.get(r.c);
-    o.qe += r.qe||0; o.ve += r.ve||0; o.qn += r.qn||0; o.vn += r.vn||0;
+    o.qe += r.qe||0; o.ve += r.ve||0; o.vp += r.vp||0; o.qn += r.qn||0; o.vn += r.vn||0;
   }
   const itens = [...acc.values()].sort((a,b) => b.ve - a.ve || b.qe - a.qe);
   const soma = (k) => itens.reduce((a, x) => a + (x[k] || 0), 0);
   el.innerHTML = !itens.length
     ? '<div class="bl-nota">Nenhum procedimento amarrado a este anúncio.</div>'
     : `<table class="tproc">
-        <thead><tr><th>Procedimento</th><th class="num">Executados</th><th class="num">Valor executado</th>
+        <thead><tr><th>Procedimento</th><th class="num">Itens</th><th class="num">Faturado</th>
+          <th class="num">Recebido</th>
           <th class="num">Não executados</th><th class="num">Valor parado</th></tr></thead>
         <tbody>${itens.map(x => `<tr>
           <td title="${esc(x.n)}">${esc(x.n.length > 62 ? x.n.slice(0,60) + '…' : x.n)}</td>
           <td class="num">${x.qe ? N(x.qe) : '—'}</td>
           <td class="num">${x.ve ? BRL0(x.ve) : '—'}</td>
+          <td class="num">${x.vp ? BRL0(x.vp) : '—'}</td>
           <td class="num">${x.qn ? N(x.qn) : '—'}</td>
           <td class="num">${x.vn ? BRL0(x.vn) : '—'}</td></tr>`).join('')}</tbody>
         <tfoot><tr><td>Total do período</td>
           <td class="num">${N(soma('qe'))}</td><td class="num">${BRL0(soma('ve'))}</td>
+          <td class="num">${BRL0(soma('vp'))}</td>
           <td class="num">${N(soma('qn'))}</td><td class="num">${BRL0(soma('vn'))}</td></tr></tfoot>
       </table>
-      <div class="bl-nota">Consulta e exame saem da mesma lista de procedimentos da proposta, já
-      com desconto e acréscimo aplicados. A categoria é deduzida do nome cadastrado no Feegow, que
-      não traz categoria — o que não casa com nenhuma regra fica em "Outros procedimentos" em vez
-      de ser empurrado para uma delas. Este bloco respeita o período escolhido lá em cima.
-      <b>Este total não fecha com "Executado rastreado" da linha de cima, e não deveria:</b>
-      aquela coluna vem do bloco de funil, que junta as duas rotas de rastreio (o clique registrado
-      na Evolution e o utm do contato); este painel vem só da rota do utm, que é a única que existe
-      nas duas clínicas. Some ainda a proposta lançada sem itemização, que entra no valor e não
-      entra em categoria nenhuma. Use o painel para saber a <b>composição</b> — quanto foi exame de
-      laboratório, imagem, coração — e a linha de cima para o total.</div>`;
+      <div class="bl-nota"><b>Faturado, Recebido e Valor parado fecham com os números do card acima,
+      ao centavo.</b> São o mesmo dinheiro, aberto por categoria. Faturado e Recebido saem dos itens
+      da fatura; Valor parado sai dos itens da proposta que não foi executada. Cada item é rateado
+      contra o total do seu documento, então descontos e acréscimos lançados no cabeçalho ficam
+      distribuídos entre as categorias em vez de sumir. Proposta lançada sem itemização vai inteira
+      para "Outros procedimentos".
+      <br><br>A categoria é deduzida do nome do procedimento cadastrado no Feegow, que não traz
+      categoria própria — o que não casa com nenhuma regra fica em "Outros procedimentos" em vez de
+      ser empurrado para uma delas. Este bloco respeita o período escolhido lá em cima.</div>`;
   el.style.display = '';
   btn.textContent = 'fechar detalhe';
   btn.classList.add('aberto');
