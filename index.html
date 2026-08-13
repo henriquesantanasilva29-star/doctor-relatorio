@@ -752,7 +752,7 @@ function cartaoAnuncio(a, i){
     [N(a.rast),'No CRM'], [N(a.pac),'Pacientes'],
     [N(a.exec),'Executadas'], [a.valor?BRL0(a.valor):'—','Executado'],
     ...(TEM.fluxo ? [[a.vnaoexec?BRL0(a.vnaoexec):'—','Não executado'],
-                     [a.conc?BRL0(a.conc):'—','Fatura conciliada'],
+                     [a.conc?BRL0(a.conc):'—','Fatura alcançada'],
                      [a.pago?BRL0(a.pago):'—','Recebido'],
                      [a.aberto?BRL0(a.aberto):'—','Em aberto']] : []),
   ].map(([v,l]) => `<div><span class="mv">${v}</span><span class="ml">${l}</span></div>`).join('')
@@ -844,7 +844,7 @@ function detalhe(c, ads, idx){
   const lista = [...c.ads].map(id => ads.get(id)).sort((a,b) => b.conv - a.conv);
   return `<div class="box">
     <span class="cob ${c.conv?classeCob(cob):'nula'}">rastreio de ${PCT0(cob)} — ${N(c.rast)} de ${N(c.conv)} conversas</span>
-    ${TEM.fluxo && c.pac ? `<span class="cob ${classeCob(100*c.pconc/c.pac)}" style="margin-left:6px">conciliação de ${PCT0(100*c.pconc/c.pac)} — ${N(c.pconc)} de ${N(c.pac)} pacientes com financeiro visível</span>` : ''}
+    ${TEM.fluxo && c.pac ? `<span class="cob ${classeCob(100*c.pconc/c.pac)}" style="margin-left:6px">fatura alcançada em ${N(c.pconc)} de ${N(c.pac)} pacientes (${PCT0(100*c.pconc/c.pac)}) — os outros também faturaram</span>` : ''}
     <div class="passos" style="margin-top:9px">
       ${passo(N(c.conv),'Conversas (Meta)','a Meta contou')}
       ${passo(N(c.rast),'Chegaram ao CRM',PCT0(cob)+' das conversas')}
@@ -859,14 +859,15 @@ function detalhe(c, ads, idx){
       ${TEM.fluxo ? passo(c.vnaoexec?BRL0(c.vnaoexec):'R$ 0','Não executado',
           c.naoexec?N(c.naoexec)+' propostas paradas — serviço ainda não prestado':'nada parado') : ''}
     </div>
-    <div class="corte-etapa">↓ executar gera fatura; a fatura está paga ou em aberto</div>
+    <div class="corte-etapa">↓ o executado acima <b>já é</b> o faturado; abaixo, só a parte da fatura
+      que a Feegow deixa eu abrir para saber se foi paga</div>
     <div class="passos">
-      ${TEM.fluxo ? passo(c.conc?BRL0(c.conc):'R$ 0','Fatura conciliada',
-          c.nfat?N(c.nfat)+' faturas'+(c.valor?' — '+PCT0(100*c.conc/c.valor)+' do executado':''):'nenhuma fatura alcançada') : ''}
+      ${TEM.fluxo ? passo(c.conc?BRL0(c.conc):'R$ 0','Fatura alcançada',
+          c.nfat?N(c.nfat)+' faturas — '+(c.valor?PCT0(100*c.conc/c.valor)+' do executado; o resto foi faturado e não consigo abrir':''):'nenhuma fatura alcançada') : ''}
       ${TEM.fluxo ? passo(c.pago?BRL0(c.pago):'R$ 0','Recebido',
-          c.conc?PCT0(100*c.pago/c.conc)+' da fatura conciliada':'—') : ''}
+          c.conc?PCT0(100*c.pago/c.conc)+' do que alcancei — não do executado':'—') : ''}
       ${TEM.fluxo ? passo(c.aberto?BRL0(c.aberto):'R$ 0','Em aberto',
-          c.conc?PCT0(100*c.aberto/c.conc)+' da fatura conciliada':'—') : ''}
+          c.conc?PCT0(100*c.aberto/c.conc)+' do que alcancei — não do executado':'—') : ''}
 
     </div>
     <p>Investimento de <b>${BRL(c.inv)}</b> nesta campanha, contra <b>${BRL0(c.valor)}</b> de receita
@@ -1483,14 +1484,14 @@ function pintaMidia(t, camp, ads, cob, tudoFora){
        prestado e não pago. Uma proposta não executada não gera conta a receber. */
     faixa: !colsCrm ? '' : `<tr class="faixa">
         <th colspan="5"></th>
-        <th colspan="${colsFluxo ? 3 : 1}" class="fx fx-prop">Executado — o serviço que a clínica prestou</th>
-        ${colsFluxo ? `<th colspan="3" class="fx fx-fat">Fatura — paga ou em aberto</th>` : ''}
+        <th colspan="${colsFluxo ? 3 : 1}" class="fx fx-prop">Executado — o serviço prestado, que já é o faturado</th>
+        ${colsFluxo ? `<th colspan="3" class="fx fx-fat">Da fatura, só a parte que consigo abrir</th>` : ''}
       </tr>`,
     cab: `<th>Especialidade</th><th class="num">Dias no ar</th><th class="num">Investimento</th>
           <th class="num">Conversas</th><th class="num">Custo/conversa</th>`
       + (colsCrm ? `<th class="num">Executado</th>` : '')
       + (colsFluxo ? `<th class="num">Não executado</th><th class="num">Propostas paradas</th>
-          <th class="num">Fatura conciliada</th><th class="num">Recebido</th><th class="num">Em aberto</th>` : ''),
+          <th class="num">Fatura alcançada</th><th class="num">Recebido</th><th class="num">Em aberto</th>` : ''),
     linha: c => `<td title="${esc(c.nome.trim())}">${curto(c.nome)}</td>
       <td class="num">${c.dias.size}</td><td class="num">${BRL(c.inv)}</td>
       <td class="num">${N(c.conv)}</td>
@@ -1498,7 +1499,7 @@ function pintaMidia(t, camp, ads, cob, tudoFora){
       + (colsCrm ? `<td class="num" title="${c.valor?BRL0(c.vprop)+' de proposta executada + '+BRL0(c.vcons)+' de consulta atendida':''}">${c.valor?BRL0(c.valor):'—'}</td>` : '')
       + (colsFluxo ? `<td class="num">${c.vnaoexec?BRL0(c.vnaoexec):'—'}</td>
       <td class="num">${c.naoexec?N(c.naoexec):'—'}</td>
-      <td class="num" title="${c.nfat?N(c.nfat)+' faturas — '+(c.pac?PCT0(100*c.pconc/c.pac)+' dos pacientes com financeiro visível':''):'nenhuma fatura alcançada'}">${
+      <td class="num" title="${c.nfat?N(c.nfat)+' faturas — '+(c.valor?PCT0(100*c.conc/c.valor)+' do executado. Não é outro dinheiro: é o pedaço do faturamento que consigo abrir.':''):'nenhuma fatura alcançada'}">${
         c.conc?BRL0(c.conc):'—'}</td>
       <td class="num">${c.pago?BRL0(c.pago):'—'}</td>
       <td class="num">${c.aberto?BRL0(c.aberto):'—'}</td>` : ''),
@@ -1518,36 +1519,40 @@ function pintaMidia(t, camp, ads, cob, tudoFora){
      de tudo. Não é erro: a fatura do paciente carrega item que não passou por
      proposta nem por agendamento atendido. */
   sePuder('notaColunas', el => { el.innerHTML = !colsFluxo ? '' : `${
-    t.conc > t.valor ? `<div class="nota aviso"><b>Neste período a fatura conciliada
+    t.conc > t.valor ? `<div class="nota aviso"><b>Neste período a fatura alcançada
     (${BRL0(t.conc)}) está acima do executado (${BRL0(t.valor)}) — e isso não é erro de conta.</b>
-    São dois recortes diferentes dos mesmos pacientes: o executado sai de proposta e agendamento;
-    a fatura conciliada é a fatura inteira daquele paciente, que costuma trazer item lançado
-    direto no caixa, sem passar por nenhum dos dois. Elas não se subtraem.</div>` : ''}<div class="nota">
-    <b>O caminho do dinheiro, na ordem</b>
+    Quando isso acontece é o executado que está por baixo: a fatura do paciente traz item lançado
+    direto no caixa, que não passou por proposta nem por agendamento atendido, e por isso não
+    aparece no executado. Elas não se subtraem.</div>` : ''}<div class="nota">
+    <b>Executado e faturado são o mesmo número. Só existe uma coluna para os dois: "Executado".</b>
+    Executar uma proposta ou atender uma consulta cria a fatura — é o mesmo evento. A coluna
+    <b>Executado</b> é proposta executada mais consulta atendida, e a consulta só soma se ainda não
+    estiver dentro de uma proposta do mesmo paciente. Sem esse desconto o exame que saiu do
+    orçamento era contado duas vezes: uma como proposta, outra como agendamento. Passe o mouse na
+    coluna para ver a composição.
+    <br><br><b>"Fatura alcançada" não é outro tipo de dinheiro</b> — é o quanto <i>daquele mesmo
+    faturamento</i> eu consigo abrir para ver se foi pago. A Feegow não escreve o nome do paciente
+    na fatura: dos itens faturados, só <b>17%</b> trazem o número do agendamento, e é por esse
+    número que descubro de quem é a conta. Quando o card diz "51% do executado", os outros 49%
+    <b>foram faturados do mesmo jeito</b> — eu só não tenho como saber se estão pagos.
+    Por isso <b>Recebido</b> e <b>Em aberto</b> são percentuais do que alcancei, nunca do executado.
+    <br><br><b>O caminho do dinheiro, na ordem</b>
     A clínica faz uma <b>proposta</b>. Ou ela fica parada na mesa (<b>não executado</b>), ou o
-    serviço é prestado (<b>executado</b>). Executar gera <b>fatura</b>, e toda fatura está
-    <b>paga</b> ou <b>em aberto</b>. Consulta atendida também gera fatura sem passar por proposta,
-    e por isso entra no executado junto com as propostas executadas.
-    <br><br><b>Executado e faturado são a mesma coisa</b> — é o serviço prestado, medido uma vez só.
-    A coluna <b>Executado</b> é proposta executada mais consulta atendida, e a consulta só soma se
-    ainda não estiver dentro de uma proposta do mesmo paciente. Sem esse desconto o exame que saiu
-    do orçamento era contado duas vezes: uma como proposta, outra como agendamento. Passe o mouse
-    na coluna para ver a composição.
+    serviço é prestado (<b>executado = faturado</b>), e aí a fatura está <b>paga</b> ou
+    <b>em aberto</b>.
     <br><br><b>Por que "Não executado" e "Em aberto" nunca vão bater</b>
     São estágios diferentes do mesmo dinheiro. <b>Não executado</b> é serviço <b>ainda não
     prestado</b> — não existe fatura, logo não existe nada a receber. <b>Em aberto</b> é serviço
     <b>já prestado e faturado</b> e ainda não pago. Somar os dois mistura trabalho não feito com
     dinheiro não recebido.
-    <br><br><b>Por que "Fatura conciliada" não é igual ao "Executado"</b>
-    A Feegow não expõe o paciente na fatura. A conta do paciente é aprendida pelas faturas que
-    trazem agendamento e propagada para as demais da mesma conta — e isso alcança só uma parte:
-    hoje cerca de 20% das contas na Doctor e 12% na Acesso. <b>Fatura conciliada</b> é o pedaço do
-    faturamento que conseguimos abrir e auditar, e é sobre ele — não sobre o executado — que
-    <b>Recebido</b> e <b>Em aberto</b> são calculados. Por isso <b>conciliada = recebido + em
-    aberto</b>, sempre, por construção. A conciliada pode ficar <i>acima</i> do executado numa
-    campanha: a fatura do paciente inclui itens que nunca passaram por proposta nem por
-    agendamento atendido. Não subtraia uma coluna da outra — elas medem coisas diferentes do mesmo
-    paciente.
+    <br><br><b>Como a conta do paciente é descoberta, e por que alcança pouco</b>
+    A fatura que trouxer um item com número de agendamento entrega o paciente; dali aprendemos a
+    qual paciente aquela <i>conta</i> pertence, e todas as outras faturas da mesma conta passam a
+    ter dono. Isso cobre hoje cerca de 20% das contas na Doctor e 12% na Acesso.
+    <b>Alcançada = recebido + em aberto</b>, sempre, por construção — as três falam do mesmo
+    conjunto de faturas. A alcançada pode ficar <i>acima</i> do executado numa campanha, porque a
+    fatura do paciente inclui item lançado direto no caixa, que nunca passou por proposta nem por
+    agendamento. Nesse caso o executado é que está por baixo. Não subtraia uma coluna da outra.
     <br><br><b>Duas regras fazem esses números serem do anúncio e não do paciente</b>
     <b>O paciente pertence ao anúncio que o trouxe primeiro</b>, e <b>só entra o que aconteceu
     depois da chegada dele</b> — sem essa segunda regra, 22% das propostas e 30% das faturas eram
