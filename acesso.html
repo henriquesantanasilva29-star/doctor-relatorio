@@ -685,28 +685,20 @@ document.querySelectorAll('.preset[data-p]').forEach(b => b.onclick = () => {
    a mesma coisa que uma com R$ 10 mil e nada parado. E executado ainda não é
    dinheiro em caixa — daí o pago, que vem das contas a receber. */
 const zero = () => ({inv:0,imp:0,cli:0,conv:0,rast:0,cards:0,pac:0,prop:0,exec:0,valor:0,
-                     naoexec:0,vnaoexec:0,fatv:0,pago:0,aberto:0,nfat:0,dias:new Set()});
-function somaCrm(alvo, c){ alvo.rast+=c.r; alvo.cards+=c.k; alvo.pac+=c.p; alvo.prop+=c.o;
-                           alvo.exec+=c.e; alvo.valor+=c.v; }
-/* Não executado e pago vêm de `crmfluxo`, que é série com data, e não das
-   linhas de `crm`. Motivo: na Doctor o bloco de funil junta duas rotas de
-   rastreio e estes três vêm só da rota do utm, que é a que existe nas duas
-   marcas.
-
-   A DATA AQUI NÃO É DETALHE. A primeira versão indexava só por anúncio, sem
-   dia, e o detalhe ignorava o filtro de período: a linha da campanha dizia
-   R$ 6.587 executados no mês e o painel abria com R$ 25.412 da janela inteira.
-   Número que não fecha com o de cima derruba a confiança no relatório todo,
-   ainda que cada um esteja certo no seu escopo. */
-function somaFluxo(alvo, f){
+                     naoexec:0,vnaoexec:0,fatv:0,pago:0,aberto:0,nfat:0,
+                     pexec:0,pconc:0,dias:new Set()});
+/* TODO o funil abaixo de "conversas" sai de UMA linha da jornada. Antes cada
+   número vinha de uma função diferente, com recorte diferente, e a tela chegou
+   a mostrar pago maior que executado. Uma fonte, uma regra, sem contradição. */
+function somaCrm(alvo, c){
   if(!alvo) return;
-  alvo.naoexec  += f.ne  || 0;
-  alvo.vnaoexec += f.vne || 0;
-  alvo.fatv     += f.fv  || 0;
-  alvo.pago     += f.pg  || 0;
-  alvo.aberto   += f.ab  || 0;
-  alvo.nfat     += f.nf  || 0;
+  alvo.rast+=c.r||0; alvo.cards+=c.k||0; alvo.pac+=c.p||0;
+  alvo.prop+=c.o||0; alvo.exec+=c.e||0; alvo.valor+=c.v||0;
+  alvo.naoexec+=c.ne||0; alvo.vnaoexec+=c.vne||0;
+  alvo.nfat+=c.nf||0; alvo.fatv+=c.fv||0; alvo.pago+=c.pg||0; alvo.aberto+=c.ab||0;
+  alvo.pexec+=c.pexec||0; alvo.pconc+=c.pconc||0;
 }
+
 
 function agrega(){
   const camp = new Map(), ads = new Map(), adCamp = new Map(), t = zero();
@@ -728,14 +720,7 @@ function agrega(){
     if(!a){ somaCrm(extra, c); continue; }
     somaCrm(a, c); somaCrm(camp.get(adCamp.get(c.a)), c); somaCrm(t, c);
   }
-  /* Mesmo recorte de data do bloco acima: se este ignorar o filtro, as colunas
-     de não executado e pago param de fechar com as de executado ao lado. */
-  for(const f of (D.crmfluxo || [])){
-    if(f.d < de || f.d > ate) continue;
-    somaFluxo(ads.get(f.a), f);
-    somaFluxo(camp.get(adCamp.get(f.a)), f);
-    somaFluxo(t, f);
-  }
+
   return {camp:[...camp.values()], ads, t, extra};
 }
 
@@ -752,6 +737,7 @@ function cartaoAnuncio(a, i){
     [N(a.rast),'No CRM'], [N(a.pac),'Pacientes'],
     [N(a.exec),'Executadas'], [a.valor?BRL0(a.valor):'—','Receita'],
     ...(TEM.fluxo ? [[a.vnaoexec?BRL0(a.vnaoexec):'—','Não executado'],
+                     [a.fatv?BRL0(a.fatv):'—','Faturado'],
                      [a.pago?BRL0(a.pago):'—','Recebido'],
                      [a.aberto?BRL0(a.aberto):'—','Em aberto']] : []),
   ].map(([v,l]) => `<div><span class="mv">${v}</span><span class="ml">${l}</span></div>`).join('')
@@ -843,20 +829,23 @@ function detalhe(c, ads, idx){
   const lista = [...c.ads].map(id => ads.get(id)).sort((a,b) => b.conv - a.conv);
   return `<div class="box">
     <span class="cob ${c.conv?classeCob(cob):'nula'}">rastreio de ${PCT0(cob)} — ${N(c.rast)} de ${N(c.conv)} conversas</span>
+    ${TEM.fluxo && c.pac ? `<span class="cob ${classeCob(100*c.pconc/c.pac)}" style="margin-left:6px">conciliação de ${PCT0(100*c.pconc/c.pac)} — ${N(c.pconc)} de ${N(c.pac)} pacientes com financeiro visível</span>` : ''}
     <div class="passos" style="margin-top:9px">
       ${passo(N(c.conv),'Conversas (Meta)','a Meta contou')}
       ${passo(N(c.rast),'Chegaram ao CRM',PCT0(cob)+' das conversas')}
-      ${passo(N(c.cards),'Cards',c.rast?PCT0(100*c.cards/c.rast)+' das rastreadas':'—')}
+      ${passo(N(c.cards),'Cards',c.rast?(c.cards/c.rast).toFixed(1).replace('.',',')+' por contato rastreado':'—')}
       ${passo(N(c.pac),'Pacientes no Feegow',c.rast?PCT0(100*c.pac/c.rast)+' das rastreadas':'—')}
       ${passo(N(c.prop),'Propostas',c.pac?(c.prop/c.pac).toFixed(1).replace('.',',')+' por paciente':'—')}
       ${passo(N(c.exec),'Executadas',c.prop?PCT0(100*c.exec/c.prop)+' das propostas':'—')}
       ${passo(c.valor?BRL0(c.valor):'R$ 0','Executado',c.exec?BRL0(c.valor/c.exec)+' por proposta':'nada executado')}
       ${TEM.fluxo ? passo(c.vnaoexec?BRL0(c.vnaoexec):'R$ 0','Não executado',
           c.naoexec?N(c.naoexec)+' propostas paradas':'nada parado') : ''}
+      ${TEM.fluxo ? passo(c.fatv?BRL0(c.fatv):'R$ 0','Faturado',
+          c.nfat?N(c.nfat)+' faturas':'nenhuma fatura') : ''}
       ${TEM.fluxo ? passo(c.pago?BRL0(c.pago):'R$ 0','Recebido',
-          c.nfat?N(c.nfat)+' faturas conciliadas':'nenhuma fatura amarrada') : ''}
+          c.fatv?PCT0(100*c.pago/c.fatv)+' do faturado':'—') : ''}
       ${TEM.fluxo ? passo(c.aberto?BRL0(c.aberto):'R$ 0','Em aberto',
-          c.fatv?PCT0(100*c.aberto/c.fatv)+' do faturado amarrado':'—') : ''}
+          c.fatv?PCT0(100*c.aberto/c.fatv)+' do faturado':'—') : ''}
 
     </div>
     <p>Investimento de <b>${BRL(c.inv)}</b> nesta campanha, contra <b>${BRL0(c.valor)}</b> de receita
@@ -1496,14 +1485,16 @@ function pintaMidia(t, camp, ads, cob, tudoFora){
     <b>Executado</b> é proposta que o paciente aceitou e a clínica realizou.
     <b>Não executado</b> é proposta feita e ainda não realizada — dinheiro parado na mesa, e é
     onde costuma haver mais a ganhar do que em campanha nova.
-    <b>Recebido</b> e <b>Em aberto</b> vêm das contas a receber, amarradas ao paciente pelo
-    <code>conta_id</code> da fatura. <b>São piso, e por uma razão específica:</b> a Feegow não expõe
-    o paciente na fatura nem aceita filtro por paciente na API, então a conta é aprendida pelas
-    faturas que trazem <code>agendamento_id</code> (17% dos itens) e propagada para as demais
-    faturas da mesma conta. Isso resolve <b>26% das faturas de serviço</b> — cada conta apontando
-    para um único paciente, sem ambiguidade, mas cobrindo um quarto do dinheiro.
-    Para o número completo de recebimento, use o bloco <b>Contas a receber</b> acima, que não
-    depende de ponte nenhuma e fecha com o caixa.</div>`; });
+    <b>Faturado, Recebido e Em aberto</b> saem da mesma cadeia dos números acima: anúncio → contato
+    no CRM → paciente no Feegow → conta a receber. Duas regras fazem esses números serem do anúncio
+    e não do paciente: <b>o paciente pertence ao anúncio que o trouxe primeiro</b>, e
+    <b>só entra o que aconteceu depois da chegada dele</b> — sem essa segunda regra, 22% das
+    propostas e 30% das faturas eram do histórico de quem já era paciente e viravam resultado da
+    campanha. Faturado − Recebido = Em aberto, sempre, por construção.
+    A conciliação é parcial e o chip diz quanto: a Feegow não expõe o paciente na fatura, então a
+    conta é aprendida pelas faturas que trazem agendamento e propagada para as demais da mesma
+    conta. Para o recebimento total da clínica, sem nenhuma ponte, use o bloco
+    <b>Contas a receber</b> acima.</div>`; });
 }
 
 function pintaConciliacao(t, camp, ads, extra, cob, diasFora, tudoFora){
@@ -1740,10 +1731,10 @@ function pintaConferencia(){
 /* ---------- partida ---------- */
 function iniciar(dados, imagens){
   D = dados;
-  MIDIA = D.midia; CRM = D.crm || []; NEG = D.neg; VANG = D.vang; ESPELHO = D.espelho;
+  MIDIA = D.midia; CRM = D.jornada || D.crm || []; NEG = D.neg; VANG = D.vang; ESPELHO = D.espelho;
 
   TEM = {
-    crm:    Array.isArray(D.crm) && D.crm.length > 0,
+    crm:    Array.isArray(D.jornada || D.crm) && (D.jornada || D.crm).length > 0,
     vang:   !!D.vang,
     nps:    !!(D.nps && ((D.nps.envio || []).length || (D.nps.resp || []).length)),
     agenda: !!(D.agenda && (D.agenda.linhas || []).length),
@@ -1754,7 +1745,7 @@ function iniciar(dados, imagens){
        ela aparecer zerada lá — o mesmo erro que este relatório inteiro existe
        para não cometer. Quando o pipeline da Doctor passar a mandar, a coluna
        acende sozinha. */
-    fluxo: !!(D.crmfluxo && Object.keys(D.crmfluxo).length),
+    fluxo: Array.isArray(D.jornada) && D.jornada.some(x => x.fv != null),
     proc:  !!(D.crmproc && Object.keys(D.crmproc).length),
   };
   escondeAbas();
