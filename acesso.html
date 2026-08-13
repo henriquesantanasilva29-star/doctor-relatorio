@@ -81,6 +81,11 @@ h1,h2,h3,h4,.kpi-val,.result-num,.ad-name,.passo .pv,.et .v,.esc-v,.cob-v{font-f
 .kpi-val{font-size:19px;font-weight:700;line-height:1.1;color:var(--dark)}
 .kpi-card.pend .kpi-val{color:var(--gray-text);font-size:15px}
 .kpi-label{font-size:9.5px;color:var(--gray-text);font-weight:700;margin-top:4px;letter-spacing:.3px}
+/* Terceira linha do card. Número sozinho não diz se é bom: "R$ 21 mil em aberto"
+   muda de sentido quando vem seguido de "43% do faturado". */
+.kpi-sub{font-size:10px;color:var(--gray-text);margin-top:3px;font-weight:500;line-height:1.3}
+.kpi-card.verde::before{background:var(--green)}
+.kpi-card.roxo::before{background:var(--purple)}
 /* terceira linha do cartão: a ressalva que impede o número de ser lido sozinho */
 .kpi-det{font-size:9.5px;color:var(--gray-text);margin-top:3px;line-height:1.35}
 tr.faixa th{background:#fff;border-bottom:none;padding:0 10px 6px}
@@ -320,6 +325,10 @@ tfoot td{padding:8px 10px;font-weight:700;border-top:2px solid var(--dark)}
   <div id="avisoVelho"></div>
   <div id="saudeMidia"></div>
   <div class="kpi-grid" id="kpisMidia"></div>
+
+  <div id="tituloRetorno"></div>
+  <div class="kpi-grid" id="kpisRetorno"></div>
+  <div id="notaRetorno"></div>
 
   <div class="section-title">O que a mídia custou em cada etapa</div>
   <div class="esteira" id="custoEtapa"></div>
@@ -1406,6 +1415,36 @@ function pintaMidia(t, camp, ads, cob, tudoFora){
     [t.imp?BRL(1000*t.inv/t.imp):'—','CPM'],
     [BRL(t.inv/t.dias.size),'Média por dia'], [N(t.dias.size),'Dias com veiculação'],
   ].map(([v,l]) => `<div class="kpi-card"><div class="kpi-val">${v}</div><div class="kpi-label">${l}</div></div>`).join('');
+
+  /* O topo mostrava só o que a mídia CUSTOU. Quem abre o relatório quer saber,
+     na mesma tela, o que ela DEVOLVEU — e isso mora no Feegow, não na Meta.
+     Só aparece quando existe a ponte anúncio → paciente; sem ela seria uma
+     fileira de zeros que ninguém sabe se é resultado ruim ou dado faltando. */
+  const temRetorno = TEM.crm && TEM.fluxo && !tudoFora;
+  sePuder('tituloRetorno', el => el.innerHTML = !temRetorno ? '' :
+    `<div class="section-title">O que a mídia devolveu — vindo do Feegow</div>`);
+  sePuder('kpisRetorno', el => el.innerHTML = !temRetorno ? '' : [
+    ['roxo', BRL0(t.valor), 'Faturado', `${N(t.nfat)} faturas de ${N(t.pconc)} pacientes`],
+    ['verde', BRL0(t.pago), 'Recebido', t.valor ? PCT0(100*t.pago/t.valor)+' do faturado' : '—'],
+    ['', BRL0(t.aberto), 'Em aberto', t.valor ? PCT0(100*t.aberto/t.valor)+' do faturado' : '—'],
+    ['', BRL0(t.vnaoexec), 'Não executado', `${N(t.naoexec)} propostas paradas na mesa`],
+    ['roxo', t.inv ? (t.valor/t.inv).toFixed(1).replace('.',',')+'×' : '—', 'Retorno sobre a mídia',
+     t.inv ? `${BRL(t.valor/t.inv)} faturados por R$ 1 investido` : '—'],
+    ['verde', t.inv ? (t.pago/t.inv).toFixed(1).replace('.',',')+'×' : '—', 'Retorno já em caixa',
+     t.inv ? `${BRL(t.pago/t.inv)} recebidos por R$ 1 investido` : '—'],
+    ['', t.pac ? BRL(t.inv/t.pac) : '—', 'Custo por paciente', `${N(t.pac)} pacientes atribuídos`],
+    ['', t.pac ? BRL0(t.valor/t.pac) : '—', 'Faturado por paciente',
+     `média entre os ${N(t.pac)} atribuídos, inclusive quem não comprou`],
+  ].map(([cor,v,l,s]) => `<div class="kpi-card ${cor}"><div class="kpi-val">${v}</div>
+      <div class="kpi-label">${l}</div><div class="kpi-sub">${s}</div></div>`).join(''));
+  sePuder('notaRetorno', el => el.innerHTML = !temRetorno ? '' : `<div class="nota">
+    <b>Este bloco é piso, não total.</b> Só entra paciente que a ponte anúncio → contato → Feegow
+    conseguiu amarrar: ${N(t.pac)} de ${N(t.rast)} contatos rastreados${
+      t.rast ? ` (${PCT0(100*t.pac/t.rast)})` : ''}. Quem agendou por outro número fica de fora, e
+    o retorno real é maior que o mostrado aqui. <b>Faturado = Recebido + Em aberto</b>, sempre.
+    <b>Não executado</b> está fora dessa soma de propósito: é serviço que o paciente aceitou e a
+    clínica ainda não prestou, então não virou fatura nem conta a receber — é a fila de dinheiro
+    mais barata que existe, porque o sim já foi dado.</div>`);
 
   /* O time de marketing pede "leads e CPL". Lead de formulário não existe aqui —
      as campanhas são de mensagem. O que existe é o custo em cada etapa real, e
