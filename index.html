@@ -693,13 +693,12 @@ document.querySelectorAll('.preset[data-p]').forEach(b => b.onclick = () => {
    história: campanha com R$ 10 mil executados e R$ 40 mil parados na mesa não é
    a mesma coisa que uma com R$ 10 mil e nada parado. E executado ainda não é
    dinheiro em caixa — daí o pago, que vem das contas a receber.
-   `valor` (executado) = `vprop` (proposta executada) + `vcons` (consulta atendida
-   que ainda não estava dentro de uma proposta). O desconto da segunda parcela
-   contra a primeira é o que impede o exame que saiu do orçamento de ser contado
-   duas vezes — sem ele o executado da Doctor inflava R$ 27,8 mil. */
+   `valor` é a FATURA: faturado = pago + aberto, exato, porque os três saem das
+   mesmas faturas. `vprop`/`vcons` não somam mais nada, só explicam de onde veio
+   (proposta executada e consulta atendida fora de proposta). */
 const zero = () => ({inv:0,imp:0,cli:0,conv:0,rast:0,cards:0,pac:0,prop:0,exec:0,valor:0,
                      vprop:0,vcons:0,qcons:0,
-                     naoexec:0,vnaoexec:0,conc:0,pago:0,aberto:0,nfat:0,
+                     naoexec:0,vnaoexec:0,pago:0,aberto:0,nfat:0,
                      pexec:0,pconc:0,dias:new Set()});
 /* TODO o funil abaixo de "conversas" sai de UMA linha da jornada. Antes cada
    número vinha de uma função diferente, com recorte diferente, e a tela chegou
@@ -710,7 +709,7 @@ function somaCrm(alvo, c){
   alvo.prop+=c.o||0; alvo.exec+=c.e||0; alvo.valor+=c.v||0;
   alvo.vprop+=c.vprop||0; alvo.vcons+=c.vcons||0; alvo.qcons+=c.qc||0;
   alvo.naoexec+=c.ne||0; alvo.vnaoexec+=c.vne||0;
-  alvo.nfat+=c.nf||0; alvo.conc+=c.vconc||0; alvo.pago+=c.pg||0; alvo.aberto+=c.ab||0;
+  alvo.nfat+=c.nf||0; alvo.pago+=c.pg||0; alvo.aberto+=c.ab||0;
   alvo.pexec+=c.pexec||0; alvo.pconc+=c.pconc||0;
 }
 
@@ -750,9 +749,8 @@ function cartaoAnuncio(a, i){
     [BRL0(a.inv),'Investido'], [N(a.conv),'Conversas'],
     [a.conv?BRL(a.inv/a.conv):'—','Custo/conversa'],
     [N(a.rast),'No CRM'], [N(a.pac),'Pacientes'],
-    [N(a.exec),'Executadas'], [a.valor?BRL0(a.valor):'—','Executado'],
+    [N(a.exec),'Executadas'], [a.valor?BRL0(a.valor):'—','Faturado'],
     ...(TEM.fluxo ? [[a.vnaoexec?BRL0(a.vnaoexec):'—','Não executado'],
-                     [a.conc?BRL0(a.conc):'—','Fatura alcançada'],
                      [a.pago?BRL0(a.pago):'—','Recebido'],
                      [a.aberto?BRL0(a.aberto):'—','Em aberto']] : []),
   ].map(([v,l]) => `<div><span class="mv">${v}</span><span class="ml">${l}</span></div>`).join('')
@@ -844,7 +842,7 @@ function detalhe(c, ads, idx){
   const lista = [...c.ads].map(id => ads.get(id)).sort((a,b) => b.conv - a.conv);
   return `<div class="box">
     <span class="cob ${c.conv?classeCob(cob):'nula'}">rastreio de ${PCT0(cob)} — ${N(c.rast)} de ${N(c.conv)} conversas</span>
-    ${TEM.fluxo && c.pac ? `<span class="cob ${classeCob(100*c.pconc/c.pac)}" style="margin-left:6px">fatura alcançada em ${N(c.pconc)} de ${N(c.pac)} pacientes (${PCT0(100*c.pconc/c.pac)}) — os outros também faturaram</span>` : ''}
+    ${TEM.fluxo && c.pac ? `<span class="cob ${classeCob(100*c.pconc/c.pac)}" style="margin-left:6px">fatura de ${N(c.pconc)} de ${N(c.pac)} pacientes (${PCT0(100*c.pconc/c.pac)}) — o resto não tem fatura no período</span>` : ''}
     <div class="passos" style="margin-top:9px">
       ${passo(N(c.conv),'Conversas (Meta)','a Meta contou')}
       ${passo(N(c.rast),'Chegaram ao CRM',PCT0(cob)+' das conversas')}
@@ -852,23 +850,19 @@ function detalhe(c, ads, idx){
       ${passo(N(c.pac),'Pacientes no Feegow',c.rast?PCT0(100*c.pac/c.rast)+' das rastreadas':'—')}
       ${passo(N(c.prop),'Propostas',c.pac?(c.prop/c.pac).toFixed(1).replace('.',',')+' por paciente':'—')}
       ${passo(N(c.exec),'Executadas',c.prop?PCT0(100*c.exec/c.prop)+' das propostas':'—')}
-      ${passo(c.valor?BRL0(c.valor):'R$ 0','Executado',
-          c.valor?BRL0(c.vprop)+' de proposta + '+BRL0(c.vcons)+' de consulta':'nada executado')}
-      ${c.qcons ? passo(N(c.qcons),'Consultas atendidas',
-          'atendimento que não estava dentro de nenhuma proposta') : ''}
+      ${passo(c.valor?BRL0(c.valor):'R$ 0','Faturado',
+          c.nfat?N(c.nfat)+' faturas — serviço prestado e cobrado':'nenhuma fatura')}
       ${TEM.fluxo ? passo(c.vnaoexec?BRL0(c.vnaoexec):'R$ 0','Não executado',
           c.naoexec?N(c.naoexec)+' propostas paradas — serviço ainda não prestado':'nada parado') : ''}
     </div>
-    <div class="corte-etapa">↓ o executado acima <b>já é</b> o faturado; abaixo, só a parte da fatura
-      que a Feegow deixa eu abrir para saber se foi paga</div>
+    <div class="corte-etapa">↓ a mesma fatura, agora em dois estados: quitada ou não</div>
     <div class="passos">
-      ${TEM.fluxo ? passo(c.conc?BRL0(c.conc):'R$ 0','Fatura alcançada',
-          c.nfat?N(c.nfat)+' faturas — '+(c.valor?PCT0(100*c.conc/c.valor)+' do executado; o resto foi faturado e não consigo abrir':''):'nenhuma fatura alcançada') : ''}
       ${TEM.fluxo ? passo(c.pago?BRL0(c.pago):'R$ 0','Recebido',
-          c.conc?PCT0(100*c.pago/c.conc)+' do que alcancei — não do executado':'—') : ''}
+          c.valor?PCT0(100*c.pago/c.valor)+' do faturado':'—') : ''}
       ${TEM.fluxo ? passo(c.aberto?BRL0(c.aberto):'R$ 0','Em aberto',
-          c.conc?PCT0(100*c.aberto/c.conc)+' do que alcancei — não do executado':'—') : ''}
-
+          c.valor?PCT0(100*c.aberto/c.valor)+' do faturado':'—') : ''}
+      ${c.valor ? passo(BRL0(c.vprop)+' + '+BRL0(c.vcons),'De onde veio',
+          'proposta executada + consulta atendida'+(c.qcons?' ('+N(c.qcons)+')':'')) : ''}
     </div>
     <p>Investimento de <b>${BRL(c.inv)}</b> nesta campanha, contra <b>${BRL0(c.valor)}</b> de receita
     executada que foi possível amarrar a ela. <b>Este valor é piso, não total:</b> a ponte de telefone
@@ -1477,30 +1471,28 @@ function pintaMidia(t, camp, ads, cob, tudoFora){
   const colsCrm = TEM.crm;          // executado rastreado
   const colsFluxo = TEM.crm && TEM.fluxo;  // não executado / paradas / pago
   tabelaExpansivel('tCamp', {
-    n: 5 + (colsCrm ? 1 : 0) + (colsFluxo ? 5 : 0),
+    n: 5 + (colsCrm ? 1 : 0) + (colsFluxo ? 4 : 0),
     /* Duas faixas no cabeçalho. Sem elas, "Não executado" e "Em aberto" ficam
        lado a lado numa fileira plana e todo mundo pergunta por que não batem —
        são estágios diferentes: um é serviço não prestado, o outro é serviço
        prestado e não pago. Uma proposta não executada não gera conta a receber. */
     faixa: !colsCrm ? '' : `<tr class="faixa">
         <th colspan="5"></th>
-        <th colspan="${colsFluxo ? 3 : 1}" class="fx fx-prop">Executado — o serviço prestado, que já é o faturado</th>
-        ${colsFluxo ? `<th colspan="3" class="fx fx-fat">Da fatura, só a parte que consigo abrir</th>` : ''}
+        <th colspan="${colsFluxo ? 3 : 1}" class="fx fx-prop">Serviço prestado, e o que ficou na mesa</th>
+        ${colsFluxo ? `<th colspan="2" class="fx fx-fat">A mesma fatura, quitada ou não</th>` : ''}
       </tr>`,
     cab: `<th>Especialidade</th><th class="num">Dias no ar</th><th class="num">Investimento</th>
           <th class="num">Conversas</th><th class="num">Custo/conversa</th>`
-      + (colsCrm ? `<th class="num">Executado</th>` : '')
+      + (colsCrm ? `<th class="num">Faturado</th>` : '')
       + (colsFluxo ? `<th class="num">Não executado</th><th class="num">Propostas paradas</th>
-          <th class="num">Fatura alcançada</th><th class="num">Recebido</th><th class="num">Em aberto</th>` : ''),
+          <th class="num">Recebido</th><th class="num">Em aberto</th>` : ''),
     linha: c => `<td title="${esc(c.nome.trim())}">${curto(c.nome)}</td>
       <td class="num">${c.dias.size}</td><td class="num">${BRL(c.inv)}</td>
       <td class="num">${N(c.conv)}</td>
       <td class="num">${c.conv?BRL(c.inv/c.conv):'—'}</td>`
-      + (colsCrm ? `<td class="num" title="${c.valor?BRL0(c.vprop)+' de proposta executada + '+BRL0(c.vcons)+' de consulta atendida':''}">${c.valor?BRL0(c.valor):'—'}</td>` : '')
+      + (colsCrm ? `<td class="num" title="${c.valor?N(c.nfat)+' faturas. Veio de '+BRL0(c.vprop)+' em proposta executada e '+BRL0(c.vcons)+' em consulta atendida.':''}">${c.valor?BRL0(c.valor):'—'}</td>` : '')
       + (colsFluxo ? `<td class="num">${c.vnaoexec?BRL0(c.vnaoexec):'—'}</td>
       <td class="num">${c.naoexec?N(c.naoexec):'—'}</td>
-      <td class="num" title="${c.nfat?N(c.nfat)+' faturas — '+(c.valor?PCT0(100*c.conc/c.valor)+' do executado. Não é outro dinheiro: é o pedaço do faturamento que consigo abrir.':''):'nenhuma fatura alcançada'}">${
-        c.conc?BRL0(c.conc):'—'}</td>
       <td class="num">${c.pago?BRL0(c.pago):'—'}</td>
       <td class="num">${c.aberto?BRL0(c.aberto):'—'}</td>` : ''),
     pe: `<tfoot><tr><td colspan="2">Total — ${camp.length} campanhas</td>
@@ -1508,57 +1500,31 @@ function pintaMidia(t, camp, ads, cob, tudoFora){
       <td class="num">${t.conv?BRL(t.inv/t.conv):'—'}</td>`
       + (colsCrm ? `<td class="num">${BRL0(t.valor)}</td>` : '')
       + (colsFluxo ? `<td class="num">${BRL0(t.vnaoexec)}</td><td class="num">${N(t.naoexec)}</td>
-      <td class="num">${BRL0(t.conc)}</td>
       <td class="num">${BRL0(t.pago)}</td><td class="num">${BRL0(t.aberto)}</td>` : '') + `</tr></tfoot>`,
   }, porInv, ads, 'm');
 
-  /* O leitor precisa saber que "pago" e "executado" não são a mesma coisa antes
-     de comparar as duas colunas, senão a diferença vira suspeita de erro. */
-  /* Quando a fatura conciliada passa do executado o leitor trava, e com razão.
-     Melhor dizer isso na cara do que deixar ele descobrir sozinho e desconfiar
-     de tudo. Não é erro: a fatura do paciente carrega item que não passou por
-     proposta nem por agendamento atendido. */
-  sePuder('notaColunas', el => { el.innerHTML = !colsFluxo ? '' : `${
-    t.conc > t.valor ? `<div class="nota aviso"><b>Neste período a fatura alcançada
-    (${BRL0(t.conc)}) está acima do executado (${BRL0(t.valor)}) — e isso não é erro de conta.</b>
-    Quando isso acontece é o executado que está por baixo: a fatura do paciente traz item lançado
-    direto no caixa, que não passou por proposta nem por agendamento atendido, e por isso não
-    aparece no executado. Elas não se subtraem.</div>` : ''}<div class="nota">
-    <b>Executado e faturado são o mesmo número. Só existe uma coluna para os dois: "Executado".</b>
-    Executar uma proposta ou atender uma consulta cria a fatura — é o mesmo evento. A coluna
-    <b>Executado</b> é proposta executada mais consulta atendida, e a consulta só soma se ainda não
-    estiver dentro de uma proposta do mesmo paciente. Sem esse desconto o exame que saiu do
-    orçamento era contado duas vezes: uma como proposta, outra como agendamento. Passe o mouse na
-    coluna para ver a composição.
-    <br><br><b>"Fatura alcançada" não é outro tipo de dinheiro</b> — é o quanto <i>daquele mesmo
-    faturamento</i> eu consigo abrir para ver se foi pago. A Feegow não escreve o nome do paciente
-    na fatura: dos itens faturados, só <b>17%</b> trazem o número do agendamento, e é por esse
-    número que descubro de quem é a conta. Quando o card diz "51% do executado", os outros 49%
-    <b>foram faturados do mesmo jeito</b> — eu só não tenho como saber se estão pagos.
-    Por isso <b>Recebido</b> e <b>Em aberto</b> são percentuais do que alcancei, nunca do executado.
-    <br><br><b>O caminho do dinheiro, na ordem</b>
-    A clínica faz uma <b>proposta</b>. Ou ela fica parada na mesa (<b>não executado</b>), ou o
-    serviço é prestado (<b>executado = faturado</b>), e aí a fatura está <b>paga</b> ou
-    <b>em aberto</b>.
-    <br><br><b>Por que "Não executado" e "Em aberto" nunca vão bater</b>
-    São estágios diferentes do mesmo dinheiro. <b>Não executado</b> é serviço <b>ainda não
-    prestado</b> — não existe fatura, logo não existe nada a receber. <b>Em aberto</b> é serviço
-    <b>já prestado e faturado</b> e ainda não pago. Somar os dois mistura trabalho não feito com
-    dinheiro não recebido.
-    <br><br><b>Como a conta do paciente é descoberta, e por que alcança pouco</b>
-    A fatura que trouxer um item com número de agendamento entrega o paciente; dali aprendemos a
-    qual paciente aquela <i>conta</i> pertence, e todas as outras faturas da mesma conta passam a
-    ter dono. Isso cobre hoje cerca de 20% das contas na Doctor e 12% na Acesso.
-    <b>Alcançada = recebido + em aberto</b>, sempre, por construção — as três falam do mesmo
-    conjunto de faturas. A alcançada pode ficar <i>acima</i> do executado numa campanha, porque a
-    fatura do paciente inclui item lançado direto no caixa, que nunca passou por proposta nem por
-    agendamento. Nesse caso o executado é que está por baixo. Não subtraia uma coluna da outra.
+  sePuder('notaColunas', el => { el.innerHTML = !colsFluxo ? '' : `<div class="nota">
+    <b>Faturado = Recebido + Em aberto. Exato, todo período, toda campanha.</b>
+    Os três saem das mesmas faturas, então não há o que não bater. <b>Faturado</b> é serviço
+    prestado e cobrado; dele, o que o paciente quitou é <b>Recebido</b> e o que falta é
+    <b>Em aberto</b>. Executado e faturado são o mesmo evento, por isso existe uma coluna só.
+    <br><br><b>Por que "Não executado" fica de fora dessa conta</b>
+    É proposta aceita e serviço <b>ainda não prestado</b> — não existe fatura, logo não existe nada
+    a receber. Somar com "Em aberto" mistura trabalho não feito com dinheiro não recebido. É a
+    coluna onde costuma haver mais a ganhar do que em campanha nova: o paciente já disse sim.
+    <br><br><b>De onde sai a fatura de cada paciente</b>
+    A Feegow não escreve o nome do paciente na fatura, mas escreve a <i>conta</i> — e a conta é o
+    próprio cadastro do paciente. Conferido item a item contra o paciente do agendamento:
+    <b>99,7% na Doctor e 98,6% na Acesso</b>. O ~1% restante é conta de família, o exame do filho
+    lançado na conta do pai. Onde a fatura traz o agendamento, esse vínculo direto vence a regra
+    geral. Hoje isso alcança cerca de <b>90% dos pacientes com serviço prestado</b>; o chip em cada
+    campanha diz quanto alcançou ali.
     <br><br><b>Duas regras fazem esses números serem do anúncio e não do paciente</b>
     <b>O paciente pertence ao anúncio que o trouxe primeiro</b>, e <b>só entra o que aconteceu
     depois da chegada dele</b> — sem essa segunda regra, 22% das propostas e 30% das faturas eram
     histórico de quem já era paciente e viravam resultado da campanha.
-    Para o recebimento total da clínica, sem nenhuma ponte, use o bloco <b>Contas a receber</b>
-    acima.</div>`; });
+    Para o recebimento total da clínica, sem nenhum vínculo com anúncio, use o bloco
+    <b>Contas a receber</b> acima.</div>`; });
 }
 
 function pintaConciliacao(t, camp, ads, extra, cob, diasFora, tudoFora){
@@ -1809,7 +1775,7 @@ function iniciar(dados, imagens){
        ela aparecer zerada lá — o mesmo erro que este relatório inteiro existe
        para não cometer. Quando o pipeline da Doctor passar a mandar, a coluna
        acende sozinha. */
-    fluxo: Array.isArray(D.jornada) && D.jornada.some(x => x.vconc != null),
+    fluxo: Array.isArray(D.jornada) && D.jornada.some(x => x.pg != null),
     proc:  !!(D.crmproc && Object.keys(D.crmproc).length),
   };
   escondeAbas();
