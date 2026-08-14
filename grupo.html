@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="pt-BR"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Grupo JOB · Painéis</title>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{--tinta:#241b35;--cinza:#6f6a7e;--borda:#eae7f1}
+html,body{height:100%}
+body{margin:0;font-family:'DM Sans',sans-serif;background:#faf9fc;color:var(--tinta);display:flex;flex-direction:column}
+header{display:flex;align-items:center;gap:14px;padding:10px 18px;background:#fff;border-bottom:1px solid var(--borda);flex-wrap:wrap}
+h1{font-family:Poppins,sans-serif;font-size:16px;margin:0 6px 0 0}
+h1 span{background:linear-gradient(90deg,#8E2DE2,#F5136E,#FF8A1E);-webkit-background-clip:text;background-clip:text;color:transparent}
+nav{display:flex;gap:8px;flex-wrap:wrap}
+.aba{font-family:Poppins,sans-serif;font-size:13px;font-weight:600;border:1px solid var(--borda);background:#fff;color:var(--cinza);border-radius:999px;padding:7px 14px;cursor:pointer}
+.aba.ativa{background:#F5136E;border-color:#F5136E;color:#fff}
+.aba:disabled{opacity:.45;cursor:not-allowed}
+.dir{margin-left:auto;font-size:12px}
+.dir a{color:var(--cinza)}
+iframe{border:0;width:100%;flex:1;background:#faf9fc}
+#aviso{padding:40px 24px;color:var(--cinza);font-size:14px;max-width:640px}
+@media(max-width:640px){.dir{display:none}}
+</style></head><body>
+<header>
+ <h1>Grupo JOB · <span>painéis</span></h1>
+ <nav>
+  <button class="aba" id="ab-bi">BI do grupo</button>
+  <button class="aba" id="ab-doctor">Doctor+</button>
+  <button class="aba" id="ab-acesso">Acesso Saúde</button>
+ </nav>
+ <div class="dir"><a id="cheia" href="#" target="_blank" rel="noopener">abrir em página própria ↗</a></div>
+</header>
+<div id="aviso" style="display:none"></div>
+<iframe id="painel" title="Painel do Grupo JOB"></iframe>
+<script>
+var h=new URLSearchParams(location.hash.replace(/^#/,''));
+var K={bi:h.get('kb')||'',doctor:h.get('kd')||'',acesso:h.get('ka')||''};
+var P={bi:'bi.html',doctor:'index.html',acesso:'acesso.html'};
+function abre(id){
+ if(!K[id])return;
+ var url=P[id]+'#k='+K[id];
+ document.getElementById('painel').src=url;
+ document.getElementById('cheia').href=url;
+ ['bi','doctor','acesso'].forEach(function(x){
+  document.getElementById('ab-'+x).classList.toggle('ativa',x===id);
+ });
+}
+['bi','doctor','acesso'].forEach(function(x){
+ var b=document.getElementById('ab-'+x);
+ if(!K[x]){b.disabled=true;b.title='chave não incluída no link';}
+ b.addEventListener('click',function(){abre(x)});
+});
+var inicial=K.bi?'bi':(K.doctor?'doctor':(K.acesso?'acesso':null));
+if(inicial){abre(inicial);}
+else{
+ document.getElementById('painel').style.display='none';
+ var av=document.getElementById('aviso');
+ av.style.display='block';
+ av.textContent='Nenhuma chave no link. Abra o endereço com as chaves depois do # — por exemplo: grupo.html#kb=CHAVE_BI&kd=CHAVE_DOCTOR&ka=CHAVE_ACESSO (qualquer combinação funciona; as chaves nunca saem do seu navegador).';
+}
+</script></body></html>
