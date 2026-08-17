@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="pt-BR"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Grupo JOB · Life CRM</title>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{--rosa:#F5136E;--tinta:#241b35;--cinza:#6f6a7e;--fundo:#faf9fc;--borda:#eae7f1}
+*{box-sizing:border-box}body{margin:0;background:var(--fundo);color:var(--tinta);font-family:'DM Sans',sans-serif}
+header{padding:22px 32px 16px;border-bottom:1px solid var(--borda);background:#fff}
+h1{font-family:Poppins,sans-serif;font-size:22px;margin:0}
+h1 span{background:linear-gradient(90deg,#8E2DE2,#F5136E,#FF8A1E);-webkit-background-clip:text;background-clip:text;color:transparent}
+.sub{color:var(--cinza);font-size:13px;margin-top:4px}
+.filtros{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:14px}
+.chipbtn{font-family:Poppins,sans-serif;font-size:12px;font-weight:600;border:1px solid var(--borda);background:#fff;color:var(--cinza);border-radius:999px;padding:6px 12px;cursor:pointer}
+.chipbtn.on{background:var(--rosa);border-color:var(--rosa);color:#fff}
+.datas{display:flex;gap:6px;align-items:center;font-size:12px;color:var(--cinza);margin-left:6px}
+.datas input{font-family:'DM Sans',sans-serif;font-size:12px;border:1px solid var(--borda);border-radius:8px;padding:5px 8px;color:var(--tinta)}
+.sep{width:1px;height:22px;background:var(--borda);margin:0 4px}
+main{max-width:1080px;margin:0 auto;padding:24px 32px 64px}
+h2{font-family:Poppins,sans-serif;font-size:15px;margin:32px 0 12px}
+h3{font-family:Poppins,sans-serif;font-size:13px;margin:22px 0 8px;display:flex;align-items:center;gap:8px}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px}
+.card{background:#fff;border:1px solid var(--borda);border-radius:14px;padding:16px 18px}
+.emp{font-family:Poppins,sans-serif;font-weight:600;font-size:13px}
+.big{font-family:Poppins,sans-serif;font-size:26px;font-weight:700;margin-top:6px}
+.card .sub{margin:0 0 8px}
+.linha{font-size:13px;color:var(--cinza);margin-top:3px}
+table{width:100%;border-collapse:collapse;background:#fff;border:1px solid var(--borda);border-radius:14px;overflow:hidden;font-size:13.5px}
+th,td{padding:9px 12px;text-align:left;border-bottom:1px solid var(--borda);white-space:nowrap}
+th{font-family:Poppins,sans-serif;font-size:12px;color:var(--cinza);font-weight:600;background:#fdfcfe}
+tr:last-child td{border-bottom:none}.r{text-align:right}.b{font-weight:700}
+.ok{color:#14B879;font-weight:700}.quase{color:#FF8A1E;font-weight:700}.ruim{color:#e03131;font-weight:700}
+.avi{color:#b3aec4;font-style:italic;font-size:12px}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:7px}
+.bar{height:5px;border-radius:3px;margin-bottom:3px;opacity:.85}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{background:#fff;border:1px solid var(--borda);border-radius:999px;padding:4px 10px;font-size:11.5px;color:var(--cinza)}
+.chipAtraso{border-color:#FF8A1E;color:#c76400;background:#fff7ee}
+.parada{font-size:11px;color:#c76400;background:#fff7ee;border:1px solid #ffd9b0;border-radius:999px;padding:1px 7px;margin-left:6px;white-space:nowrap}
+.quadro{font-size:11.5px;color:var(--cinza);border:1px solid var(--borda);border-radius:999px;padding:2px 9px;background:#fff}
+.nota{color:var(--cinza);font-size:12px;margin-top:8px}
+footer{color:var(--cinza);font-size:12px;margin-top:40px}
+#estado{padding:40px 32px;color:var(--cinza)}
+.serie{display:flex;align-items:flex-end;gap:2px;height:120px;background:#fff;border:1px solid var(--borda);border-radius:14px;padding:12px}
+.serie .col{flex:1;display:flex;flex-direction:column;justify-content:flex-end;gap:1px;min-width:4px}
+.serie .seg{width:100%;border-radius:2px 2px 0 0}
+@media(max-width:720px){main,header{padding-left:16px;padding-right:16px}}
+</style></head><body>
+<header><h1>Grupo JOB · <span>Life CRM</span></h1>
+<div class="sub" id="carimbo">carregando…</div>
+<div class="filtros">
+ <button class="chipbtn" data-p="hoje">Hoje</button>
+ <button class="chipbtn" data-p="ontem">Ontem</button>
+ <button class="chipbtn" data-p="7d">Últimos 7 dias</button>
+ <button class="chipbtn on" data-p="mes">Mês atual</button>
+ <button class="chipbtn" data-p="mes-1">Mês anterior</button>
+ <button class="chipbtn" data-p="30d">Últimos 30 dias</button>
+ <span class="datas"><input type="date" id="ini"> até <input type="date" id="fim"> <button class="chipbtn" id="aplicar">Aplicar</button></span>
+ <span class="sep"></span>
+ <button class="chipbtn on" data-e="">Todas</button>
+ <button class="chipbtn" data-e="doctor">Doctor+</button>
+ <button class="chipbtn" data-e="acesso">Acesso Saúde</button>
+ <button class="chipbtn" data-e="otica">Mais Visão</button>
+</div>
+</header>
+<div id="estado">Buscando o funil no hub…</div>
+<main id="conteudo" style="display:none">
+<h2>Movimentação no período</h2>
+<div class="cards" id="cards"></div>
+<div class="nota"><b>Cada número é movimento, não saldo.</b> O coletor grava quantos cartões passaram por cada etapa em cada dia — somar o período responde "quanto andou", nunca "quantos estão parados ali agora". Um mesmo cartão que avançou três etapas aparece nas três.</div>
+<h2>Movimento por dia</h2>
+<div class="serie" id="serie"></div>
+<h2>Etapas por quadro</h2>
+<div id="funil"></div>
+<h2>Frescor das fontes</h2>
+<div class="chips" id="chips"></div>
+<footer>Painel de leitura do hub Grupo JOB · acesso pela mesma chave do BI · atualiza sozinho a cada 5 minutos · o quadro em si vive no Life CRM.</footer>
+</main>
+<script>
+var API='https://oqzbmdajkqexbpivkacv.supabase.co/functions/v1/bi-painel';
+var CORES={acesso:'#F5136E',doctor:'#8E2DE2',otica:'#FF8A1E'};
+var ROT={doctor:'Doctor+',acesso:'Acesso Saúde',otica:'Mais Visão (ótica)'};
+var ORDEM=['doctor','acesso','otica'];
+var brl=function(v){return (v==null?'—':Number(v).toLocaleString('pt-BR',{style:'currency',currency:'BRL',maximumFractionDigits:0}))};
+var num=function(v){return Number(v||0).toLocaleString('pt-BR')};
+var esc=function(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})};
+function iso(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
+function br(s){var p=String(s).slice(0,10).split('-');return p[2]+'/'+p[1]+'/'+p[0]}
+function hojeManaus(){var d=new Date(Date.now()-4*3600*1000);return new Date(d.getUTCFullYear(),d.getUTCMonth(),d.getUTCDate())}
+function diasEntre(a,b){return Math.round((new Date(b+'T00:00:00')-new Date(a+'T00:00:00'))/86400000)}
+var H=new URLSearchParams(location.hash.replace(/^#/,''));
+var estado={k:H.get('k')||'',ini:H.get('ini')||'',fim:H.get('fim')||'',emp:H.get('e')||'',preset:H.get('p')||'mes'};
+function periodoDe(p){
+ var h=hojeManaus(),a,b;
+ if(p==='hoje'){a=h;b=h}
+ else if(p==='ontem'){a=new Date(h);a.setDate(a.getDate()-1);b=a}
+ else if(p==='7d'){a=new Date(h);a.setDate(a.getDate()-6);b=h}
+ else if(p==='30d'){a=new Date(h);a.setDate(a.getDate()-29);b=h}
+ else if(p==='mes-1'){a=new Date(h.getFullYear(),h.getMonth()-1,1);b=new Date(h.getFullYear(),h.getMonth(),0)}
+ else {a=new Date(h.getFullYear(),h.getMonth(),1);b=h}
+ return [iso(a),iso(b)];
+}
+if(!estado.ini||!estado.fim){var pp=periodoDe(estado.preset);estado.ini=pp[0];estado.fim=pp[1];}
+function salvaHash(){
+ var q=new URLSearchParams();q.set('k',estado.k);q.set('ini',estado.ini);q.set('fim',estado.fim);
+ if(estado.emp)q.set('e',estado.emp);if(estado.preset)q.set('p',estado.preset);
+ history.replaceState(null,'','#'+q.toString());
+}
+function pintaFiltros(){
+ document.querySelectorAll('[data-p]').forEach(function(b){b.classList.toggle('on',b.getAttribute('data-p')===estado.preset)});
+ document.querySelectorAll('[data-e]').forEach(function(b){b.classList.toggle('on',b.getAttribute('data-e')===estado.emp)});
+ document.getElementById('ini').value=estado.ini;document.getElementById('fim').value=estado.fim;
+}
+document.querySelectorAll('[data-p]').forEach(function(b){b.addEventListener('click',function(){estado.preset=b.getAttribute('data-p');var pp=periodoDe(estado.preset);estado.ini=pp[0];estado.fim=pp[1];pintaFiltros();salvaHash();carrega();})});
+document.querySelectorAll('[data-e]').forEach(function(b){b.addEventListener('click',function(){estado.emp=b.getAttribute('data-e');pintaFiltros();salvaHash();pinta();})});
+document.getElementById('aplicar').addEventListener('click',function(){var a=document.getElementById('ini').value,b=document.getElementById('fim').value;if(!a||!b)return;if(a>b){var t=a;a=b;b=t}estado.ini=a;estado.fim=b;estado.preset='';pintaFiltros();salvaHash();carrega();});
+var timer=null,D=null;
+function pinta(){
+ if(!D)return;
+ var F=D.funil||{},etapas=(F.etapas||[]),serie=(F.serie||[]);
+ var filtro=function(x){return !estado.emp||x.empresa===estado.emp};
+ var eta=etapas.filter(filtro),ser=serie.filter(filtro);
+ // cards por empresa
+ var por={};
+ eta.forEach(function(e){
+  var o=(por[e.empresa]=por[e.empresa]||{qtd:0,valor:0,pagoQ:0,pagoV:0});
+  o.qtd+=Number(e.qtd||0);o.valor+=Number(e.valor||0);
+  if(/^(pago|fechado\(ganho\))$/i.test(String(e.etapa||'').trim())){o.pagoQ+=Number(e.qtd||0);o.pagoV+=Number(e.valor||0)}
+ });
+ var emps=ORDEM.filter(function(e){return por[e]});
+ document.getElementById('cards').innerHTML=emps.map(function(e){
+  var o=por[e];
+  return '<div class="card"><div class="emp" style="color:'+CORES[e]+'">'+ROT[e]+'</div>'
+   +'<div class="big">'+num(o.qtd)+'</div><div class="sub">movimentações de cartão no período</div>'
+   +'<div class="linha">valor que passou pelas etapas: '+brl(o.valor)+'</div>'
+   +'<div class="linha">etapa Pago: '+num(o.pagoQ)+' · '+brl(o.pagoV)+'</div></div>';
+ }).join('')||'<div class="avi">sem dados no período</div>';
+ // série empilhada
+ var dias={},max=1;
+ ser.forEach(function(s){dias[s.dia]=dias[s.dia]||{};dias[s.dia][s.empresa]=(dias[s.dia][s.empresa]||0)+Number(s.qtd||0)});
+ var ds=Object.keys(dias).sort();
+ ds.forEach(function(k){var t=0;Object.keys(dias[k]).forEach(function(e){t+=dias[k][e]});if(t>max)max=t});
+ document.getElementById('serie').innerHTML=ds.map(function(k){
+  var tot=0;Object.keys(dias[k]).forEach(function(e){tot+=dias[k][e]});
+  var segs=ORDEM.filter(function(e){return dias[k][e]}).map(function(e){
+   return '<div class="seg" style="height:'+Math.max(1,Math.round(96*dias[k][e]/max))+'px;background:'+CORES[e]+'"></div>';
+  }).join('');
+  return '<div class="col" title="'+br(k)+' · '+num(tot)+' movimentações">'+segs+'</div>';
+ }).join('')||'<span class="avi">sem dados</span>';
+ // etapas por empresa e quadro
+ var grupos={};
+ eta.forEach(function(e){
+  var q=e.painel||'(quadro sem nome)';
+  var g=(grupos[e.empresa]=grupos[e.empresa]||{});
+  (g[q]=g[q]||[]).push(e);
+ });
+ var fim=D.periodo?D.periodo.fim:estado.fim;
+ document.getElementById('funil').innerHTML=emps.map(function(e){
+  var g=grupos[e]||{};
+  return Object.keys(g).sort().map(function(q){
+   var linhas=g[q].slice().sort(function(a,b){return Number(b.qtd||0)-Number(a.qtd||0)});
+   var totQ=0,totV=0,mx=1;
+   linhas.forEach(function(l){totQ+=Number(l.qtd||0);totV+=Number(l.valor||0);if(Number(l.qtd||0)>mx)mx=Number(l.qtd||0)});
+   var corpo=linhas.map(function(l){
+    var qtd=Number(l.qtd||0),val=Number(l.valor||0);
+    var atraso=l.ultimo_dia?diasEntre(String(l.ultimo_dia).slice(0,10),fim):null;
+    var marca=(atraso!=null&&atraso>=2)?'<span class="parada">sem movimento há '+atraso+' dias</span>':'';
+    return '<tr><td>'+esc(l.etapa||'(sem etapa)')+marca+'</td>'
+     +'<td class="r"><div class="bar" style="width:'+Math.max(3,Math.round(100*qtd/mx))+'%;background:'+CORES[e]+'"></div>'+num(qtd)+'</td>'
+     +'<td class="r">'+(totQ>0?(Math.round(1000*qtd/totQ)/10)+'%':'—')+'</td>'
+     +'<td class="r">'+brl(val)+'</td>'
+     +'<td class="r">'+(qtd>0&&val>0?brl(val/qtd):'—')+'</td>'
+     +'<td class="r">'+(l.ultimo_dia?br(l.ultimo_dia):'—')+'</td></tr>';
+   }).join('');
+   return '<h3><span class="dot" style="background:'+CORES[e]+'"></span>'+ROT[e]
+    +' <span class="quadro">'+esc(q==='lifecrm'?'quadro único (o coletor ainda não separa)':q)+'</span></h3>'
+    +'<div style="overflow-x:auto"><table><thead><tr><th>Etapa</th><th class="r">Movimentações</th><th class="r">Fatia</th><th class="r">Valor</th><th class="r">Valor médio</th><th class="r">Último movimento</th></tr></thead><tbody>'
+    +(corpo||'<tr><td colspan="6" class="avi">sem dados</td></tr>')
+    +'</tbody></table></div>';
+  }).join('');
+ }).join('')||'<div class="avi">sem dados no período</div>';
+ // frescor
+ document.getElementById('chips').innerHTML=(F.frescor||[]).filter(filtro).map(function(f){
+  var atraso=f.dado_max?diasEntre(String(f.dado_max).slice(0,10),fim):null;
+  var carga=f.ultima_carga?new Date(f.ultima_carga).toLocaleString('pt-BR',{timeZone:'America/Manaus',dateStyle:'short',timeStyle:'short'}):'—';
+  return '<span class="chip'+((atraso!=null&&atraso>=1)?' chipAtraso':'')+'">'+esc(f.fonte)+' · carga '+carga+' · dado até '+(f.dado_max?br(f.dado_max):'—')+'</span>';
+ }).join('')||'<span class="avi">sem informação de frescor</span>';
+}
+function carrega(){
+ if(!estado.k){document.getElementById('estado').textContent='Falta a chave de acesso: abra o link com #k=SUACHAVE no final.';return}
+ document.getElementById('estado').style.display='block';
+ document.getElementById('estado').textContent='Buscando o funil no hub…';
+ var url=API+'?k='+encodeURIComponent(estado.k)+'&ini='+estado.ini+'&fim='+estado.fim+'&bloco=funil';
+ fetch(url).then(function(r){if(!r.ok)throw new Error(r.status);return r.json()}).then(function(d){
+  D=d;
+  document.getElementById('estado').style.display='none';
+  document.getElementById('conteudo').style.display='block';
+  var ge=new Date(d.gerado_em);
+  document.getElementById('carimbo').textContent='Período '+br(d.periodo.ini)+' a '+br(d.periodo.fim)
+   +' · funil do Life CRM direto do hub, consulta feita em '
+   +ge.toLocaleString('pt-BR',{timeZone:'America/Manaus',dateStyle:'short',timeStyle:'short'})+' (Manaus)';
+  pinta();
+ }).catch(function(e){
+  document.getElementById('estado').style.display='block';
+  document.getElementById('estado').textContent=(String(e).indexOf('401')>=0)?'Acesso negado: confira a chave depois do #k= no link.':'Não consegui buscar o funil agora ('+e+'). Tentando de novo em 1 minuto…';
+  clearTimeout(timer);timer=setTimeout(carrega,60000);
+ });
+}
+pintaFiltros();salvaHash();carrega();setInterval(carrega,300000);
+</script></body></html>
