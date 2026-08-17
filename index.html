@@ -312,6 +312,7 @@ tfoot td{padding:8px 10px;font-weight:700;border-top:2px solid var(--dark)}
 
 <div class="tabs">
   <button class="tab-btn active" data-aba="midia" onclick="aba('midia',this)">Mídia paga</button>
+  <button class="tab-btn" data-aba="disp" onclick="aba('disp',this)">Disparos</button>
   <button class="tab-btn" data-aba="conc" onclick="aba('conc',this)">Meta × CRM</button>
   <button class="tab-btn" data-aba="comercial" onclick="aba('comercial',this)">Comercial e financeiro</button>
   <button class="tab-btn" data-aba="agenda" onclick="aba('agenda',this)">Agenda</button>
@@ -479,6 +480,31 @@ tfoot td{padding:8px 10px;font-weight:700;border-top:2px solid var(--dark)}
   </div>
 </div>
 
+<!-- ============ DISPAROS ============ -->
+<div class="panel" id="panel-disp">
+  <div id="dispVazio"></div>
+  <div id="dispCorpo">
+    <div class="kpi-grid" id="dispKpis"></div>
+
+    <div class="section-title">Cada família de disparo — o que sai e o que volta</div>
+    <div id="dispFamilia"></div>
+
+    <div class="chart-row" style="margin-top:18px">
+      <div class="chart-card"><h4>O QUE O PACIENTE RESPONDEU — categorias no período</h4>
+        <div id="dispResp"></div></div>
+      <div class="chart-card"><h4>ENVIO POR DIA — enviados, entregues e respondidos</h4>
+        <div id="dispDia"></div></div>
+    </div>
+
+    <div class="section-title">Dinheiro ligado aos disparos</div>
+    <p style="font-size:11.5px;color:var(--gray-text);margin:0 0 12px" id="dispNota"></p>
+    <div id="dispReceita"></div>
+
+    <div class="section-title">Templates mais usados</div>
+    <div id="dispTpl"></div>
+  </div>
+</div>
+
 <!-- ============ NPS ============ -->
 <div class="panel" id="panel-nps">
   <div class="filtro-uni" id="npsFiltro"></div>
@@ -577,7 +603,7 @@ let D, MIDIA, CRM, CRI, NEG, VANG, ESPELHO, DIAS, MIN, MAX;
 /* O que ESTA marca tem. As duas páginas são o mesmo arquivo; o que muda é o
    dado que chega. Aba sem dado se esconde em vez de mostrar zero — zero se lê
    como queda, e "não medimos isso aqui" é outra coisa. */
-let TEM = {crm:false, vang:false, nps:false, agenda:false, fat:false};
+let TEM = {crm:false, vang:false, nps:false, agenda:false, fat:false, disparos:false};
 
 const BRL  = v => 'R$ ' + v.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
 const BRL0 = v => 'R$ ' + Math.round(v).toLocaleString('pt-BR');
@@ -659,7 +685,7 @@ function sePuder(id, faz){ const el = document.getElementById(id); if(el) faz(el
    a ativa. Deixar a aba clicável e vazia é pior do que não ter: quem clica
    conclui que o número é zero. */
 function escondeAbas(){
-  const exige = {conc:'crm', conf:'vang', nps:'nps', agenda:'agenda', faltas:'faltas'};
+  const exige = {conc:'crm', conf:'vang', nps:'nps', agenda:'agenda', faltas:'faltas', disp:'disparos'};
   for(const [aba, chave] of Object.entries(exige)){
     if(TEM[chave]) continue;
     const btn = document.querySelector(`.tab-btn[data-aba="${aba}"]`);
@@ -937,6 +963,7 @@ function render(){
   pintaMidia(t, camp, ads, cob, tudoFora);
   if(TEM.crm)  pintaConciliacao(t, camp, ads, extra, cob, diasFora, tudoFora);
   pintaComercial(t, cob);
+  if(TEM.disparos) pintaDisparos();
   if(TEM.nps)  pintaNps();
   if(TEM.vang) pintaConferencia();
 }
@@ -977,6 +1004,131 @@ function pintaFaltas(){
    e é isso que torna "comparecimento sobre o total" um número inventado. */
 const AG_ATEND  = new Set(['atendido','em_atendimento']);
 const AG_ABERTO = new Set(['marcado','confirmado','aguardando','chamando','aguardando_pagamento']);
+
+function pintaDisparos(){
+  const vazio = document.getElementById('dispVazio'), corpo = document.getElementById('dispCorpo');
+  const B = D.disparos;
+  if(!B || !Array.isArray(B.linhas)){
+    vazio.innerHTML = '<div class="vazio">Os disparos não viajam nesta cópia offline. ' +
+      'Eles estão no relatório publicado, que lê o banco com a chave.</div>';
+    corpo.style.display = 'none'; return;
+  }
+  const L = B.linhas.filter(r => r.d >= de && r.d <= ate);
+  if(!L.length){
+    vazio.innerHTML = '<div class="vazio">Nenhum disparo no período escolhido.</div>';
+    corpo.style.display = 'none'; return;
+  }
+  vazio.innerHTML = ''; corpo.style.display = '';
+  const RA = (B.recA||[]).filter(r => r.d >= de && r.d <= ate);
+  const RB = (B.recB||[]).filter(r => r.d >= de && r.d <= ate);
+  const RS = (B.resp||[]).filter(r => r.d >= de && r.d <= ate);
+
+  const tot = {e:0,ok:0,r:0,f:0,ag:0,comp:0,canc:0,ab:0,rm:0,rn:0};
+  const porFam = new Map(), porDia = new Map();
+  for(const x of L){
+    for(const k of ['e','ok','r','f','ag','comp','canc','ab','rm','rn']) tot[k] += x[k]||0;
+    const kf = x.fam + ' · ' + x.fun;
+    if(!porFam.has(kf)) porFam.set(kf, {fam:x.fam, fun:x.fun, e:0,ok:0,r:0,ag:0,comp:0,canc:0,ab:0});
+    const o = porFam.get(kf);
+    for(const k of ['e','ok','r','ag','comp','canc','ab']) o[k] += x[k]||0;
+    const d = porDia.get(x.d) || {e:0,ok:0,r:0};
+    d.e += x.e||0; d.ok += x.ok||0; d.r += x.r||0; porDia.set(x.d, d);
+  }
+  const recAf = new Map(), recBf = new Map();
+  let totA = 0, totB = 0, totBp = 0, totBpac = 0;
+  for(const x of RA){ recAf.set(x.fam, (recAf.get(x.fam)||0) + (x.v||0)); totA += x.v||0; }
+  for(const x of RB){
+    const o = recBf.get(x.fam) || {v:0,p:0,pac:0};
+    o.v += x.v||0; o.p += x.p||0; o.pac += x.pac||0; recBf.set(x.fam, o);
+    totB += x.v||0; totBp += x.p||0; totBpac += x.pac||0;
+  }
+  const pct = (a,b) => b ? 100*a/b : 0;
+  const tmed = tot.rn ? tot.rm/tot.rn : null;
+  const fmtMin = m => m == null ? '—' : (m < 90 ? Math.round(m) + ' min' : (m/60).toFixed(1).replace('.',',') + ' h');
+
+  document.getElementById('dispKpis').innerHTML = [
+    [N(tot.e), 'Disparos enviados', N(porDia.size) + ' dias com envio'],
+    [PCT0(pct(tot.ok, tot.e)), 'Entregues', N(tot.ok) + ' de ' + N(tot.e) + (tot.f ? ' · ' + N(tot.f) + ' com falha' : '')],
+    [PCT0(pct(tot.r, tot.ok)), 'Responderam', N(tot.r) + ' respostas · 1ª resposta em ' + fmtMin(tmed)],
+    [N(tot.ag), 'Agendamentos tocados', N(tot.comp) + ' compareceram · ' + N(tot.canc) + ' cancelaram'],
+    [BRL0(totA), 'Receita da agenda tocada', 'procedimento executado nesses agendamentos'],
+    [BRL0(totB), 'Receita em até 30 dias', N(totBp) + ' propostas · ' + N(totBpac) + ' pacientes'],
+  ].map(([v,l,d]) => `<div class="kpi-card"><div class="kpi-val">${v}</div>
+      <div class="kpi-label">${l}</div><div class="kpi-det">${d}</div></div>`).join('');
+
+  const fams = [...porFam.values()].sort((a,b) => b.e - a.e);
+  document.getElementById('dispFamilia').innerHTML =
+    '<table><thead><tr><th>Família · função</th><th style="text-align:right">Enviados</th>' +
+    '<th style="text-align:right">Entregues</th><th style="text-align:right">Respostas</th>' +
+    '<th style="text-align:right">Agend. tocados</th><th style="text-align:right">Compareceram</th>' +
+    '<th style="text-align:right">Receita da agenda</th><th style="text-align:right">Receita 30d</th></tr></thead><tbody>' +
+    fams.map(o => {
+      const va = recAf.get(o.fam) || 0, vb = (recBf.get(o.fam)||{}).v || 0;
+      return `<tr><td><b>${o.fam}</b><div class="kpi-det">${o.fun}</div></td>
+        <td style="text-align:right">${N(o.e)}</td>
+        <td style="text-align:right">${N(o.ok)}<div class="kpi-det">${PCT0(pct(o.ok,o.e))}</div></td>
+        <td style="text-align:right">${N(o.r)}<div class="kpi-det">${PCT0(pct(o.r,o.ok))}</div></td>
+        <td style="text-align:right">${o.ag ? N(o.ag) : '—'}</td>
+        <td style="text-align:right">${o.ag ? N(o.comp) + '<div class="kpi-det">' + PCT0(pct(o.comp,o.ag)) + '</div>' : '—'}</td>
+        <td style="text-align:right">${va ? BRL0(va) : '—'}</td>
+        <td style="text-align:right">${vb ? BRL0(vb) : '—'}</td></tr>`;
+    }).join('') + '</tbody></table>';
+
+  const cats = new Map();
+  for(const x of RS) cats.set(x.c, (cats.get(x.c)||0) + (x.n||0));
+  const catsOrd = [...cats.entries()].sort((a,b) => b[1] - a[1]);
+  const maxCat = catsOrd.length ? catsOrd[0][1] : 1;
+  document.getElementById('dispResp').innerHTML = !catsOrd.length ?
+    '<div class="vazio">Ninguém respondeu no período.</div>' :
+    catsOrd.map(([c,n]) => `<div style="margin:6px 0">
+      <div style="display:flex;justify-content:space-between;font-size:12px">
+        <span>${c}</span><span><b>${N(n)}</b> · ${PCT0(pct(n, tot.r))}</span></div>
+      <div style="height:6px;border-radius:3px;background:#F5136E;opacity:.85;width:${Math.max(2, Math.round(100*n/maxCat))}%"></div></div>`).join('');
+
+  const dias = [...porDia.entries()].sort((a,b) => a[0] < b[0] ? -1 : 1);
+  const maxDia = Math.max(1, ...dias.map(([,o]) => o.e));
+  document.getElementById('dispDia').innerHTML =
+    '<div style="display:flex;align-items:flex-end;gap:2px;height:120px">' +
+    dias.map(([d,o]) => `<div title="${fmtBR(d)} · ${N(o.e)} enviados · ${N(o.ok)} entregues · ${N(o.r)} respostas"
+        style="flex:1;min-width:3px;display:flex;flex-direction:column;justify-content:flex-end">
+        <div style="height:${Math.round(110*(o.e-o.ok)/maxDia)}px;background:#e6e1ef"></div>
+        <div style="height:${Math.round(110*(o.ok-o.r)/maxDia)}px;background:#8E2DE2;opacity:.75"></div>
+        <div style="height:${Math.round(110*o.r/maxDia)}px;background:#F5136E"></div></div>`).join('') +
+    '</div><div class="kpi-det" style="margin-top:6px">rosa responderam · roxo entregues sem resposta · cinza não entregues</div>';
+
+  document.getElementById('dispNota').innerHTML =
+    'São duas contas diferentes e nenhuma das duas é receita incremental — o paciente poderia ter vindo sem o disparo. ' +
+    '<b>Receita da agenda tocada</b>: o agendamento que recebeu confirmação ou lembrete teve procedimento executado e faturado. ' +
+    '<b>Receita em até 30 dias</b>: o paciente que recebeu o disparo executou alguma proposta em até 30 dias depois do primeiro toque no período. ' +
+    'Quem foi tocado por duas famílias aparece nas duas linhas, por isso a soma das linhas passa do total do topo.';
+
+  const todasFam = [...new Set([...recAf.keys(), ...recBf.keys(), ...fams.map(f => f.fam)])];
+  document.getElementById('dispReceita').innerHTML =
+    '<table><thead><tr><th>Família</th><th style="text-align:right">Receita da agenda tocada</th>' +
+    '<th style="text-align:right">Receita em até 30 dias</th><th style="text-align:right">Propostas</th>' +
+    '<th style="text-align:right">Pacientes</th></tr></thead><tbody>' +
+    todasFam.map(f => {
+      const va = recAf.get(f) || 0, ob = recBf.get(f) || {v:0,p:0,pac:0};
+      if(!va && !ob.v) return '';
+      return `<tr><td><b>${f}</b></td><td style="text-align:right">${va ? BRL0(va) : '—'}</td>
+        <td style="text-align:right">${ob.v ? BRL0(ob.v) : '—'}</td>
+        <td style="text-align:right">${ob.p ? N(ob.p) : '—'}</td>
+        <td style="text-align:right">${ob.pac ? N(ob.pac) : '—'}</td></tr>`;
+    }).join('') +
+    `<tr><td><b>Total</b></td><td style="text-align:right"><b>${BRL0(totA)}</b></td>
+      <td style="text-align:right"><b>${BRL0(totB)}</b></td>
+      <td style="text-align:right"><b>${N(totBp)}</b></td>
+      <td style="text-align:right"><b>${N(totBpac)}</b></td></tr></tbody></table>`;
+
+  const tpl = (B.tpl || []).slice(0, 12);
+  document.getElementById('dispTpl').innerHTML = !tpl.length ? '<div class="vazio">Sem template no período.</div>' :
+    '<table><thead><tr><th>Template</th><th>Família</th><th style="text-align:right">Enviados</th>' +
+    '<th style="text-align:right">Entregues</th><th style="text-align:right">Respostas</th></tr></thead><tbody>' +
+    tpl.map(t => `<tr><td>${t.t}</td><td>${t.fam}</td><td style="text-align:right">${N(t.e)}</td>
+      <td style="text-align:right">${PCT0(pct(t.ok,t.e))}</td>
+      <td style="text-align:right">${N(t.r)}<div class="kpi-det">${PCT0(pct(t.r,t.ok))}</div></td></tr>`).join('') +
+    '</tbody></table><div class="kpi-det" style="margin-top:6px">Os 25 mais enviados da janela inteira do relatório — esta tabela não acompanha o filtro de período.</div>';
+}
 
 function pintaAgenda(){
   const vazio = document.getElementById('agVazio'), corpo = document.getElementById('agCorpo');
@@ -1818,6 +1970,7 @@ function iniciar(dados, imagens){
        acende sozinha. */
     fluxo: Array.isArray(D.jornada) && D.jornada.some(x => x.pg != null),
     proc:  !!(D.crmproc && Object.keys(D.crmproc).length),
+    disparos: !!(D.disparos && Array.isArray(D.disparos.linhas) && D.disparos.linhas.length),
   };
   escondeAbas();
   if(TEM.faltas) pintaFaltas();
