@@ -1,0 +1,175 @@
+/* comum.css — fundação única das cascas do Grupo JOB.
+   Tokens do LifeCRM Design System (Arasys). Claro = padrão; escuro segue o tema do leitor.
+   Nenhuma casca define CSS de componente: se precisar de um, ele nasce aqui. */
+:root{
+  /* marca */
+  --lc-purple:#8E2DE2; --lc-pink:#F5136E; --lc-orange:#FF8A1E;
+  --grad-brand:linear-gradient(135deg,#8E2DE2 0%,#F5136E 52%,#FF8A1E 100%);
+  /* superfícies e texto */
+  --ground:#FAF9FC; --surface:#FFFFFF; --surface-2:#F4F2F8; --surface-3:#E9E6F0;
+  --ink:#1B1830; --ink-2:#443E5C; --ink-3:#7E7796;
+  --rule:#E9E6F0; --rule-2:#D8D4E4;
+  --accent:#D80A5D; --accent-2:#6317A8; --accent-3:#C55E06;
+  --ok:#0E9A64; --ok-bg:#E4F8EF;
+  --warn:#C98A0A; --warn-bg:#FDF3DC; --warn-rule:#EFA817;
+  --bad:#C53438; --bad-bg:#FDEBEC;
+  --unknown:#5C5573; --unknown-bg:#F4F2F8;
+  --shadow-xs:0 1px 2px rgba(27,24,48,.06);
+  --shadow:0 1px 2px rgba(27,24,48,.06),0 6px 18px rgba(27,24,48,.10);
+  --focus-ring:0 0 0 3px rgba(245,19,110,.25);
+  --display:"Poppins",ui-sans-serif,"Segoe UI Variable Display","Segoe UI",system-ui,-apple-system,sans-serif;
+  --sans:"DM Sans",ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --mono:"DM Mono",ui-monospace,"Cascadia Mono","Segoe UI Mono",Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --ground:#0F0D18; --surface:#171424; --surface-2:#1D1930; --surface-3:#26213A;
+    --ink:#F6F4FB; --ink-2:#C9C4DB; --ink-3:#8D86A8;
+    --rule:#26213A; --rule-2:#352E52;
+    --accent:#FF6EA9; --accent-2:#C79BF5; --accent-3:#FFB870;
+    --ok:#14B879; --ok-bg:rgba(20,184,121,.14);
+    --warn:#EFA817; --warn-bg:rgba(239,168,23,.14); --warn-rule:rgba(239,168,23,.45);
+    --bad:#FF8A8E; --bad-bg:rgba(229,72,77,.14);
+    --unknown:#8D86A8; --unknown-bg:#1D1930;
+    --shadow-xs:0 1px 2px rgba(0,0,0,.4);
+    --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 22px rgba(0,0,0,.5);
+    --focus-ring:0 0 0 3px rgba(255,61,139,.35);
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#0F0D18; --surface:#171424; --surface-2:#1D1930; --surface-3:#26213A;
+  --ink:#F6F4FB; --ink-2:#C9C4DB; --ink-3:#8D86A8;
+  --rule:#26213A; --rule-2:#352E52;
+  --accent:#FF6EA9; --accent-2:#C79BF5; --accent-3:#FFB870;
+  --ok:#14B879; --ok-bg:rgba(20,184,121,.14);
+  --warn:#EFA817; --warn-bg:rgba(239,168,23,.14); --warn-rule:rgba(239,168,23,.45);
+  --bad:#FF8A8E; --bad-bg:rgba(229,72,77,.14);
+  --unknown:#8D86A8; --unknown-bg:#1D1930;
+  --shadow-xs:0 1px 2px rgba(0,0,0,.4);
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 22px rgba(0,0,0,.5);
+  --focus-ring:0 0 0 3px rgba(255,61,139,.35);
+}
+
+*,*::before,*::after{box-sizing:border-box}
+body{margin:0;background:var(--ground);color:var(--ink-2);font-family:var(--sans);
+  font-size:15px;line-height:1.55;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:var(--display);color:var(--ink);letter-spacing:-.02em;line-height:1.3;margin:0}
+a{color:var(--accent);text-decoration:none}
+a:hover{text-decoration:underline}
+::selection{background:#FFC1DA;color:#6B0A34}
+:focus-visible{outline:none;box-shadow:var(--focus-ring);border-radius:8px}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+/* ---------- rastro e cabeçalho ---------- */
+.topo{background:var(--surface);border-bottom:1px solid var(--rule);padding:18px 24px 16px}
+.topo-in{max-width:1160px;margin:0 auto}
+.marca{font-family:var(--display);font-size:15px;font-weight:700;letter-spacing:-.02em;color:var(--ink)}
+.marca em{font-style:normal;background:var(--grad-brand);-webkit-background-clip:text;background-clip:text;color:transparent}
+.rastro{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:12.5px;color:var(--ink-3);margin-top:6px}
+.rastro a{color:var(--ink-3)}
+.rastro a:hover{color:var(--accent)}
+.rastro .sep{opacity:.5}
+.estado-barra{font-size:12.5px;color:var(--ink-3);margin-top:10px;line-height:1.5}
+.estado-barra b{color:var(--ink-2);font-weight:600}
+
+/* ---------- filtros ---------- */
+.filtros{display:flex;flex-wrap:wrap;gap:7px;align-items:center;margin-top:14px}
+.pill{font-family:var(--display);font-size:12px;font-weight:600;border:1px solid var(--rule-2);
+  background:var(--surface);color:var(--ink-3);border-radius:999px;padding:6px 13px;cursor:pointer;
+  transition:background 120ms}
+.pill:hover{background:var(--surface-2);color:var(--ink-2)}
+.pill.on{background:var(--lc-pink);border-color:var(--lc-pink);color:#fff}
+.pill:disabled{opacity:.45;cursor:not-allowed}
+.divisor{width:1px;height:22px;background:var(--rule-2);margin:0 5px}
+.datas{display:flex;gap:6px;align-items:center;font-size:12px;color:var(--ink-3)}
+.datas input{font-family:var(--sans);font-size:12px;border:1px solid var(--rule-2);border-radius:8px;
+  padding:6px 9px;color:var(--ink);background:var(--surface);height:30px}
+
+/* ---------- estrutura ---------- */
+main{max-width:1160px;margin:0 auto;padding:24px 24px 72px}
+h2{font-size:17px;font-weight:600;margin:34px 0 4px}
+h2:first-of-type{margin-top:6px}
+.sub{color:var(--ink-3);font-size:12.5px;margin:0 0 14px;max-width:70ch}
+.nota{color:var(--ink-3);font-size:12.5px;margin:10px 0 0;line-height:1.55;max-width:80ch}
+.nota b{color:var(--ink-2)}
+
+/* ---------- ladrilhos de sinal ---------- */
+.ladrilhos{display:grid;grid-template-columns:repeat(auto-fit,minmax(168px,1fr));gap:12px}
+.ladrilho{background:var(--surface);border:1px solid var(--rule);border-radius:14px;padding:15px 16px;
+  box-shadow:var(--shadow-xs);display:flex;flex-direction:column;gap:2px;text-align:left;
+  font:inherit;color:inherit;cursor:pointer;width:100%}
+.ladrilho:hover{box-shadow:var(--shadow);border-color:var(--rule-2)}
+.ladrilho .nome{font-family:var(--display);font-size:12px;font-weight:600;color:var(--ink-3);
+  letter-spacing:.06em;text-transform:uppercase}
+.ladrilho .delta{font-family:var(--display);font-size:26px;font-weight:700;letter-spacing:-.02em;
+  font-variant-numeric:tabular-nums;line-height:1.15;margin-top:5px;color:var(--ink)}
+.ladrilho .delta.sobe{color:var(--ok)} .ladrilho .delta.cai{color:var(--bad)}
+.ladrilho .delta.estavel{color:var(--ink-2)} .ladrilho .delta.nsei{color:var(--unknown);font-size:19px}
+.ladrilho .palavra{font-size:12px;color:var(--ink-3);margin-top:-1px}
+.ladrilho .abs{font-size:13px;color:var(--ink-2);margin-top:6px;font-variant-numeric:tabular-nums}
+.ladrilho .antes{font-size:12px;color:var(--ink-3);font-variant-numeric:tabular-nums}
+.ladrilho.cego{border-style:dashed;border-color:var(--rule-2);background:var(--unknown-bg)}
+
+/* ---------- estado "não sei" ---------- */
+.nsei-sel{display:inline-flex;align-items:baseline;gap:7px;font-family:var(--mono);font-size:12.5px;
+  color:var(--unknown);background:var(--unknown-bg);border:1px dashed var(--rule-2);
+  border-radius:999px;padding:3px 11px}
+.nsei-sel::before{content:"◌"}
+
+/* ---------- chip de régua ---------- */
+.num{font-variant-numeric:tabular-nums}
+.regua{display:inline-block;font-family:var(--mono);font-size:11px;color:var(--ink-3);
+  border:1px solid var(--rule-2);background:var(--surface-2);border-radius:999px;
+  padding:1px 8px;margin-left:6px;cursor:help;vertical-align:middle;white-space:nowrap}
+.regua:hover{color:var(--ink-2);border-color:var(--rule-2)}
+.regua.ambar{color:var(--warn);border-color:var(--warn-rule);background:var(--warn-bg)}
+.regua.faltando{color:#fff;background:var(--bad);border-color:var(--bad)}
+
+/* ---------- avisos ---------- */
+.aviso{border-left:3px solid var(--warn-rule);background:var(--warn-bg);padding:14px 16px;
+  border-radius:0 10px 10px 0;margin:0 0 18px}
+.aviso.grave{border-left-color:var(--bad);background:var(--bad-bg)}
+.aviso.calmo{border-left-color:var(--rule-2);background:var(--surface-2)}
+.aviso .ttl{font-family:var(--display);font-size:11px;letter-spacing:.13em;text-transform:uppercase;
+  font-weight:600;color:var(--warn);display:block;margin-bottom:7px}
+.aviso.grave .ttl{color:var(--bad)}
+.aviso.calmo .ttl{color:var(--ink-3)}
+.aviso ul{margin:0;padding-left:18px}
+.aviso li{margin:0 0 5px;font-size:13px;line-height:1.5}
+.aviso li b{color:var(--ink)}
+.aviso p{margin:0;font-size:13px;line-height:1.55}
+
+/* ---------- tabelas: viram cartões abaixo de 720px ---------- */
+.tabela-wrap{overflow-x:auto;border:1px solid var(--rule);border-radius:14px;background:var(--surface);
+  box-shadow:var(--shadow-xs)}
+table{border-collapse:collapse;width:100%;font-size:13px}
+caption{text-align:left;font-size:12.5px;color:var(--ink-3);padding:0 0 8px}
+th,td{padding:10px 13px;text-align:left;vertical-align:top;border-bottom:1px solid var(--rule);color:var(--ink-2)}
+thead th{font-family:var(--display);background:var(--surface-2);font-size:11px;letter-spacing:.09em;
+  text-transform:uppercase;color:var(--ink-3);font-weight:600;white-space:nowrap}
+tbody tr:last-child td{border-bottom:none}
+tbody td b{color:var(--ink)}
+td.r,th.r{text-align:right}
+@media(max-width:719px){
+  .tabela-wrap{overflow-x:visible;border:0;background:none;box-shadow:none;border-radius:0}
+  table,tbody,tr,td{display:block;width:100%}
+  thead{display:none}
+  tbody tr{background:var(--surface);border:1px solid var(--rule);border-radius:14px;
+    padding:10px 13px;margin-bottom:10px;box-shadow:var(--shadow-xs)}
+  tbody td{border:0;padding:4px 0;display:grid;grid-template-columns:minmax(9em,42%) 1fr;gap:10px}
+  tbody td::before{content:attr(data-rot);font-family:var(--display);font-size:11px;
+    letter-spacing:.07em;text-transform:uppercase;color:var(--ink-3);font-weight:600}
+  td.r,th.r{text-align:left}
+}
+
+/* ---------- selos ---------- */
+.selo{display:inline-block;font-family:var(--display);font-size:11px;letter-spacing:.08em;
+  text-transform:uppercase;font-weight:600;padding:2px 9px;border-radius:999px;
+  border:1px solid var(--rule-2);background:var(--surface-2);color:var(--ink-3);white-space:nowrap}
+.selo.ok{color:var(--ok);border-color:var(--ok);background:var(--ok-bg)}
+.selo.atraso{color:var(--warn);border-color:var(--warn-rule);background:var(--warn-bg)}
+.selo.morto{color:var(--bad);border-color:var(--bad);background:var(--bad-bg)}
+
+/* ---------- carregando / erro ---------- */
+#estado{padding:40px 24px;color:var(--ink-3);font-size:14px;max-width:1160px;margin:0 auto}
+.rodape{max-width:1160px;margin:0 auto;padding:0 24px 56px;color:var(--ink-3);font-size:12px}

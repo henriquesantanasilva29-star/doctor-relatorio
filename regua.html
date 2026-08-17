@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="pt-BR"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Grupo JOB · Régua</title>
+<link rel="stylesheet" href="comum.css?v=1">
+<style>
+.verbete{background:var(--surface);border:1px solid var(--rule);border-radius:14px;padding:16px 18px;
+  margin:0 0 12px;box-shadow:var(--shadow-xs);scroll-margin-top:16px}
+.verbete:target{border-color:var(--lc-pink);box-shadow:var(--focus-ring)}
+.verbete h3{font-size:15px;font-weight:600;margin:0 0 3px}
+.verbete .id{font-family:var(--mono);font-size:11.5px;color:var(--ink-3);margin-bottom:10px}
+.campos{display:grid;gap:7px;margin:0}
+.campos div{display:grid;grid-template-columns:minmax(10em,15em) 1fr;gap:12px;font-size:13px}
+@media(max-width:620px){.campos div{grid-template-columns:1fr;gap:1px}}
+.campos dt{font-family:var(--display);font-size:11px;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--ink-3);font-weight:600;padding-top:1px}
+.campos dd{margin:0;color:var(--ink-2)}
+.campos dd.perigo{color:var(--warn)}
+</style>
+</head><body>
+
+<header class="topo"><div class="topo-in">
+  <div class="marca">Grupo JOB · <em>régua</em></div>
+  <div class="rastro"><a href="inicio.html" data-para="inicio.html">Início</a><span class="sep">›</span><span>Régua</span></div>
+  <div class="estado-barra">O dicionário das definições. Todo número publicado nas telas do grupo carrega
+    um chip que aponta para um verbete daqui. <b>Número sem verbete é defeito, não estilo.</b></div>
+</div></header>
+
+<main>
+  <h2>Verbetes</h2>
+  <p class="sub">Cinco campos fixos, sempre na mesma ordem. O campo que mais evita erro é o último.</p>
+  <div id="verbetes"></div>
+
+  <h2>Pares que não somam</h2>
+  <p class="sub">O leitor vai querer somar estes pares porque eles têm a mesma cara e a mesma moeda.
+     <b>MOTOR</b> significa que o cálculo é outro — nenhuma troca de rótulo resolve.</p>
+  <div id="pares"></div>
+
+  <h2>Quando a definição mudou</h2>
+  <p class="sub">Toda série que atravessa uma destas datas empilha dois motores sob um título só.
+     As telas novas se recusam a calcular variação através delas.</p>
+  <div id="trocas"></div>
+
+  <h2>Períodos</h2>
+  <p class="sub">Uma implementação só, em <code>comum.js</code>. Esta tabela existe para você conferir
+     de olho que a unificação de fato aconteceu.</p>
+  <div id="presets"></div>
+
+  <h2>Buracos conhecidos</h2>
+  <p class="sub">Lista durável. Item consertado sai com data, não é apagado.</p>
+  <div id="buracos"></div>
+</main>
+
+<footer class="rodape">Chave no fragmento: o que vem depois do <code>#</code> o navegador não manda para
+  servidor nenhum, nem para o GitHub que hospeda a página. Chave revogada devolve 404 igual a chave
+  inexistente. Este repositório guarda a casca; o dado vive no banco.</footer>
+
+<script src="comum.js?v=1"></script>
+<script>
+(function(){
+var J = window.JOB; J.leEstado(); J.ligaNavegacao();
+
+var VERBETES = [
+  { id:'caixa.hub.semdoc', rot:'Recebido em caixa · particular',
+    conta:'Dinheiro que efetivamente entrou, vindo do Feegow.',
+    data:'Data do pagamento.',
+    fora:'<b>O convênio Hapvida fica de fora.</b> Duplicidade de conta+item também: fica só o registro sincronizado mais recente. Status diferente de Quitado ou Parcialmente pago não entra.',
+    naosoma:'Valor de face de proposta · Movimento de cartão do Life CRM · O “recebido” dos dossiês, que inclui Hapvida e não deduplica.',
+    onde:'Início › Dinheiro · BI do grupo › Recebido no período',
+    perigo:'O número é menor que o do dossiê e a diferença não é erro: é o Hapvida fora e a dedup aplicada.' },
+  { id:'caixa.hub.total', rot:'Recebido em caixa · particular + convênio',
+    conta:'O mesmo acima, somando o Hapvida.',
+    data:'Data do pagamento.',
+    fora:'Mesma dedup por conta+item.',
+    naosoma:'Valor de face de proposta · Movimento de cartão.',
+    onde:'Início › Dinheiro, com o recorte “particular + convênio”.',
+    perigo:'<b>Só existe a partir de 01/05/2026.</b> Pedir esta régua para março devolve ausência, não zero — e a tela precisa dizer “a régua não existia”, que é diferente de “sem coleta”.' },
+  { id:'caixa.hub.sodoc', rot:'Recebido em caixa · só convênio',
+    conta:'Só o Hapvida.', data:'Data do pagamento.', fora:'Todo o particular.',
+    naosoma:'Meta cadastrada, que é sempre de particular nos dois ramos do cadastro.',
+    onde:'Início › Dinheiro, recorte “só convênio”.',
+    perigo:'Comparar este número com meta é cobrar convênio contra alvo de particular.' },
+  { id:'agenda.comparecimento', rot:'Comparecimento',
+    conta:'Atendidos ÷ (atendidos + faltas).',
+    data:'Dia do agendamento, pelos lotes do período.',
+    fora:'Quem está na fila — aguardando, chamando, em atendimento — conta em “em curso” e fica fora dos dois lados da fração. Cancelado e sem baixa também.',
+    naosoma:'A taxa de falta por categoria, que usa base menor.',
+    onde:'Início › Agenda.',
+    perigo:'A fonte grava o mesmo status em duas grafias (<code>não compareceu</code> e <code>nao_compareceu</code>, <code>em atendimento</code> e <code>em_atendimento</code>). Aqui as duas caem no mesmo balde; no painel antigo elas caíam em baldes diferentes em tabelas vizinhas.' },
+  { id:'midia.custo_conversa', rot:'Custo por conversa',
+    conta:'Investimento ÷ conversas iniciadas, na coleta do hub.',
+    data:'Dia da veiculação.',
+    fora:'Toda conversa que não veio da Meta.',
+    naosoma:'Contatos do CRM — a Meta conta evento no dia do anúncio, o CRM conta pessoa no dia da mensagem.',
+    onde:'Início › Mídia.',
+    perigo:'<b>Não é CPL.</b> Esta conta não tem lead: tem conversa iniciada. E existe uma segunda coleta da mesma conta, em outro projeto, com número diferente.' },
+  { id:'funil.movimento', rot:'Movimento de cartão',
+    conta:'Quantos cartões passaram por uma etapa naquele dia.',
+    data:'Dia da movimentação do cartão.',
+    fora:'Nada — inclusive o mesmo cartão mais de uma vez, se ele reentrou na etapa.',
+    naosoma:'Recebido em caixa. <b>O “R$” do funil não é receita:</b> é o valor do cartão que passou pela etapa, multiplicado por quantas vezes passou.',
+    onde:'Início › Funil · Life CRM.',
+    perigo:'Somar o período responde “quanto andou”, nunca “quantos estão parados ali agora”. Um cartão que avançou três etapas aparece nas três.' },
+  { id:'nps.indice', rot:'NPS',
+    conta:'(promotores − detratores) ÷ respostas × 100.',
+    data:'Dia da resposta.',
+    fora:'Quem não respondeu. A unidade não é declarada pela pesquisa: é remontada pelo telefone, procurando agendamento em até três dias antes.',
+    naosoma:'A soma das unidades é <b>menor</b> que o total, porque resposta sem vínculo entra no consolidado e em unidade nenhuma.',
+    onde:'Início › Opinião.',
+    perigo:'Abaixo de 30 respostas a tela não publica índice. Com 5 respostas cada uma move o índice 40 pontos, e um índice assim não é medida — é ruído com aparência de número.' },
+  { id:'proposta.face', rot:'Valor de face de proposta',
+    conta:'O valor do orçamento como ele foi escrito.',
+    data:'Data de criação da proposta — mas o status é o de <b>hoje</b>.',
+    fora:'Não é dinheiro: é promessa.',
+    naosoma:'Recebido em caixa. São grandezas diferentes em datas diferentes, e <b>bater seria sinal de erro</b>.',
+    onde:'BI do grupo › Propostas.',
+    perigo:'Como a data é de criação e o status é o de hoje, <b>o mesmo período consultado amanhã devolve outra taxa de conversão</b>, sem que nada tenha acontecido no passado.' },
+  { id:'disparo.indefinida', rot:'Disparo — régua não resolvida',
+    conta:'Ainda não se sabe.',
+    data:'Proposta: hora de criação do conteúdo, em Manaus. Nunca a hora de ingestão, que tem mediana de 4,7 s mas cauda de 24 dias.',
+    fora:'A definir.',
+    naosoma:'Nada, por enquanto — a régua precisa existir antes de poder divergir de alguma coisa.',
+    onde:'Início › Disparos, hoje como “não sei”.',
+    perigo:'O gerador define disparo como <code>origin=API</code> (16.718 mensagens) ou como qualquer saída com template (30.300). <b>A escolha dobra o denominador e derruba a taxa de resposta pela metade.</b> Publicar antes de conferir seria estrear com um número que diverge 2× do já publicado.' }
+];
+
+var PARES = [
+  ['P1','Recebido no BI × no dossiê','MOTOR + RECORTE','Investigar “dinheiro sumido” que é o Hapvida fora por padrão de um lado e a dedup do outro.'],
+  ['P2','Recebido antes × depois de 01/05/2026','MOTOR','Ler um degrau de R$ 318.228,93 como queda de faturamento. Conferido: de jan a abr a métrica era o total, e virou só particular.'],
+  ['P3','“Pago” do Life CRM × recebido do BI','MOTOR','Usar movimento de cartão como receita. Mesma moeda, mesma tipografia, mesmo portal.'],
+  ['P4','Origem do recebido × Propostas','DATA','Somar caixa do período com valor de face de orçamento criado no período.'],
+  ['P5','Propostas do hub × do dossiê','MOTOR + DATA','Comparar duas taxas de conversão que não são a mesma — e a do hub muda sozinha entre dois dias.'],
+  ['P6','Meta × realizado em “só convênio”','RECORTE','Cobrar Hapvida contra meta de particular, com semáforo colorido dando aval.'],
+  ['P7','Conversas da Meta × contatos do CRM','COBERTURA + DATA','A divergência mais antiga e mais bem explicada da casa. Perder a explicação é a pior regressão possível.'],
+  ['P8','Movimento do funil no hub × na origem','COBERTURA','Concluir que a operação parou de desqualificar quando o que quebrou foi o caminho até o hub.'],
+  ['P9','Mídia: coleta do hub × do relatório','MOTOR','Cobrar agência com dois investimentos possíveis para o mesmo período.'],
+  ['P10','NPS do hub × do dossiê','MOTOR + COBERTURA','Dois NPS para a mesma empresa, sem critério visível de qual é o oficial.'],
+  ['P11','Faturado / Executado / Receita executada','RÓTULO','É o mesmo campo com nomes diferentes em abas diferentes.'],
+  ['P12','Entregues sem resposta × fila de disparo','COBERTURA','Somar duas séries com populações e relógios diferentes e obter uma diferença que não existe.'],
+  ['P13','Agenda: coletor × briefing','MOTOR','Em 441 dias-unidade os dois discordam, e a escolha do oficial é feita em silêncio.'],
+  ['P14','Status de agendamento, duas leituras','MOTOR','Contar quem está na fila como atendido numa tabela e como sem desfecho na vizinha.'],
+  ['P15','NPS por unidade × unidade de cadastro','COBERTURA','Concluir que faltam unidades quando a unidade do NPS é reconstruída, não declarada.'],
+  ['P16','Receita da agenda tocada × em 30 dias','COBERTURA','Duas medidas sobrepostas, nenhuma incremental, lado a lado no topo.'],
+  ['P17','“Recebido” da mídia × da clínica','COBERTURA','Ler piso rastreado como total da operação.']
+];
+
+var BURACOS = [
+  ['Produção por procedimento parada','17/08/2026','A carga roda todo dia, mas o dado não passa de 08/08. Cega qualquer leitura por procedimento.'],
+  ['Etapa Desqualificado congelada','17/08/2026','Maior etapa das duas empresas, sem dado no hub desde 13/08. Derruba o ladrilho de Funil inteiro.'],
+  ['build_lc.py fora do repositório','17/08/2026','O gerador dos dois dossiês não está versionado aqui, então a régua de disparo não pode ser conferida por leitura de código.'],
+  ['Mensagens sem coluna de marca','17/08/2026','Não há como separar Doctor de Acesso nos disparos: 131.264 das 144.587 mensagens vêm de um canal só.'],
+  ['recebido_particular ≠ recebido_sem_doc','17/08/2026','Diferença de R$ 40.563,93 em maio. Não dá para usar uma para atravessar a fronteira da outra.'],
+  ['NPS sem histórico antes de agosto','17/08/2026','Não há coleta de NPS em julho, então o ladrilho de Opinião não tem base de comparação.'],
+  ['Meta de agosto não cadastrada','17/08/2026','Sem linha em monthly_goals para 2026-08: projeção contra meta fica sem alvo.']
+];
+
+document.getElementById('verbetes').innerHTML = VERBETES.map(function(v){
+  return '<div class="verbete" id="m=' + J.esc(v.id) + '">' +
+    '<h3>' + J.esc(v.rot) + '</h3><div class="id">' + J.esc(v.id) + '</div>' +
+    '<dl class="campos">' +
+    '<div><dt>O que conta</dt><dd>' + v.conta + '</dd></div>' +
+    '<div><dt>Que data recorta</dt><dd>' + v.data + '</dd></div>' +
+    '<div><dt>O que fica de fora</dt><dd>' + v.fora + '</dd></div>' +
+    '<div><dt>Com o que não soma</dt><dd>' + v.naosoma + '</dd></div>' +
+    '<div><dt>Onde aparece</dt><dd>' + v.onde + '</dd></div>' +
+    (v.perigo ? '<div><dt>Onde erram</dt><dd class="perigo">' + v.perigo + '</dd></div>' : '') +
+    '</dl></div>';
+}).join('');
+
+document.getElementById('pares').innerHTML = J.tabela(
+  [{rot:'#'},{rot:'Par'},{rot:'Tipo'},{rot:'Risco concreto'}],
+  PARES.map(function(p){
+    var motor = p[2].indexOf('MOTOR') >= 0;
+    return ['<b>' + p[0] + '</b>', J.esc(p[1]),
+            '<span class="selo ' + (motor ? 'morto' : '') + '">' + J.esc(p[2]) + '</span>',
+            J.esc(p[3])];
+  }));
+
+document.getElementById('presets').innerHTML = J.tabela(
+  [{rot:'Preset'},{rot:'De'},{rot:'Até'},{rot:'Dias',r:true}],
+  J.PRESETS.map(function(p){
+    var d = J.periodoDe(p.id);
+    return [J.esc(p.rot), J.br(d[0]), J.br(d[1]),
+            '<span class="num">' + (J.diasEntre(d[0], d[1]) + 1) + '</span>'];
+  }),
+  'Calculado agora, no seu navegador, pela mesma função que as telas usam. Dia fechado em America/Manaus.');
+
+document.getElementById('buracos').innerHTML = J.tabela(
+  [{rot:'Buraco'},{rot:'Constatado em'},{rot:'O que invalida'}],
+  BURACOS.map(function(b){ return ['<b>' + J.esc(b[0]) + '</b>', J.br(b[1].split('/').reverse().join('-')), J.esc(b[2])]; }));
+
+/* verbete endereçável por #m=id vindo do chip de régua */
+function pula(){
+  var h = location.hash.replace(/^#/, '');
+  var m = new URLSearchParams(h).get('m');
+  if (!m) return;
+  var alvo = document.getElementById('m=' + m);
+  if (alvo) alvo.scrollIntoView({ block:'center' });
+}
+document.getElementById('trocas').innerHTML = J.tabela(
+  [{rot:'Métrica'},{rot:'Muda em'},{rot:'Antes era'},{rot:'Depois virou'}],
+  [['<b>recebido</b>','01/05/2026','total: particular + Hapvida','idêntico a recebido_sem_doc: só particular'],
+   ['<b>recebido_particular</b>','01/05/2026','única régua de particular','convive com recebido_sem_doc, que não é igual a ela']]
+    .map(function(r){ return [r[0], r[1], J.esc(r[2]), J.esc(r[3])]; }),
+  'Conferido no banco: de janeiro a abril a diferença entre recebido e (particular + Hapvida) é 0,00 nos quatro meses; em maio vira −318.228,93.');
+pula();
+window.addEventListener('hashchange', pula);
+})();
+</script>
+</body></html>

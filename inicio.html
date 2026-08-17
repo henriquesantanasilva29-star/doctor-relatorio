@@ -1,0 +1,262 @@
+<!doctype html>
+<html lang="pt-BR"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Grupo JOB · Início</title>
+<link rel="stylesheet" href="comum.css?v=1">
+</head><body>
+
+<header class="topo"><div class="topo-in">
+  <div class="marca">Grupo JOB · <em>painéis</em></div>
+  <div class="rastro"><span>Início</span></div>
+  <div class="estado-barra" id="carimbo">carregando…</div>
+  <div class="filtros" id="filtros"></div>
+</div></header>
+
+<noscript><div id="estado">Esta página monta os números no seu navegador. Sem JavaScript ela não tem o que mostrar.</div></noscript>
+<div id="estado">Buscando os sinais no hub…</div>
+
+<main id="conteudo" hidden>
+  <div id="confianca"></div>
+
+  <h2>Seis sinais</h2>
+  <p class="sub">A variação vem em corpo grande e o valor absoluto em corpo pequeno, de propósito:
+     nenhum absoluto desta casa é interpretável sem saber a régua, mas a variação contra o
+     <b>mesmo motor de cálculo</b> é honesta mesmo quando a régua é estranha.</p>
+  <div class="ladrilhos" id="ladrilhos"></div>
+
+  <h2>Onde cada fonte está</h2>
+  <p class="sub">Duas colunas de frescor, não uma. <b>Última carga</b> diz se o robô rodou;
+     <b>dado até</b> diz se o dado andou. Fonte verde na primeira e parada na segunda é o
+     caso que o painel antigo não sabia distinguir.</p>
+  <div id="fontes"></div>
+
+  <h2>Quando a definição mudou</h2>
+  <p class="sub">Toda comparação que atravessa uma destas datas sai como “não sei” em vez de
+     publicar um delta entre dois motores diferentes.</p>
+  <div id="trocas"></div>
+</main>
+
+<footer class="rodape" id="rodape"></footer>
+
+<script src="comum.js?v=1"></script>
+<script>
+(function(){
+var J = window.JOB, E = J.leEstado();
+J.ligaNavegacao();
+
+var el = function(id){ return document.getElementById(id); };
+var LIMITE_ATRASO = 3; // dias de defasagem a partir dos quais o ladrilho vira "não sei"
+
+/* "não sei" sobre a VARIAÇÃO é diferente de "não sei" sobre o número.
+   Quando o absoluto é conhecido e só falta a base de comparação, dizer "não sei"
+   sugeriria que o número também é duvidoso — e não é. */
+function seta(d, invertida){
+  if (d.tipo === 'nsei') return { cls:'nsei', txt:'◌ sem comparação', palavra: d.motivo };
+  if (d.tipo === 'estavel') return { cls:'estavel', txt:'● estável', palavra:'variação abaixo de 1%' };
+  var sobe = d.tipo === 'sobe';
+  var bom = invertida ? !sobe : sobe;
+  return {
+    cls: bom ? 'sobe' : 'cai',
+    txt: (sobe ? '▲ +' : '▼ ') + J.pct(d.v),
+    palavra: invertida ? (sobe ? 'ficou mais caro' : 'ficou mais barato') : (sobe ? 'subiu' : 'caiu')
+  };
+}
+
+function ladrilho(o){
+  var s = o.nsei ? { cls:'nsei', txt:'◌ não sei', palavra:o.nsei } : seta(o.delta, o.invertida);
+  return '<button class="ladrilho' + (o.nsei ? ' cego' : '') + '" data-para="' + (o.para||'#') + '"' +
+    (o.titulo ? ' title="' + J.esc(o.titulo) + '"' : '') + '>' +
+    '<span class="nome">' + J.esc(o.nome) + '</span>' +
+    '<span class="delta ' + s.cls + '">' + s.txt + '</span>' +
+    '<span class="palavra">' + J.esc(s.palavra || '') + '</span>' +
+    (o.nsei ? '' :
+      '<span class="abs">' + o.abs + '</span>' +
+      '<span class="antes">antes: ' + o.antes + '</span>') +
+    '</button>';
+}
+
+function carrega(){
+  el('estado').hidden = false;
+  el('estado').textContent = 'Buscando os sinais no hub…';
+  if (!E.k) { el('estado').textContent = 'Falta a chave: abra o endereço com #k=SUACHAVE no final.'; return; }
+
+  J.busca({ k:E.k, ini:E.ini, fim:E.fim, doc:E.doc, bloco:'resumo' }, function(d){
+    el('estado').hidden = true;
+    el('conteudo').hidden = false;
+
+    var A = d.atual, C = d.comp || {}, S = d.saude || {};
+    var trocas = A.trocas_no_periodo || [];
+    var rotDoc = { sem_doc:'particular (sem Hapvida)', com_doc:'particular + convênio', so_doc:'só convênio' }[d.periodo.doc];
+    var ge = new Date(d.gerado_em);
+
+    el('carimbo').innerHTML =
+      '<b>' + J.br(d.periodo.ini) + ' a ' + J.br(d.periodo.fim) + '</b> · ' + J.esc(rotDoc) +
+      ' · comparando com ' + J.br(d.anterior.ini) + ' a ' + J.br(d.anterior.fim) +
+      ' · consultado ' + ge.toLocaleString('pt-BR',{timeZone:'America/Manaus',dateStyle:'short',timeStyle:'short'}) + ' (Manaus)';
+
+    /* ---------- ladrilhos ---------- */
+    var fim = d.periodo.fim;
+    var atrasoDe = function(ultimo){ return ultimo ? J.diasEntre(String(ultimo).slice(0,10), fim) : null; };
+    var L = [];
+
+    // dinheiro
+    var din = A.dinheiro || {}, dinC = (C.dinheiro || {});
+    var atrDin = atrasoDe(din.ultimo_dia);
+    var reguaDin = { sem_doc:'caixa.hub.semdoc', com_doc:'caixa.hub.total', so_doc:'caixa.hub.sodoc' }[d.periodo.doc];
+    if (!din.dias_com_dado) {
+      L.push(ladrilho({ nome:'Dinheiro', nsei:'a régua ' + din.metrica + ' não existia neste período', para:'#' }));
+    } else if (atrDin != null && atrDin >= LIMITE_ATRASO) {
+      L.push(ladrilho({ nome:'Dinheiro', nsei:'fonte parada em ' + J.br(din.ultimo_dia) + ' (' + atrDin + ' dias)' }));
+    } else {
+      L.push(ladrilho({
+        nome:'Dinheiro', delta:J.delta(din.valor, dinC.valor, trocas),
+        abs:J.renderNum(J.brl(din.valor), reguaDin),
+        antes:J.brl(dinC.valor),
+        titulo: atrDin > 0 ? 'cobertura até ' + J.br(din.ultimo_dia) + ': faltam ' + atrDin + ' dia(s) do período' : ''
+      }));
+    }
+
+    // agenda — comparecimento
+    var ag = A.agenda || {}, agC = C.agenda || {};
+    var comp = function(x){ var b = Number(x.atendidos||0) + Number(x.faltas||0);
+                            return b > 0 ? 100 * Number(x.atendidos||0) / b : null; };
+    var cA = comp(ag), cB = comp(agC), atrAg = atrasoDe(ag.ultimo_dia);
+    if (cA == null || (atrAg != null && atrAg >= LIMITE_ATRASO)) {
+      L.push(ladrilho({ nome:'Agenda', nsei: cA == null ? 'sem agendamento com desfecho' :
+        'fonte parada em ' + J.br(ag.ultimo_dia) }));
+    } else {
+      var dpp = (cB == null) ? { tipo:'nsei', motivo:'período anterior sem base' }
+        : (Math.abs(cA - cB) < 0.5 ? { tipo:'estavel' }
+          : { tipo: cA > cB ? 'sobe' : 'cai', v: cA - cB });
+      var s2 = seta(dpp, false);
+      if (dpp.tipo === 'sobe' || dpp.tipo === 'cai') s2.txt = (dpp.v > 0 ? '▲ +' : '▼ ') + J.pct(dpp.v) + ' p.p.';
+      L.push('<button class="ladrilho" data-para="#">' +
+        '<span class="nome">Agenda</span>' +
+        '<span class="delta ' + s2.cls + '">' + s2.txt + '</span>' +
+        '<span class="palavra">' + J.esc(s2.palavra || '') + '</span>' +
+        '<span class="abs">' + J.renderNum(J.pct(cA) + ' compareceu', 'agenda.comparecimento') + '</span>' +
+        '<span class="antes">antes: ' + J.pct(cB) + '</span></button>');
+    }
+
+    // mídia — custo por conversa, seta invertida
+    var m = A.midia || {}, mC = C.midia || {};
+    var cpc = function(x){ return Number(x.conv||0) > 0 ? Number(x.inv||0) / Number(x.conv) : null; };
+    var mA = cpc(m), mB = cpc(mC);
+    if (mA == null) L.push(ladrilho({ nome:'Mídia', nsei:'sem conversa no período' }));
+    else L.push(ladrilho({
+      nome:'Mídia', invertida:true, delta:J.delta(mA, mB, trocas),
+      abs:J.renderNum(J.brl(mA, 2) + '/conversa', 'midia.custo_conversa'),
+      antes:J.brl(mB, 2)
+    }));
+
+    // funil — invariante 4: quebra dominante morta derruba o bloco inteiro
+    var fu = A.funil || {}, fuC = C.funil || {}, dom = A.funil_dominante || {};
+    var atrDom = atrasoDe(dom.ultimo_dia);
+    if (dom.fatia != null && Number(dom.fatia) > 33 && atrDom != null && atrDom >= 2) {
+      L.push(ladrilho({ nome:'Funil',
+        nsei:'a etapa ' + dom.etapa + ' é ' + J.pct(dom.fatia) + ' do movimento e parou em ' + J.br(dom.ultimo_dia) }));
+    } else {
+      L.push(ladrilho({ nome:'Funil', delta:J.delta(fu.qtd, fuC.qtd, trocas),
+        abs:J.renderNum(J.num(fu.qtd) + ' movimentações', 'funil.movimento'),
+        antes:J.num(fuC.qtd) }));
+    }
+
+    // disparos — a régua ainda não foi resolvida contra o gerador
+    L.push(ladrilho({ nome:'Disparos',
+      nsei:'a régua não foi resolvida: API (16.718) ou qualquer template (30.300)' }));
+
+    // opinião — piso amostral
+    var n = A.nps || {}, nC = C.nps || {};
+    var nps = function(x){ return Number(x.r||0) > 0
+      ? 100 * (Number(x.p||0) - Number(x.d||0)) / Number(x.r) : null; };
+    var nA = nps(n), nB = nps(nC);
+    if (Number(n.r||0) < 30) {
+      L.push(ladrilho({ nome:'Opinião',
+        nsei:'base fraca: ' + J.num(n.r) + ' respostas, cada uma move o índice ' +
+             (Number(n.r||0) ? J.pct(200/Number(n.r)) : '—') }));
+    } else {
+      var dnp = (nB == null) ? { tipo:'nsei', motivo:'período anterior sem base' }
+        : (Math.abs(nA - nB) < 1 ? { tipo:'estavel' }
+          : { tipo: nA > nB ? 'sobe' : 'cai', v: nA - nB });
+      var s3 = seta(dnp, false);
+      if (dnp.tipo === 'sobe' || dnp.tipo === 'cai') s3.txt = (dnp.v > 0 ? '▲ +' : '▼ ') + J.pct(dnp.v) + ' pt';
+      L.push('<button class="ladrilho" data-para="#">' +
+        '<span class="nome">Opinião</span>' +
+        '<span class="delta ' + s3.cls + '">' + s3.txt + '</span>' +
+        '<span class="palavra">' + J.esc(s3.palavra || '') + '</span>' +
+        '<span class="abs">' + J.renderNum('NPS ' + Math.round(nA) + ' · ' + J.num(n.r) + ' respostas', 'nps.indice') + '</span>' +
+        '<span class="antes">antes: ' + (nB == null ? '—' : Math.round(nB)) + '</span></button>');
+    }
+    el('ladrilhos').innerHTML = L.join('');
+
+    /* ---------- aviso de confiança: só existe quando algo parou ---------- */
+    var paradas = (S.fontes || []).filter(function(f){ return f.dias_atraso != null && f.dias_atraso > 0; });
+    var etapasMortas = (S.etapas || []).filter(function(e){ return e.dias_atraso != null && e.dias_atraso >= 2; });
+    var itens = [];
+    paradas.forEach(function(f){
+      itens.push('<b>' + J.esc(f.fonte) + '</b> — dado até ' + J.br(f.dado_max) + ', ' + f.dias_atraso +
+        ' dias atrás. Veredito: <b>' + J.esc(f.veredito) + '</b>.');
+    });
+    if (etapasMortas.length) {
+      var porEmp = {};
+      etapasMortas.forEach(function(e){ (porEmp[e.empresa] = porEmp[e.empresa] || []).push(e.etapa); });
+      Object.keys(porEmp).forEach(function(emp){
+        itens.push('<b>' + J.esc(emp) + '</b> — ' + porEmp[emp].length +
+          ' etapa(s) do funil sem dado há 2 dias ou mais: ' + J.esc(porEmp[emp].slice(0,4).join(', ')) +
+          (porEmp[emp].length > 4 ? ' e outras' : '') + '.');
+      });
+    }
+    if (din.dias_com_dado != null && A.periodo && din.dias_com_dado < A.periodo.dias) {
+      itens.push('<b>dinheiro</b> — ' + din.dias_com_dado + ' de ' + A.periodo.dias +
+        ' dias do período têm dado. O valor é o que entrou até ' + J.br(din.ultimo_dia) + '.');
+    }
+    el('confianca').innerHTML = itens.length
+      ? '<div class="aviso' + (paradas.length ? ' grave' : '') + '"><span class="ttl">O que não dá para afirmar hoje</span><ul><li>' +
+        itens.join('</li><li>') + '</li></ul></div>'
+      : '<div class="aviso calmo"><span class="ttl">Confiança</span><p>Nenhuma fonte atrasada e nenhuma etapa parada no período. Os seis sinais acima estão apoiados em dado completo.</p></div>';
+
+    /* ---------- tabela de fontes ---------- */
+    el('fontes').innerHTML = J.tabela(
+      [{rot:'Fonte'},{rot:'Última carga'},{rot:'Dado até'},{rot:'Atraso',r:true},{rot:'Veredito'}],
+      (S.fontes || []).map(function(f){
+        var selo = f.veredito === 'dado andou' ? 'ok'
+          : (f.veredito === 'robo rodou e o dado nao andou' ? 'atraso' : 'morto');
+        return [
+          J.esc(f.fonte),
+          f.ultima_carga ? new Date(f.ultima_carga).toLocaleString('pt-BR',{timeZone:'America/Manaus',dateStyle:'short',timeStyle:'short'}) : '—',
+          f.dado_max ? J.br(f.dado_max) : '<span class="nsei-sel">sem marca</span>',
+          f.dias_atraso == null ? '—' : '<span class="num">' + f.dias_atraso + ' d</span>',
+          '<span class="selo ' + selo + '">' + J.esc(f.veredito) + '</span>'
+        ];
+      }));
+
+    /* ---------- trocas de régua ---------- */
+    el('trocas').innerHTML = J.tabela(
+      [{rot:'Métrica'},{rot:'Muda em'},{rot:'Antes era'},{rot:'Depois virou'},{rot:'Como se sabe'}],
+      (S.trocas || []).map(function(t){
+        return ['<b>' + J.esc(t.metrica) + '</b>', J.br(t.muda_em),
+                J.esc(t.antes), J.esc(t.depois), J.esc(t.observacao || '')];
+      }));
+
+    el('rodape').innerHTML = 'Painel de leitura do hub Grupo JOB · acesso por chave revogável, que nunca sai do seu navegador · ' +
+      'atualiza sozinho a cada 5 minutos · ladrilho vira <span class="nsei-sel">não sei</span> quando a fonte está parada há ' +
+      LIMITE_ATRASO + ' dias ou mais, ou quando a comparação atravessaria uma troca de régua.';
+
+    J.repete(carrega, 300000);
+  }, function(e){
+    el('estado').hidden = false;
+    el('conteudo').hidden = true;
+    el('estado').textContent = (String(e).indexOf('401') >= 0)
+      ? 'Acesso negado: confira a chave depois do #k= no endereço.'
+      : 'Não consegui buscar agora (' + e + '). Tentando de novo em 1 minuto…';
+    J.tentaDeNovo(carrega, 60000);
+  });
+}
+
+J.pintaFiltros(el('filtros'), carrega);
+J.gravaEstado({});
+carrega();
+})();
+</script>
+</body></html>
