@@ -72,7 +72,7 @@ footer{color:var(--cinza);font-size:12px;margin-top:40px}
 <div style="overflow-x:auto"><table><thead><tr><th>Unidade</th><th class="r">Realizado</th><th class="r">Consultas</th><th class="r">Ritmo/dia</th><th class="r">Dias rest.</th><th class="r">Projeção</th><th class="r">Meta</th><th class="r">% proj.</th></tr></thead><tbody id="proj"></tbody></table></div>
 <h2>Agenda no período</h2>
 <div style="overflow-x:auto"><table><thead><tr><th>Unidade</th><th class="r">Atendidos</th><th class="r">Faltas</th><th class="r">Taxa de falta</th><th class="r">Cancelados</th><th class="r">Sem desfecho</th></tr></thead><tbody id="agenda"></tbody></table></div>
-<div class="nota">Taxa de falta = faltas ÷ (atendidos + faltas). "Sem desfecho" são agendamentos que seguem marcados/confirmados sem baixa.</div>
+<div class="nota">Régua do app: agendamentos dos lotes do período, excluindo retornos. Taxa de falta = faltas ÷ (atendidos + faltas). "Sem desfecho" são agendamentos que seguem marcados/confirmados sem baixa. Entre parênteses, consultas atendidas (com retornos, como no app).</div>
 <h2>Propostas (orçamentos) no período</h2>
 <div class="cards" id="prop-cards"></div>
 <div class="nota">Régua do app: <b>Convertido</b> = executada e com pagamento casado no período; <b>Rejeitado</b> = rejeitada/cancelada; <b>Em aberto</b> = todo o resto — inclusive <b>executada e ainda não paga</b>, destacada abaixo. Contagem por número de proposta; recorte pela data de criação.</div>
@@ -133,8 +133,12 @@ function carrega(){
   var rotDoc={sem_doc:'sem DOC',com_doc:'com + sem DOC',so_doc:'só DOC'}[d.periodo.doc]||d.periodo.doc;
   document.getElementById('carimbo').textContent='Período '+br(d.periodo.ini)+' a '+br(d.periodo.fim)+' · '+rotDoc+' · dados direto do hub, consulta feita em '+ge.toLocaleString('pt-BR',{timeZone:'America/Manaus',dateStyle:'short',timeStyle:'short'})+' (Manaus)';
   document.getElementById('tit-emp').textContent='Recebido no período por empresa';
-  var emp={},cons={};
-  (d.unidades||[]).forEach(function(u){emp[u.empresa]=(emp[u.empresa]||0)+Number(u.realizado||0);cons[u.empresa]=(cons[u.empresa]||0)+Number(u.consultas_qtd||0)});
+  var emp={},cons={},consU={},hapU={},hapE={};
+  (d.unidades||[]).forEach(function(u){emp[u.empresa]=(emp[u.empresa]||0)+Number(u.realizado||0)});
+  var A=d.app||{};
+  var NUA={"acesso|20":"Unidade I","acesso|21":"Unidade II","acesso|55":"Unidade III","doctor|0":"Unidade IV","doctor|2":"Unidade V","doctor|4":"Unidade VI"};
+  (A.consultas||[]).forEach(function(c){cons[c.empresa]=(cons[c.empresa]||0)+Number(c.qtd||0);consU[NUA[c.empresa+"|"+c.fid]||c.fid]={qtd:Number(c.qtd||0),valor:Number(c.valor||0)}});
+  (A.hapvida||[]).forEach(function(h){hapU[NUA[h.empresa+"|"+h.fid]||h.fid]=h;var e=(hapE[h.empresa]=hapE[h.empresa]||{at:0,pr:0,v:0});e.at+=Number(h.atendimentos||0);e.pr+=Number(h.procedimentos||0);e.v+=Number(h.valor||0)});
   var cards='';
   Object.keys(ROT).forEach(function(e){
    var m=(d.midia||{})[e],n=(d.nps||{})[e];
@@ -143,7 +147,9 @@ function carrega(){
    cards+='<div class="card"><div class="emp" style="color:'+CORES[e]+'">'+ROT[e]+'</div>'
     +'<div class="big">'+(emp[e]!=null?brl(emp[e]):'—')+'</div><div class="sub">recebido no período'+(cons[e]?(' · '+num(cons[e])+' consultas particulares'):'')+'</div>'
     +'<div class="linha">'+(m?('mídia '+brl(m.inv)+' · '+num(m.conv)+' conversas · '+(m.conv>0?brl(m.inv/m.conv):'—')+'/conversa'):'mídia sem dado no período')+'</div>'
-    +'<div class="linha">'+(npsv!=null?('NPS '+npsv+' ('+num(n.r)+' respostas)'):'NPS sem dado no período')+'</div></div>';
+    +'<div class="linha">'+(npsv!=null?('NPS '+npsv+' ('+num(n.r)+' respostas)'):'NPS sem dado no período')+'</div>'
+    +(hapE[e]&&hapE[e].at>0?('<div class="linha">Hapvida (DOC): '+brl(hapE[e].v)+' · '+num(hapE[e].at)+' atendimentos · '+num(hapE[e].pr)+' procedimentos</div>'):'')
+    +'</div>';
   });
   document.getElementById('cards').innerHTML=cards||'<div class="avi">sem dados no período</div>';
   // série diária empilhada por empresa
@@ -160,7 +166,7 @@ function carrega(){
   (d.unidades||[]).forEach(function(p){
    var pct=p.pct_meta_projetado,cls=pct==null?'':(pct>=100?'ok':(pct>=85?'quase':'ruim'));
    pr+='<tr><td><span class="dot" style="background:'+(CORES[p.empresa]||'#A9A3BC')+'"></span>'+esc(p.unidade)+'</td>'
-    +'<td class="r">'+brl(p.realizado)+'</td><td class="r">'+(p.consultas_qtd!=null?(num(p.consultas_qtd)+' · '+brl(p.consultas_valor)):'—')+'</td>'
+    +'<td class="r">'+brl(p.realizado)+'</td><td class="r">'+(consU[p.unidade]?(num(consU[p.unidade].qtd)+' · '+brl(consU[p.unidade].valor)):'—')+'</td>'
     +'<td class="r">'+brl(p.media_dia)+'</td><td class="r">'+p.dias_restantes+'</td>'
     +'<td class="r b">'+brl(p.projecao)+'</td>'
     +'<td class="r">'+(p.meta?brl(p.meta):'<span class="avi">meta não cadastrada</span>')+'</td>'
@@ -169,12 +175,10 @@ function carrega(){
   document.getElementById('proj').innerHTML=pr||'<tr><td colspan="8" class="avi">sem dados</td></tr>';
   document.getElementById('tit-proj').textContent=(d.periodo.fim>=iso(hojeManaus()))?'Por unidade · projeção de fechamento do mês':'Por unidade (período fechado — projeção não se aplica)';
   // agenda
-  var ag={};
-  (d.agenda||[]).forEach(function(a){var kk=a.empresa+'|'+a.unidade;ag[kk]=ag[kk]||{empresa:a.empresa,unidade:a.unidade};ag[kk][a.status_grupo]=(ag[kk][a.status_grupo]||0)+Number(a.qtd||0)});
-  document.getElementById('agenda').innerHTML=Object.keys(ag).sort().map(function(kk){
-   var a=ag[kk],at=a.atendido||0,fa=a.falta||0,ca=a.cancelado||0,sd=(a.previsto||0)+(a.outro||0)+(a.removido||0);
+  document.getElementById('agenda').innerHTML=(A.agenda||[]).map(function(a){
+   var at=Number(a.atendidos||0),fa=Number(a.faltas||0),ca=Number(a.cancelados||0),sd=Number(a.sem_desfecho||0);
    var tx=(at+fa)>0?Math.round(1000*fa/(at+fa))/10:null;
-   return '<tr><td><span class="dot" style="background:'+(CORES[a.empresa]||'#A9A3BC')+'"></span>'+esc(a.unidade)+'</td><td class="r">'+num(at)+'</td><td class="r">'+num(fa)+'</td><td class="r '+(tx==null?'':(tx<=15?'ok':(tx<=25?'quase':'ruim')))+'">'+(tx!=null?tx+'%':'—')+'</td><td class="r">'+num(ca)+'</td><td class="r">'+num(sd)+'</td></tr>';
+   return '<tr><td><span class="dot" style="background:'+(CORES[a.empresa]||'#A9A3BC')+'"></span>'+esc(NUA[a.empresa+'|'+a.fid]||a.fid)+'</td><td class="r">'+num(at)+' <span class="linha">('+num(a.consultas_atendidas||0)+' consultas)</span></td><td class="r">'+num(fa)+'</td><td class="r '+(tx==null?'':(tx<=15?'ok':(tx<=25?'quase':'ruim')))+'">'+(tx!=null?tx+'%':'—')+'</td><td class="r">'+num(ca)+'</td><td class="r">'+num(sd)+'</td></tr>';
   }).join('')||'<tr><td colspan="6" class="avi">sem dados</td></tr>';
   // propostas
   (function(){
