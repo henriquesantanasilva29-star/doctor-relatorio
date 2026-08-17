@@ -73,6 +73,11 @@ footer{color:var(--cinza);font-size:12px;margin-top:40px}
 <h2>Agenda no período</h2>
 <div style="overflow-x:auto"><table><thead><tr><th>Unidade</th><th class="r">Atendidos</th><th class="r">Faltas</th><th class="r">Taxa de falta</th><th class="r">Cancelados</th><th class="r">Sem desfecho</th></tr></thead><tbody id="agenda"></tbody></table></div>
 <div class="nota">Taxa de falta = faltas ÷ (atendidos + faltas). "Sem desfecho" são agendamentos que seguem marcados/confirmados sem baixa.</div>
+<h2>Propostas (orçamentos) no período</h2>
+<div class="cards" id="prop-cards"></div>
+<div class="nota">Régua do app: <b>Convertido</b> = executada e com pagamento casado no período; <b>Rejeitado</b> = rejeitada/cancelada; <b>Em aberto</b> = todo o resto — inclusive <b>executada e ainda não paga</b>, destacada abaixo. Contagem por número de proposta; recorte pela data de criação.</div>
+<div style="overflow-x:auto;margin-top:12px"><table><thead><tr><th>Equipe</th><th class="r">Convertidos</th><th class="r">Rejeitados</th><th class="r">Em aberto</th><th class="r">Total</th><th class="r">Conversão</th></tr></thead><tbody id="prop-equipe"></tbody></table></div>
+<div style="overflow-x:auto;margin-top:12px"><table><thead><tr><th>Unidade</th><th class="r">Convertidos</th><th class="r">Rejeitados</th><th class="r">Em aberto</th><th class="r">Total</th><th class="r">Conversão</th></tr></thead><tbody id="prop-unidade"></tbody></table></div>
 <h2>Recebido por mês e unidade (ano do período)</h2>
 <div style="overflow-x:auto"><table id="fatt"><thead id="fath"></thead><tbody id="fatb"></tbody></table></div>
 <div class="nota">Meses sem barra são ausência de coleta, não de movimento.</div>
@@ -171,6 +176,36 @@ function carrega(){
    var tx=(at+fa)>0?Math.round(1000*fa/(at+fa))/10:null;
    return '<tr><td><span class="dot" style="background:'+(CORES[a.empresa]||'#A9A3BC')+'"></span>'+esc(a.unidade)+'</td><td class="r">'+num(at)+'</td><td class="r">'+num(fa)+'</td><td class="r '+(tx==null?'':(tx<=15?'ok':(tx<=25?'quase':'ruim')))+'">'+(tx!=null?tx+'%':'—')+'</td><td class="r">'+num(ca)+'</td><td class="r">'+num(sd)+'</td></tr>';
   }).join('')||'<tr><td colspan="6" class="avi">sem dados</td></tr>';
+  // propostas
+  (function(){
+   var P=d.propostas||{};var st=P.por_status||{};var tot=P.total||{qtd:0,valor:0};
+   var cv=st["Convertido"]||{qtd:0,valor:0},rj=st["Rejeitado"]||{qtd:0,valor:0},ab=st["Em Aberto"]||{qtd:0,valor:0},enp=P.executada_nao_paga||{qtd:0,valor:0};
+   var conv=tot.qtd>0?Math.round(1000*cv.qtd/tot.qtd)/10:null;
+   var tm=function(o){return o.qtd>0?brl(o.valor/o.qtd):"—"};
+   document.getElementById("prop-cards").innerHTML=
+    "<div class=\"card\"><div class=\"emp\" style=\"color:#14B879\">Taxa de conversão</div><div class=\"big\">"+(conv!=null?conv+"%":"—")+"</div><div class=\"sub\">"+num(cv.qtd)+" convertidos de "+num(tot.qtd)+"</div></div>"
+   +"<div class=\"card\"><div class=\"emp\" style=\"color:#14B879\">Valor convertido</div><div class=\"big\">"+brl(cv.valor)+"</div><div class=\"sub\">TM "+tm(cv)+"</div></div>"
+   +"<div class=\"card\"><div class=\"emp\" style=\"color:#FF8A1E\">Em aberto</div><div class=\"big\">"+brl(ab.valor)+"</div><div class=\"sub\">"+num(ab.qtd)+" orçamentos · TM "+tm(ab)+"</div><div class=\"linha\">dos quais <b>executados e não pagos: "+num(enp.qtd)+" · "+brl(enp.valor)+"</b></div></div>"
+   +"<div class=\"card\"><div class=\"emp\" style=\"color:#e03131\">Rejeitados</div><div class=\"big\">"+brl(rj.valor)+"</div><div class=\"sub\">"+num(rj.qtd)+" orçamentos · "+(tot.qtd>0?(Math.round(1000*rj.qtd/tot.qtd)/10)+"%":"—")+"</div></div>"
+   +"<div class=\"card\"><div class=\"emp\">Total de orçamentos</div><div class=\"big\">"+num(tot.qtd)+"</div><div class=\"sub\">"+brl(tot.valor)+" · TM "+tm(tot)+"</div></div>";
+   var ROTE={recepcao_i:"Recepção Unidade I",recepcao_ii:"Recepção Unidade II",recepcao_iii:"Recepção Unidade III",recepcao_iv:"Recepção Unidade IV",recepcao_v:"Recepção Unidade V",recepcao_vi:"Recepção Unidade VI",call_doctor:"Call Center Doctor+",call_acesso:"Call Center Acesso Saúde",sem_equipe:"Sem equipe"};
+   var ORD=["recepcao_i","recepcao_ii","recepcao_iii","recepcao_iv","recepcao_v","recepcao_vi","call_doctor","call_acesso","sem_equipe"];
+   var cel=function(o){return o?("<b>"+num(o.qtd)+"</b> orç.<br><span class=\"linha\">"+brl(o.valor)+"</span>"):"—"};
+   var eq={};(P.por_equipe||[]).forEach(function(e){eq[e.team]=eq[e.team]||{};eq[e.team][e.rotulo]=e});
+   var teams=Object.keys(eq).sort(function(a,b){var ia=ORD.indexOf(a),ib=ORD.indexOf(b);return (ia<0?99:ia)-(ib<0?99:ib)});
+   document.getElementById("prop-equipe").innerHTML=teams.map(function(t){
+    var c=eq[t]["Convertido"],r=eq[t]["Rejeitado"],a=eq[t]["Em Aberto"];
+    var q=(c?c.qtd:0)+(r?r.qtd:0)+(a?a.qtd:0),v=(c?c.valor:0)+(r?r.valor:0)+(a?a.valor:0);
+    return "<tr><td>"+esc(ROTE[t]||t)+"</td><td class=\"r\">"+cel(c)+"</td><td class=\"r\">"+cel(r)+"</td><td class=\"r\">"+cel(a)+"</td><td class=\"r\">"+cel({qtd:q,valor:v})+"</td><td class=\"r b\">"+(q>0?(Math.round(1000*(c?c.qtd:0)/q)/10)+"%":"—")+"</td></tr>";
+   }).join("")||"<tr><td colspan=\"6\" class=\"avi\">sem dados</td></tr>";
+   var NU={"acesso|20":"Unidade I","acesso|21":"Unidade II","acesso|55":"Unidade III","doctor|0":"Unidade IV","doctor|2":"Unidade V","doctor|4":"Unidade VI"};
+   var un={};(P.por_unidade||[]).forEach(function(e){var kk=e.empresa+"|"+e.fid;un[kk]=un[kk]||{empresa:e.empresa};un[kk][e.rotulo]=e});
+   document.getElementById("prop-unidade").innerHTML=Object.keys(un).sort().map(function(kk){
+    var c=un[kk]["Convertido"],r=un[kk]["Rejeitado"],a=un[kk]["Em Aberto"];
+    var q=(c?c.qtd:0)+(r?r.qtd:0)+(a?a.qtd:0),v=(c?c.valor:0)+(r?r.valor:0)+(a?a.valor:0);
+    return "<tr><td><span class=\"dot\" style=\"background:"+(CORES[un[kk].empresa]||"#A9A3BC")+"\"></span>"+esc(NU[kk]||kk)+"</td><td class=\"r\">"+cel(c)+"</td><td class=\"r\">"+cel(r)+"</td><td class=\"r\">"+cel(a)+"</td><td class=\"r\">"+cel({qtd:q,valor:v})+"</td><td class=\"r b\">"+(q>0?(Math.round(1000*(c?c.qtd:0)/q)/10)+"%":"—")+"</td></tr>";
+   }).join("")||"<tr><td colspan=\"6\" class=\"avi\">sem dados</td></tr>";
+  })();
   // matriz mês x unidade
   var meses=[],unis=[],cel={},mx=1;
   (d.fat_mes||[]).forEach(function(r){
