@@ -3,7 +3,7 @@
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex,nofollow">
 <title>Grupo JOB · Régua</title>
-<link rel="stylesheet" href="comum.css?v=2">
+<link rel="stylesheet" href="comum.css?v=3">
 <style>
 .verbete{background:var(--surface);border:1px solid var(--rule);border-radius:14px;padding:16px 18px;
   margin:0 0 12px;box-shadow:var(--shadow-xs);scroll-margin-top:16px}
@@ -56,7 +56,7 @@
   servidor nenhum, nem para o GitHub que hospeda a página. Chave revogada devolve 404 igual a chave
   inexistente. Este repositório guarda a casca; o dado vive no banco.</footer>
 
-<script src="comum.js?v=2"></script>
+<script src="comum.js?v=3"></script>
 <script>
 (function(){
 var J = window.JOB; J.leEstado(); J.ligaNavegacao();
@@ -95,13 +95,13 @@ var VERBETES = [
     naosoma:'Contatos do CRM — a Meta conta evento no dia do anúncio, o CRM conta pessoa no dia da mensagem.',
     onde:'Início › Mídia.',
     perigo:'<b>Não é CPL.</b> Esta conta não tem lead: tem conversa iniciada. E existe uma segunda coleta da mesma conta, em outro projeto, com número diferente.' },
-  { id:'funil.movimento', rot:'Movimento de cartão',
-    conta:'Quantos cartões passaram por uma etapa naquele dia.',
-    data:'Dia da movimentação do cartão.',
-    fora:'Nada — inclusive o mesmo cartão mais de uma vez, se ele reentrou na etapa.',
-    naosoma:'Recebido em caixa. <b>O “R$” do funil não é receita:</b> é o valor do cartão que passou pela etapa, multiplicado por quantas vezes passou.',
+  { id:'funil.coorte', rot:'Coorte de criação do funil',
+    conta:'Cartões do Life CRM contados <b>uma vez cada</b>, na etapa em que estão hoje.',
+    data:'<b>Data em que o cartão foi criado</b> — não a data em que ele entrou na etapa.',
+    fora:'Cartão criado fora do período, mesmo que tenha se movido dentro dele.',
+    naosoma:'Recebido em caixa. <b>O “R$” aqui não é receita:</b> é o valor anotado no cartão.',
     onde:'Início › Funil · Life CRM.',
-    perigo:'Somar o período responde “quanto andou”, nunca “quantos estão parados ali agora”. Um cartão que avançou três etapas aparece nas três.' },
+    perigo:'<b>Isto não é movimento e não é saldo do quadro.</b> É uma foto de hoje redatada para o dia do nascimento de cada cartão. Cartão criado ontem ainda não teve tempo de ser desqualificado, então as etapas finais sempre parecem vazias nos dias recentes — e ler isso como “a operação parou” é o erro mais fácil desta tela. Conferido em 17/08/2026: cartões criados de 09 a 13/08 traziam de 178 a 387 desqualificados por dia e os de 14 a 17/08 traziam zero, enquanto o registro de movimento real acusava 382 desqualificações só no dia 17. Movimento de verdade vive em <code>helena_card_moves</code>, que o hub ainda não recebe.' },
   { id:'nps.indice', rot:'NPS',
     conta:'(promotores − detratores) ÷ respostas × 100.',
     data:'Dia da resposta.',
@@ -146,8 +146,9 @@ var PARES = [
 ];
 
 var BURACOS = [
-  ['Produção por procedimento parada','17/08/2026','A carga roda todo dia, mas o dado não passa de 08/08. Cega qualquer leitura por procedimento.'],
-  ['Etapa Desqualificado congelada','17/08/2026','Maior etapa das duas empresas, sem dado no hub desde 13/08. Derruba o ladrilho de Funil inteiro.'],
+  ['✔ Produção por procedimento — <b>consertado em 17/08/2026</b>','17/08/2026','Era erro de leitura de data: o Feegow manda DD-MM-YYYY e o banco lia como MM-DD. Dia até 12 virava data no futuro, dia 13 em diante estourava e gravava nulo — por isso “parou” justamente em 13/08. Corrigido o parse e recuperados 48.378 itens relendo o payload cru. Sem chamada nova ao Feegow.'],
+  ['✔ Etapa Desqualificado “congelada” — <b>era diagnóstico errado</b>','17/08/2026','Nunca houve parada. A fonte conta cartão pela data de criação, na etapa de hoje: cartão novo ainda não teve tempo de ser desqualificado. O movimento real registrou 382 desqualificações em 17/08. O alarme foi removido e a métrica renomeada para coorte.'],
+  ['Hub não recebe movimento de cartão','17/08/2026','helena_card_moves tem o movimento de verdade e o bi_push não o empurra. Enquanto isso, o funil do hub só responde “quantos cartões nasceram”, nunca “onde eles andaram”.'],
   ['build_lc.py fora do repositório','17/08/2026','O gerador dos dois dossiês não está versionado aqui, então a régua de disparo não pode ser conferida por leitura de código.'],
   ['Mensagens sem coluna de marca','17/08/2026','Não há como separar Doctor de Acesso nos disparos: 131.264 das 144.587 mensagens vêm de um canal só.'],
   ['recebido_particular ≠ recebido_sem_doc','17/08/2026','Diferença de R$ 40.563,93 em maio. Não dá para usar uma para atravessar a fronteira da outra.'],

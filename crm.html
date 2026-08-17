@@ -66,9 +66,14 @@ footer{color:var(--cinza);font-size:12px;margin-top:40px}
 </header>
 <div id="estado">Buscando o funil no hub…</div>
 <main id="conteudo" style="display:none">
-<h2>Movimentação no período</h2>
+<h2>Cartões criados no período</h2>
 <div class="cards" id="cards"></div>
-<div class="nota"><b>Cada número é movimento, não saldo.</b> O coletor grava quantos cartões passaram por cada etapa em cada dia — somar o período responde "quanto andou", nunca "quantos estão parados ali agora". Um mesmo cartão que avançou três etapas aparece nas três.</div>
+<div class="nota"><b>Isto é uma coorte de criação, não movimento e não saldo.</b> Cada cartão é contado
+no dia em que <b>nasceu</b>, na etapa em que está <b>hoje</b>. Cartão criado ontem ainda não teve tempo de
+ser desqualificado, então as etapas finais sempre parecem vazias nos dias recentes — é maturação, não parada.
+Conferido em 17/08: cartões criados de 09 a 13/08 têm 178 a 387 desqualificados por dia; os criados de 14 a 17/08
+têm zero, enquanto o registro de movimento real acusava 382 desqualificações só no dia 17.
+O movimento de verdade vive em <span class="m" style="font-family:monospace">helena_card_moves</span> e o hub ainda não o recebe.</div>
 <h2>Movimento por dia</h2>
 <div class="serie" id="serie"></div>
 <h2>Etapas por quadro</h2>
@@ -132,7 +137,7 @@ function pinta(){
  document.getElementById('cards').innerHTML=emps.map(function(e){
   var o=por[e];
   return '<div class="card"><div class="emp" style="color:'+CORES[e]+'">'+ROT[e]+'</div>'
-   +'<div class="big">'+num(o.qtd)+'</div><div class="sub">movimentações de cartão no período</div>'
+   +'<div class="big">'+num(o.qtd)+'</div><div class="sub">cartões criados no período</div>'
    +'<div class="linha">valor que passou pelas etapas: '+brl(o.valor)+'</div>'
    +'<div class="linha">etapa Pago: '+num(o.pagoQ)+' · '+brl(o.pagoV)+'</div></div>';
  }).join('')||'<div class="avi">sem dados no período</div>';
@@ -165,7 +170,9 @@ function pinta(){
    var corpo=linhas.map(function(l){
     var qtd=Number(l.qtd||0),val=Number(l.valor||0);
     var atraso=l.ultimo_dia?diasEntre(String(l.ultimo_dia).slice(0,10),fim):null;
-    var marca=(atraso!=null&&atraso>=2)?'<span class="parada">sem movimento há '+atraso+' dias</span>':'';
+    // etapa final vazia nos dias recentes e maturacao da coorte, nao parada: o cartao
+    // recem-criado ainda nao chegou la. Marcar como "sem movimento" seria alarme falso.
+    var marca=(atraso!=null&&atraso>=2)?'<span class="parada" title="nenhum cartão criado nos últimos '+atraso+' dias está nesta etapa hoje — costuma ser tempo de maturação, não parada">nenhum cartão recente aqui ('+atraso+' d)</span>':'';
     return '<tr><td>'+esc(l.etapa||'(sem etapa)')+marca+'</td>'
      +'<td class="r"><div class="bar" style="width:'+Math.max(3,Math.round(100*qtd/mx))+'%;background:'+CORES[e]+'"></div>'+num(qtd)+'</td>'
      +'<td class="r">'+(totQ>0?(Math.round(1000*qtd/totQ)/10)+'%':'—')+'</td>'
@@ -175,7 +182,7 @@ function pinta(){
    }).join('');
    return '<h3><span class="dot" style="background:'+CORES[e]+'"></span>'+ROT[e]
     +' <span class="quadro">'+esc(q==='lifecrm'?'quadro único (o coletor ainda não separa)':q)+'</span></h3>'
-    +'<div style="overflow-x:auto"><table><thead><tr><th>Etapa</th><th class="r">Movimentações</th><th class="r">Fatia</th><th class="r">Valor</th><th class="r">Valor médio</th><th class="r">Último movimento</th></tr></thead><tbody>'
+    +'<div style="overflow-x:auto"><table><thead><tr><th>Etapa</th><th class="r">Cartões</th><th class="r">Fatia</th><th class="r">Valor</th><th class="r">Valor médio</th><th class="r">Criação mais recente</th></tr></thead><tbody>'
     +(corpo||'<tr><td colspan="6" class="avi">sem dados</td></tr>')
     +'</tbody></table></div>';
   }).join('');

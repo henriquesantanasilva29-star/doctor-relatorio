@@ -3,7 +3,7 @@
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex,nofollow">
 <title>Grupo JOB · Início</title>
-<link rel="stylesheet" href="comum.css?v=2">
+<link rel="stylesheet" href="comum.css?v=3">
 </head><body>
 
 <header class="topo"><div class="topo-in">
@@ -39,7 +39,7 @@
 
 <footer class="rodape" id="rodape"></footer>
 
-<script src="comum.js?v=2"></script>
+<script src="comum.js?v=3"></script>
 <script>
 (function(){
 var J = window.JOB, E = J.leEstado();
@@ -151,17 +151,15 @@ function carrega(){
       antes:J.brl(mB, 2)
     }));
 
-    // funil — invariante 4: quebra dominante morta derruba o bloco inteiro
-    var fu = A.funil || {}, fuC = C.funil || {}, dom = A.funil_dominante || {};
-    var atrDom = atrasoDe(dom.ultimo_dia);
-    if (dom.fatia != null && Number(dom.fatia) > 33 && atrDom != null && atrDom >= 2) {
-      L.push(ladrilho({ nome:'Funil',
-        nsei:'a etapa ' + dom.etapa + ' é ' + J.pct(dom.fatia) + ' do movimento e parou em ' + J.br(dom.ultimo_dia) }));
-    } else {
-      L.push(ladrilho({ nome:'Funil', delta:J.delta(fu.qtd, fuC.qtd, trocas),
-        abs:J.renderNum(J.num(fu.qtd) + ' movimentações', 'funil.movimento'),
-        antes:J.num(fuC.qtd) }));
-    }
+    /* Funil — NÃO se aplica aqui o invariante 4. A fonte conta cartões pela data de
+       CRIAÇÃO, na etapa em que estão hoje: cartão criado ontem ainda não teve tempo de
+       ser desqualificado, então as etapas finais sempre parecem paradas nos dias
+       recentes. Tratar isso como fonte morta produz alarme falso todo dia. */
+    var fu = A.funil || {}, fuC = C.funil || {};
+    L.push(ladrilho({ nome:'Funil', delta:J.delta(fu.qtd, fuC.qtd, trocas),
+      abs:J.renderNum(J.num(fu.qtd) + ' cartões criados', 'funil.coorte'),
+      antes:J.num(fuC.qtd),
+      titulo:'Contagem por data de criação do cartão. Para movimento de verdade, o registro é helena_card_moves, que o hub ainda não recebe.' }));
 
     // disparos — a régua ainda não foi resolvida contra o gerador
     L.push(ladrilho({ nome:'Disparos',
@@ -193,21 +191,13 @@ function carrega(){
 
     /* ---------- aviso de confiança: só existe quando algo parou ---------- */
     var paradas = (S.fontes || []).filter(function(f){ return f.dias_atraso != null && f.dias_atraso > 0; });
-    var etapasMortas = (S.etapas || []).filter(function(e){ return e.dias_atraso != null && e.dias_atraso >= 2; });
     var itens = [];
     paradas.forEach(function(f){
       itens.push('<b>' + J.esc(f.fonte) + '</b> — dado até ' + J.br(f.dado_max) + ', ' + f.dias_atraso +
         ' dias atrás. Veredito: <b>' + J.esc(f.veredito) + '</b>.');
     });
-    if (etapasMortas.length) {
-      var porEmp = {};
-      etapasMortas.forEach(function(e){ (porEmp[e.empresa] = porEmp[e.empresa] || []).push(e.etapa); });
-      Object.keys(porEmp).forEach(function(emp){
-        itens.push('<b>' + J.esc(emp) + '</b> — ' + porEmp[emp].length +
-          ' etapa(s) do funil sem dado há 2 dias ou mais: ' + J.esc(porEmp[emp].slice(0,4).join(', ')) +
-          (porEmp[emp].length > 4 ? ' e outras' : '') + '.');
-      });
-    }
+    /* etapa do funil "sem dado há N dias" NÃO entra aqui: a fonte data o cartão pela
+       criação, então etapa final vazia nos dias recentes é maturação, não parada. */
     if (din.dias_com_dado != null && A.periodo && din.dias_com_dado < A.periodo.dias) {
       itens.push('<b>dinheiro</b> — ' + din.dias_com_dado + ' de ' + A.periodo.dias +
         ' dias do período têm dado. O valor é o que entrou até ' + J.br(din.ultimo_dia) + '.');
