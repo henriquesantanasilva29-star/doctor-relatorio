@@ -292,7 +292,11 @@ function carrega(){
   }).join('');
  }).catch(function(e){
   document.getElementById('estado').style.display='block';
-  document.getElementById('estado').textContent=(String(e).indexOf('401')>=0)?'Acesso negado: confira a chave depois do #k= no link.':'Não consegui buscar os dados agora ('+e+'). Tentando de novo em 1 minuto…';
+  // ver o tamanho da chave que chegou é o que separa "revogaram" de "colei o link cortado"
+  var dq=function(k){if(!k)return 'nenhuma chave veio no endereço';
+    return k.length<12?('chegou uma chave de '+k.length+' caractere(s) — as desta casa têm 24 ou 64; endereço copiado com reticências no lugar da chave costuma dar nisso')
+                      :('chegou uma chave de '+k.length+' caracteres, de "'+esc(k.slice(0,4))+'" a "'+esc(k.slice(-4))+'"')};
+  document.getElementById('estado').textContent=(String(e).indexOf('401')>=0)?('Acesso negado — '+dq(estado.k)+'. Chave revogada e chave inexistente devolvem a mesma resposta, de propósito.'):'Não consegui buscar os dados agora ('+e+'). Tentando de novo em 1 minuto…';
   clearTimeout(timer);timer=setTimeout(carrega,60000);
  });
 }

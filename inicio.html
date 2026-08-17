@@ -3,7 +3,7 @@
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex,nofollow">
 <title>Grupo JOB · Início</title>
-<link rel="stylesheet" href="comum.css?v=1">
+<link rel="stylesheet" href="comum.css?v=2">
 </head><body>
 
 <header class="topo"><div class="topo-in">
@@ -39,7 +39,7 @@
 
 <footer class="rodape" id="rodape"></footer>
 
-<script src="comum.js?v=1"></script>
+<script src="comum.js?v=2"></script>
 <script>
 (function(){
 var J = window.JOB, E = J.leEstado();
@@ -79,7 +79,8 @@ function ladrilho(o){
 function carrega(){
   el('estado').hidden = false;
   el('estado').textContent = 'Buscando os sinais no hub…';
-  if (!E.k) { el('estado').textContent = 'Falta a chave: abra o endereço com #k=SUACHAVE no final.'; return; }
+  if (!E.k) { el('estado').textContent = 'Falta a chave: abra o endereço com #k=SUACHAVE no final. ' +
+    'Se você chegou aqui pelo portal, é a chave kb que não veio.'; return; }
 
   J.busca({ k:E.k, ini:E.ini, fim:E.fim, doc:E.doc, bloco:'resumo' }, function(d){
     el('estado').hidden = true;
@@ -247,9 +248,7 @@ function carrega(){
   }, function(e){
     el('estado').hidden = false;
     el('conteudo').hidden = true;
-    el('estado').textContent = (String(e).indexOf('401') >= 0)
-      ? 'Acesso negado: confira a chave depois do #k= no endereço.'
-      : 'Não consegui buscar agora (' + e + '). Tentando de novo em 1 minuto…';
+    el('estado').innerHTML = J.explicaFalha(e, E.k);
     J.tentaDeNovo(carrega, 60000);
   });
 }

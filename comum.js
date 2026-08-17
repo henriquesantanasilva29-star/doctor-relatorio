@@ -145,6 +145,28 @@ function nsei(motivo) {
   return '<span class="nsei-sel">não sei' + (motivo ? ' · ' + esc(motivo) : '') + '</span>';
 }
 
+/* Descreve a chave recebida sem revelá-la. "Confira a chave" sozinho não ajuda:
+   quem colou um endereço truncado precisa ver que chegaram três caracteres. */
+function descreveChave(k) {
+  if (!k) return 'nenhuma chave veio no endereço';
+  var n = k.length;
+  if (n < 12) return 'chegou uma chave de ' + n + ' caractere' + (n === 1 ? '' : 's') +
+    ' (“' + esc(k) + '”) — as chaves desta casa têm 24 ou 64. ' +
+    'Isso costuma ser endereço copiado já encurtado, com reticências no lugar da chave';
+  return 'chegou uma chave de ' + n + ' caracteres, começando em “' + esc(k.slice(0, 4)) +
+    '” e terminando em “' + esc(k.slice(-4)) + '”';
+}
+/* mensagem única de falha, para as cascas não divergirem nem nisso */
+function explicaFalha(e, chave) {
+  var s = String(e);
+  if (s.indexOf('401') >= 0 || s.indexOf('404') >= 0) {
+    return 'Acesso negado — ' + descreveChave(chave) + '. ' +
+      'Chave revogada e chave inexistente devolvem a mesma resposta, de propósito.';
+  }
+  if (s.indexOf('AbortError') >= 0) return 'O hub não respondeu em 20 segundos. Tentando de novo em 1 minuto…';
+  return 'Não consegui buscar agora (' + esc(s) + '). Tentando de novo em 1 minuto…';
+}
+
 /* ---------- delta: não atravessa troca de régua (invariante 3) ---------- */
 function delta(atual, anterior, trocas) {
   if (trocas && trocas.length) {
@@ -234,6 +256,7 @@ raiz.JOB = {
   estado: estado, leEstado: leEstado, gravaEstado: gravaEstado, link: link,
   ligaNavegacao: ligaNavegacao,
   REGUAS: REGUAS, renderNum: renderNum, nsei: nsei, delta: delta,
+  descreveChave: descreveChave, explicaFalha: explicaFalha,
   busca: busca, repete: repete, tentaDeNovo: tentaDeNovo,
   tabela: tabela, pintaFiltros: pintaFiltros
 };
