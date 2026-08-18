@@ -70,19 +70,9 @@ footer{color:var(--cinza);font-size:12px;margin-top:40px}
 <div class="serie" id="serie"></div>
 <h2 id="tit-proj">Por unidade · projeção de fechamento do mês</h2>
 <div style="overflow-x:auto"><table><thead><tr><th>Unidade</th><th class="r">Realizado</th><th class="r">Consultas</th><th class="r">Ritmo/dia</th><th class="r">Dias rest.</th><th class="r">Projeção</th><th class="r">Meta</th><th class="r">% proj.</th></tr></thead><tbody id="proj"></tbody></table></div>
-<h2>Mix por categoria de serviço</h2>
-<div style="overflow-x:auto"><table><thead><tr><th>Categoria</th><th class="r">Itens</th><th class="r">Valor</th><th class="r">Ticket médio</th><th class="r">Participação</th></tr></thead><tbody id="cat"></tbody></table></div>
-<div class="nota">Mesma régua e mesmo recorte de DOC do resto da página. Soma as equipes: a mesma categoria registrada por recepção e por call center entra na mesma linha. Participação é sobre o valor do período. A categoria vem escrita como está no cadastro do Feegow, sem normalização: quando o mesmo serviço aparece grafado de dois jeitos, saem duas linhas. Somar mentalmente é mais seguro que confiar numa fusão automática que ninguém conferiu.</div>
 <h2>Agenda no período</h2>
 <div style="overflow-x:auto"><table><thead><tr><th>Unidade</th><th class="r">Atendidos</th><th class="r">Faltas</th><th class="r">Taxa de falta</th><th class="r">Cancelados</th><th class="r">Sem desfecho</th></tr></thead><tbody id="agenda"></tbody></table></div>
 <div class="nota">Régua do app: agendamentos dos lotes do período, excluindo retornos. Taxa de falta = faltas ÷ (atendidos + faltas). "Sem desfecho" são agendamentos que seguem marcados/confirmados sem baixa. Entre parênteses, consultas atendidas (com retornos, como no app).</div>
-<h2>Faltas por categoria</h2>
-<div style="overflow-x:auto"><table><thead><tr><th>Categoria</th><th class="r">Agendamentos</th><th class="r">Atendidos</th><th class="r">Faltas</th><th class="r">Sem baixa</th><th class="r">Taxa de falta</th></tr></thead><tbody id="agcat"></tbody></table></div>
-<div class="nota">As seis unidades somadas, mesma régua da tabela acima. Ordenado por número de faltas, não por taxa — mostra onde a ausência pesa em volume, e não a categoria de dez agendamentos com três faltas. <b>Sem baixa</b> é o que sobra do agendado depois de atendidos e faltas: cancelamento e agendamento que ninguém fechou, juntos. Categoria toda sem baixa não quer dizer que ninguém compareceu — quer dizer que aquele serviço não é baixado na agenda, e por isso a taxa de falta dele não significa nada.</div>
-<h2>Origem do recebido</h2>
-<div class="cards" id="origem"></div>
-<div class="nota">Venda direta é o atendimento que entra sem passar por orçamento. Estes três cards partem do recebido do topo e somam exatamente ele.<br>
-<b>A seção abaixo não é a continuação desta conta.</b> Aqui é dinheiro que entrou no período; lá são orçamentos <i>criados</i> no período, pelo valor de face, classificados pelo status de hoje. Por isso "Convertido" lá embaixo é maior que "Com orçamento" aqui em cima — proposta feita e dinheiro recebido são grandezas diferentes, em datas diferentes. Não devem bater, e bater seria sinal de erro.</div>
 <h2>Propostas (orçamentos) no período</h2>
 <div class="cards" id="prop-cards"></div>
 <div class="nota">Régua do app: <b>Convertido</b> = executada e com pagamento casado no período; <b>Rejeitado</b> = rejeitada/cancelada; <b>Em aberto</b> = todo o resto — inclusive <b>executada e ainda não paga</b>, destacada abaixo. Contagem por número de proposta; recorte pela data de criação.</div>
@@ -220,56 +210,6 @@ function carrega(){
     return "<tr><td><span class=\"dot\" style=\"background:"+(CORES[un[kk].empresa]||"#A9A3BC")+"\"></span>"+esc(NU[kk]||kk)+"</td><td class=\"r\">"+cel(c)+"</td><td class=\"r\">"+cel(r)+"</td><td class=\"r\">"+cel(a)+"</td><td class=\"r\">"+cel({qtd:q,valor:v})+"</td><td class=\"r b\">"+(q>0?(Math.round(1000*(c?c.qtd:0)/q)/10)+"%":"—")+"</td></tr>";
    }).join("")||"<tr><td colspan=\"6\" class=\"avi\">sem dados</td></tr>";
   })();
-  // mix por categoria de serviço
-  (function(){
-   var acc={},tot=0;
-   (A.categorias||[]).forEach(function(c){
-    var n=c.category||'Sem categoria',o=(acc[n]=acc[n]||{qtd:0,valor:0});
-    o.qtd+=Number(c.qtd||0);o.valor+=Number(c.valor||0);tot+=Number(c.valor||0);
-   });
-   var ns=Object.keys(acc).sort(function(a,b){return acc[b].valor-acc[a].valor});
-   var mx=ns.length?Math.max(1,acc[ns[0]].valor):1;
-   document.getElementById('cat').innerHTML=ns.map(function(n){
-    var o=acc[n];
-    return '<tr><td>'+esc(n)+'</td><td class="r">'+num(o.qtd)+'</td>'
-     +'<td class="r"><div class="bar" style="width:'+Math.max(3,Math.round(100*o.valor/mx))+'%;background:#8E2DE2"></div>'+brl(o.valor)+'</td>'
-     +'<td class="r">'+(o.qtd>0?brl(o.valor/o.qtd):'—')+'</td>'
-     +'<td class="r b">'+(tot>0?(Math.round(1000*o.valor/tot)/10)+'%':'—')+'</td></tr>';
-   }).join('')||'<tr><td colspan="5" class="avi">sem dados</td></tr>';
-  })();
-  // faltas por categoria
-  (function(){
-   var acc={};
-   (A.agenda_categoria||[]).forEach(function(a){
-    var n=a.category||'Sem categoria',o=(acc[n]=acc[n]||{ag:0,at:0,fa:0});
-    o.ag+=Number(a.agendamentos||0);o.at+=Number(a.atendidos||0);o.fa+=Number(a.faltas||0);
-   });
-   var ns=Object.keys(acc).sort(function(a,b){return acc[b].fa-acc[a].fa});
-   document.getElementById('agcat').innerHTML=ns.map(function(n){
-    var o=acc[n],base=o.at+o.fa,sb=Math.max(0,o.ag-base);
-    var tx=base>0?Math.round(1000*o.fa/base)/10:null;
-    // taxa só ganha cor quando a maior parte da categoria foi baixada; senão a base é pequena demais para julgar
-    var firme=base*2>=o.ag,cls=(tx==null||!firme)?'':(tx<=15?'ok':(tx<=25?'quase':'ruim'));
-    return '<tr><td>'+esc(n)+'</td><td class="r">'+num(o.ag)+'</td><td class="r">'+num(o.at)+'</td><td class="r">'+num(o.fa)+'</td>'
-     +'<td class="r'+(sb>base?' avi':'')+'">'+num(sb)+'</td>'
-     +'<td class="r '+cls+'"'+(tx!=null&&!firme?' title="a maior parte dessa categoria não foi baixada na agenda — taxa calculada sobre base pequena"':'')+'>'+(tx!=null?tx+'%'+(firme?'':' *'):'—')+'</td></tr>';
-   }).join('')||'<tr><td colspan="6" class="avi">sem dados</td></tr>';
-  })();
-  // origem do movimento: orçamento x venda direta
-  (function(){
-   var O=A.origem;if(Array.isArray(O))O=O[0];O=O||{};
-   var oc=O.orcamento||{qtd:0,valor:0},vd=O.venda_direta||{qtd:0,valor:0};
-   var tv=Number(oc.valor||0)+Number(vd.valor||0),tq=Number(oc.qtd||0)+Number(vd.qtd||0);
-   var pct=function(v){return tv>0?(Math.round(1000*v/tv)/10)+'% do valor':'—'};
-   var tm=function(o){return o.qtd>0?brl(o.valor/o.qtd):'—'};
-   document.getElementById('origem').innerHTML=
-    '<div class="card"><div class="emp" style="color:#8E2DE2">Com orçamento</div><div class="big">'+brl(oc.valor)+'</div>'
-    +'<div class="sub">'+pct(Number(oc.valor||0))+' · '+num(oc.qtd)+' itens · TM '+tm(oc)+'</div></div>'
-    +'<div class="card"><div class="emp" style="color:#FF8A1E">Venda direta</div><div class="big">'+brl(vd.valor)+'</div>'
-    +'<div class="sub">'+pct(Number(vd.valor||0))+' · '+num(vd.qtd)+' itens · TM '+tm(vd)+'</div></div>'
-    +'<div class="card"><div class="emp">Total do período</div><div class="big">'+brl(tv)+'</div>'
-    +'<div class="sub">'+num(tq)+' itens · TM '+(tq>0?brl(tv/tq):'—')+'</div></div>';
-  })();
   // matriz mês x unidade
   var meses=[],unis=[],cel={},mx=1;
   (d.fat_mes||[]).forEach(function(r){
@@ -292,11 +232,7 @@ function carrega(){
   }).join('');
  }).catch(function(e){
   document.getElementById('estado').style.display='block';
-  // ver o tamanho da chave que chegou é o que separa "revogaram" de "colei o link cortado"
-  var dq=function(k){if(!k)return 'nenhuma chave veio no endereço';
-    return k.length<12?('chegou uma chave de '+k.length+' caractere(s) — as desta casa têm 24 ou 64; endereço copiado com reticências no lugar da chave costuma dar nisso')
-                      :('chegou uma chave de '+k.length+' caracteres, de "'+esc(k.slice(0,4))+'" a "'+esc(k.slice(-4))+'"')};
-  document.getElementById('estado').textContent=(String(e).indexOf('401')>=0)?('Acesso negado — '+dq(estado.k)+'. Chave revogada e chave inexistente devolvem a mesma resposta, de propósito.'):'Não consegui buscar os dados agora ('+e+'). Tentando de novo em 1 minuto…';
+  document.getElementById('estado').textContent=(String(e).indexOf('401')>=0)?'Acesso negado: confira a chave depois do #k= no link.':'Não consegui buscar os dados agora ('+e+'). Tentando de novo em 1 minuto…';
   clearTimeout(timer);timer=setTimeout(carrega,60000);
  });
 }
