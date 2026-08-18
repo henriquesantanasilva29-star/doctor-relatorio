@@ -345,6 +345,15 @@ tfoot td{padding:8px 10px;font-weight:700;border-top:2px solid var(--dark)}
 <table id="tCanais"></table>
 <div id="notaTabela"></div>
 
+<div class="section-title">A mídia paga em detalhe</div>
+<div id="midiaAviso"></div>
+<div class="kpi-grid" id="midiaKpis"></div>
+<div class="section-title">O que a mídia devolveu</div>
+<div class="kpi-grid" id="midiaRetorno"></div>
+<div class="section-title">Campanhas por especialidade</div>
+<table id="tEspec"></table>
+<div id="notaEspec"></div>
+
 <div class="section-title">Fora da comparação</div>
 <div id="fora"></div>
 
@@ -368,7 +377,7 @@ var COR = {'Meta Ads':'var(--red)','Meta sem id do anúncio':'#F5136E99','Google
            'Direto / sem origem':'var(--green)','Criado pela equipe':'#14B87999',
            'Social orgânico':'var(--purple)','Site e busca':'var(--orange)','Base importada':'var(--mute)'};
 
-var CAN = [], MID = [], MARCAS_OK = [], lado = 'pago', marcaSel = 'todas';
+var CAN = [], MID = [], JOR = [], MARCAS_OK = [], lado = 'pago', marcaSel = 'todas';
 var de = '', ate = '';
 
 /* ============ formatadores, iguais aos do relatório ============ */
@@ -396,7 +405,10 @@ function carrega(){
       .then(function(d){
         MARCAS_OK.push(m);
         (d.canais||[]).forEach(function(x){ x.m = m.id; CAN.push(x); });
-        (d.midia||[]).forEach(function(r){ MID.push({m:m.id, d:r[0], inv:r[4]||0, conv:r[7]||0}); });
+        (d.midia||[]).forEach(function(r){ MID.push({m:m.id, d:r[0], camp:r[1], anuncio:r[2],
+          id:String(r[3]), inv:r[4]||0, imp:r[5]||0, cli:r[6]||0, conv:r[7]||0}); });
+        (d.jornada||[]).forEach(function(x){ JOR.push({m:m.id, d:x.d, a:String(x.a),
+          r:x.r||0, p:x.p||0, v:x.v||0, pg:x.pg||0, ab:x.ab||0, vne:x.vne||0, ne:x.ne||0}); });
       });
   })).then(inicia).catch(function(e){
     document.getElementById('carregando').innerHTML =
@@ -534,6 +546,147 @@ function investimento(){
   }).reduce(function(a,r){ return a + (r.inv||0); }, 0);
 }
 
+
+/* ============ midia paga em detalhe ============
+   A mesma leitura da aba "Midia paga" do dossie, agora para as duas marcas de uma vez.
+   A especialidade sai do nome da campanha, e a regra tem uma armadilha: a agencia
+   nomeia as duas contas em ordem OPOSTA --
+     Doctor  [VG] [ESPECIALIDADE] [FORMATO]
+     Acesso  [VG] [FORMATO] [ESPECIALIDADE]
+   Por isso nao da para pegar "o segundo colchete": descarta-se o que e agencia,
+   formato, publico, data ou valor, e o primeiro pedaco que sobra e a especialidade. */
+var IGNORA = {};
+["VG","ABO","ON","APH","MSG","MSG-WHATSAPP","ENG-WHATSAPP","ENGAJAMENTO-WHATSAPP",
+ "ENGAJAMENTO","TRAFEGO","TR\u00c1FEGO","WHATS","WPP","WHATSAPP","VIDEO","V\u00cdDEO","CARD",
+ "TOPO","CONVERSAS","ALL","F+Q","SEGUIDORES","45+","REMARKETING"]
+ .forEach(function(x){ IGNORA[x] = 1; });
+var APELIDO = {RMKT:"Remarketing", SANGUE:"Coleta de sangue", HIPERBARICA:"Hiperb\u00e1rica",
+  ENDOCRINO:"End\u00f3crino", TOXICOLOGICO:"Toxicol\u00f3gico",
+  OFTALMO:"Oftalmologista", PROCEDIMENTOS:"Procedimentos"};
+function semAcento(x){ return x.normalize("NFD").replace(/[\u0300-\u036f]/g, ""); }
+function ehLixo(t){
+  return !t || IGNORA[t] || IGNORA[semAcento(t)]
+      || /^\d{1,2}\/\d{1,2}\/\d{2,4}$/.test(t) || /^\$?\s*[\d.,]+$/.test(t);
+}
+function curto(nome){
+  var cru = String(nome || "").trim();
+  if (/^publica[c\u00e7][a\u00e3]o do instagram/i.test(cru)) return "Publica\u00e7\u00e3o impulsionada";
+  var col = (cru.match(/\[([^\]]*)\]/g) || []).map(function(x){ return x.slice(1, -1).trim(); });
+  var ped = col.length ? col : cru.split("|").map(function(x){ return x.trim(); });
+  var util = null;
+  ped.map(function(t){ return t.replace(/\s*\(\d+\)\s*$/, "").replace(/\s+\d{1,2}$/, "").trim(); })
+     .forEach(function(t){ if (util === null && !ehLixo(t.toUpperCase())) util = t; });
+  if (!util) return "Sem classifica\u00e7\u00e3o";
+  var k = util.toUpperCase();
+  return APELIDO[k] || (util.charAt(0).toUpperCase() + util.slice(1).toLowerCase());
+}
+
+function midiaNoPeriodo(){
+  return MID.filter(function(r){
+    return r.d >= de && r.d <= ate && (marcaSel === "todas" || r.m === marcaSel);
+  });
+}
+
+function cartao(c){
+  return "<div class=\"kpi-card\"><div class=\"kpi-val\">" + c[0] + "</div>" +
+         "<div class=\"kpi-label\">" + c[1] + "</div>" +
+         "<div class=\"kpi-sub\">" + c[2] + "</div></div>";
+}
+
+function pintaMidia(){
+  var mid = midiaNoPeriodo();
+  var t = {inv:0, imp:0, cli:0, conv:0}, dias = {}, espec = {}, adEsp = {}, adsPer = {};
+  mid.forEach(function(r){
+    t.inv += r.inv; t.imp += r.imp; t.cli += r.cli; t.conv += r.conv;
+    dias[r.d] = 1; adsPer[r.id] = 1;
+    var e = curto(r.camp); adEsp[r.id] = e;
+    var o = espec[e] || (espec[e] = {inv:0, conv:0, dias:{}, v:0, pg:0, ab:0, vne:0, ne:0});
+    o.inv += r.inv; o.conv += r.conv; o.dias[r.d] = 1;
+  });
+
+  /* Mesma regra do dossie: contato de anuncio que nao veiculou no periodo nao entra
+     no total -- ele nao tem investimento aqui. Fica declarado como "fora". */
+  var cr = {r:0, p:0, v:0, pg:0, ab:0, vne:0, ne:0}, fora = {r:0, p:0, v:0};
+  JOR.filter(function(x){
+    return x.d >= de && x.d <= ate && (marcaSel === "todas" || x.m === marcaSel);
+  }).forEach(function(x){
+    if (!adsPer[x.a]) { fora.r += x.r; fora.p += x.p; fora.v += x.v; return; }
+    cr.r += x.r; cr.p += x.p; cr.v += x.v; cr.pg += x.pg; cr.ab += x.ab;
+    cr.vne += x.vne; cr.ne += x.ne;
+    var o = espec[adEsp[x.a]];
+    if (o) { o.v += x.v; o.pg += x.pg; o.ab += x.ab; o.vne += x.vne; o.ne += x.ne; }
+  });
+
+  var nDias = Object.keys(dias).length;
+  var cob = t.conv ? 100 * cr.r / t.conv : 0;
+
+  document.getElementById("midiaAviso").innerHTML =
+    "<div class=\"nota\"><b>" + PCT0(cob) + " de cobertura de rastreio.</b> " +
+    N(cr.r) + " das " + N(t.conv) + " conversas do per\u00edodo chegaram ao CRM trazendo o ID do an\u00fancio. " +
+    "Abaixo de 50% o funil por campanha vira estimativa e n\u00e3o deve ser usado para decidir verba." +
+    (fora.r ? " <b>Fora do total:</b> " + N(fora.r) + " contatos de an\u00fancio que n\u00e3o veiculou no per\u00edodo " +
+      "-- resultado conhecido, custo desconhecido, ent\u00e3o n\u00e3o entram no retorno." : "") + "</div>";
+
+  document.getElementById("midiaKpis").innerHTML = [
+    [BRL(t.inv), "Investimento Meta Ads", nDias + " dias com veicula\u00e7\u00e3o"],
+    [N(t.imp), "Impress\u00f5es", t.imp ? BRL(1000 * t.inv / t.imp) + " de CPM" : "\u2014"],
+    [N(t.cli), "Cliques", t.imp ? ((100*t.cli/t.imp).toFixed(2).replace(".",",")+"%") + " de CTR" : "\u2014"],
+    [t.cli ? BRL(t.inv / t.cli) : "\u2014", "CPC", "custo por clique"],
+    [N(t.conv), "Conversas iniciadas", t.conv ? BRL(t.inv / t.conv) + " por conversa \u00b7 a Meta contou" : "\u2014"],
+    [N(cr.r), "Leads no CRM", cr.r ? BRL(t.inv / cr.r) + " por lead \u00b7 " + PCT0(cob) + " das conversas" : "\u2014"],
+    [N(cr.p), "Viraram paciente", cr.p ? BRL(t.inv / cr.p) + " por paciente \u00b7 " + (cr.r ? PCT0(100 * cr.p / cr.r) : "\u2014") + " dos leads" : "\u2014"],
+    [nDias ? BRL(t.inv / nDias) : "\u2014", "M\u00e9dia por dia", "investimento di\u00e1rio no per\u00edodo"]
+  ].map(cartao).join("");
+
+  document.getElementById("midiaRetorno").innerHTML = [
+    [BRL0(cr.v), "Faturado", "o que a m\u00eddia devolveu, vindo do Feegow"],
+    [BRL0(cr.pg), "Recebido", cr.v ? PCT0(100 * cr.pg / cr.v) + " do faturado" : "\u2014"],
+    [BRL0(cr.ab), "Em aberto", cr.v ? PCT0(100 * cr.ab / cr.v) + " do faturado" : "\u2014"],
+    [BRL0(cr.vne), "N\u00e3o executado", N(cr.ne) + " propostas paradas na mesa"],
+    [t.inv ? (cr.v / t.inv).toFixed(1).replace(".", ",") + "\u00d7" : "\u2014", "Retorno sobre a m\u00eddia",
+      t.inv ? BRL(cr.v / t.inv) + " faturados por R$ 1 investido" : "sem investimento no per\u00edodo"],
+    [t.inv ? (cr.pg / t.inv).toFixed(1).replace(".", ",") + "\u00d7" : "\u2014", "Retorno j\u00e1 em caixa",
+      "s\u00f3 o que entrou, sem contar o em aberto"],
+    [cr.p ? BRL(t.inv / cr.p) : "\u2014", "Custo por paciente", N(cr.p) + " pacientes atribu\u00eddos"],
+    [cr.p ? BRL0(cr.v / cr.p) : "\u2014", "Faturado por paciente", "m\u00e9dia, inclusive quem n\u00e3o comprou"]
+  ].map(cartao).join("");
+
+  var linhas = Object.keys(espec).map(function(e){ return {e:e, o:espec[e]}; })
+                     .sort(function(a, b){ return b.o.inv - a.o.inv; });
+  var td = function(v){ return "<td class=\"num\">" + v + "</td>"; };
+  document.getElementById("tEspec").innerHTML =
+    "<thead><tr class=\"faixa\"><th colspan=\"5\"></th>" +
+      "<th colspan=\"3\" class=\"fx fx-prop\">Servi\u00e7o prestado, e o que ficou na mesa</th>" +
+      "<th colspan=\"2\" class=\"fx fx-fat\">A mesma fatura, quitada ou n\u00e3o</th></tr>" +
+    "<tr><th>Especialidade</th><th class=\"num\">Dias no ar</th><th class=\"num\">Investimento</th>" +
+      "<th class=\"num\">Conversas</th><th class=\"num\">Custo/conversa</th>" +
+      "<th class=\"num\">Faturado</th><th class=\"num\">N\u00e3o executado</th>" +
+      "<th class=\"num\">Propostas paradas</th>" +
+      "<th class=\"num\">Recebido</th><th class=\"num\">Em aberto</th></tr></thead><tbody>" +
+    linhas.map(function(x){
+      var o = x.o;
+      return "<tr><td>" + esc(x.e) + "</td>" + td(N(Object.keys(o.dias).length)) + td(BRL(o.inv)) +
+        td(N(o.conv)) + td(o.conv ? BRL(o.inv / o.conv) : "\u2014") +
+        td(o.v ? BRL0(o.v) : "\u2014") + td(o.vne ? BRL0(o.vne) : "\u2014") +
+        td(o.ne ? N(o.ne) : "\u2014") +
+        td(o.pg ? BRL0(o.pg) : "\u2014") + td(o.ab ? BRL0(o.ab) : "\u2014") + "</tr>";
+    }).join("") + "</tbody>" +
+    "<tfoot><tr><td>Total \u2014 " + N(linhas.length) + " especialidades</td>" +
+      td(N(nDias)) + td(BRL(t.inv)) + td(N(t.conv)) + td(t.conv ? BRL(t.inv / t.conv) : "\u2014") +
+      td(BRL0(cr.v)) + td(BRL0(cr.vne)) + td(N(cr.ne)) + td(BRL0(cr.pg)) + td(BRL0(cr.ab)) +
+      "</tr></tfoot>";
+
+  document.getElementById("notaEspec").innerHTML = "<div class=\"nota\">" +
+    "<b>O investimento \u00e9 s\u00f3 o da Meta.</b> Google Ads aparece como canal l\u00e1 em cima porque o " +
+    "contato traz o utm, mas a conta de m\u00eddia do Google n\u00e3o \u00e9 coletada \u2014 o retorno acima est\u00e1 " +
+    "medido contra um investimento que exclui o que foi gasto l\u00e1. " +
+    "<b>A especialidade sai do nome da campanha</b>, e a mesma ag\u00eancia nomeia as duas contas em ordem " +
+    "oposta; a regra descarta ag\u00eancia, formato, p\u00fablico e data, e fica com o primeiro peda\u00e7o que sobra. " +
+    "Campanha sem taxonomia cai em \"Sem classifica\u00e7\u00e3o\" em vez de ser distribu\u00edda no chute. " +
+    "<b>Cada paciente pertence a um an\u00fancio s\u00f3</b> \u2014 o primeiro que o trouxe \u2014 e s\u00f3 entra o que " +
+    "aconteceu depois disso, igual \u00e0 tabela de canais acima.</div>";
+}
+
 /* ============ desenho ============ */
 function render(){
   document.getElementById('rotuloData').textContent = fmtBR(de) + ' — ' + fmtBR(ate);
@@ -548,6 +701,7 @@ function render(){
   pintaTabela(mapa, canais, alvo, inv);
   pintaFora(mapa);
   pintaAusencias();
+  pintaMidia();
 }
 
 function pintaDuelo(tp, tn, inv){
