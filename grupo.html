@@ -25,24 +25,20 @@ iframe{border:0;width:100%;flex:1;background:#faf9fc}
 <header>
  <h1>Grupo JOB · <span>painéis</span></h1>
  <nav>
-  <button class="aba" id="ab-inicio">Início</button>
   <button class="aba" id="ab-bi">BI do grupo</button>
-  <button class="aba" id="ab-crm">Life CRM</button>
   <button class="aba" id="ab-doctor">Doctor+</button>
   <button class="aba" id="ab-acesso">Acesso Saúde</button>
   <div class="risco"></div>
   <button class="aba" id="ab-canais">Canais · pago × orgânico</button>
  </nav>
- <div class="dir"><a id="regua" href="regua.html" target="_blank" rel="noopener">régua ↗</a> &nbsp;<a id="cheia" href="#" target="_blank" rel="noopener">abrir em página própria ↗</a></div>
+ <div class="dir"><a id="cheia" href="#" target="_blank" rel="noopener">abrir em página própria ↗</a></div>
 </header>
 <div id="aviso" style="display:none"></div>
 <iframe id="painel" title="Painel do Grupo JOB"></iframe>
 <script>
 var h=new URLSearchParams(location.hash.replace(/^#/,''));
-// Inicio e Life CRM leem o mesmo hub que o BI, entao andam com a mesma chave kb.
-var K={inicio:h.get('kb')||'',bi:h.get('kb')||'',crm:h.get('kb')||'',
-       doctor:h.get('kd')||'',acesso:h.get('ka')||''};
-var ABAS=['inicio','bi','crm','doctor','acesso','canais'];
+var K={bi:h.get('kb')||'',doctor:h.get('kd')||'',acesso:h.get('ka')||''};
+var ABAS=['bi','doctor','acesso','canais'];
 /* Canais junta as duas clínicas numa tela só, então aceita qualquer uma das
    duas chaves e usa as que existirem. */
 function endereco(id){
@@ -52,8 +48,7 @@ function endereco(id){
     if(K.acesso) q.push('ka='+K.acesso);
     return 'canais.html#'+q.join('&');
   }
-  return {inicio:'inicio.html',bi:'bi.html',crm:'crm.html',
-          doctor:'index.html',acesso:'acesso.html'}[id]+'#k='+K[id];
+  return {bi:'bi.html',doctor:'index.html',acesso:'acesso.html'}[id]+'#k='+K[id];
 }
 function temChave(id){ return id==='canais' ? !!(K.doctor||K.acesso) : !!K[id]; }
 function abre(id){
