@@ -3,7 +3,7 @@
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex,nofollow">
 <title>Grupo JOB · Régua</title>
-<link rel="stylesheet" href="comum.css?v=3">
+<link rel="stylesheet" href="comum.css?v=4">
 <style>
 .verbete{background:var(--surface);border:1px solid var(--rule);border-radius:14px;padding:16px 18px;
   margin:0 0 12px;box-shadow:var(--shadow-xs);scroll-margin-top:16px}
@@ -56,7 +56,7 @@
   servidor nenhum, nem para o GitHub que hospeda a página. Chave revogada devolve 404 igual a chave
   inexistente. Este repositório guarda a casca; o dado vive no banco.</footer>
 
-<script src="comum.js?v=3"></script>
+<script src="comum.js?v=4"></script>
 <script>
 (function(){
 var J = window.JOB; J.leEstado(); J.ligaNavegacao();
@@ -116,6 +116,27 @@ var VERBETES = [
     naosoma:'Recebido em caixa. São grandezas diferentes em datas diferentes, e <b>bater seria sinal de erro</b>.',
     onde:'BI do grupo › Propostas.',
     perigo:'Como a data é de criação e o status é o de hoje, <b>o mesmo período consultado amanhã devolve outra taxa de conversão</b>, sem que nada tenha acontecido no passado.' },
+  { id:'lead.anuncio', rot:'Lead com marca de anúncio',
+    conta:'Contato criado no período que tem prova de ter vindo de clique em anúncio.',
+    data:'Dia em que o contato foi criado no Life CRM.',
+    fora:'Quem clicou no anúncio mas já era contato antigo: a marca é do contato novo.',
+    naosoma:'Conversas iniciadas da Meta — aquela conta evento no dia do anúncio, esta conta pessoa no dia da criação do contato.',
+    onde:'Tráfego › lado pago.',
+    perigo:'A prova é o carimbo <code>REFERRAL_CONVERSION</code> que o WhatsApp põe na conversa aberta por clique, casado com o telefone numa janela de 3 dias. Telefone que casa com dois contatos conta nos dois.' },
+  { id:'lead.sem_marca', rot:'Lead sem marca de anúncio',
+    conta:'Todo contato criado no período que <b>não</b> tem essa prova.',
+    data:'Dia em que o contato foi criado.',
+    fora:'Nada — é o complemento exato do anterior.',
+    naosoma:'Não some com o lado pago para virar “total de leads orgânicos”: parte disto é anúncio que o rastreio perdeu.',
+    onde:'Tráfego › lado orgânico.',
+    perigo:'<b>Ausência de marca não é prova de origem orgânica.</b> É a medida do que não foi rastreado. E a coleta da marca só começou em 04/07/2026 na Doctor e 31/07/2026 na Acesso — pedir um período anterior devolve “tudo orgânico”, que é falso. A tela avisa quando o período pedido começa antes disso.' },
+  { id:'lead.origem_declarada', rot:'Origem declarada do lead',
+    conta:'O que alguém digitou no campo de origem do cadastro.',
+    data:'Vale para o contato, não para o dia.',
+    fora:'A maioria: em agosto/2026, 5.829 de 6.301 contatos sem marca não tinham nada preenchido.',
+    naosoma:'Não é a mesma coisa que a marca de anúncio. Existe contato que declara “facebook” e não tem marca, e vice-versa.',
+    onde:'Tráfego › lado orgânico › tabela de origem.',
+    perigo:'<b>É texto livre, sem lista fechada.</b> Convivem “indicacao”, “indicao”, “ind icacao” e “indecacao”; “hapvida”, “hapivida” e “hap vida”. A tela não funde grafias sozinha — fundir esconderia que o campo não tem validação, que é o problema de verdade.' },
   { id:'disparo.indefinida', rot:'Disparo — régua não resolvida',
     conta:'Ainda não se sabe.',
     data:'Proposta: hora de criação do conteúdo, em Manaus. Nunca a hora de ingestão, que tem mediana de 4,7 s mas cauda de 24 dias.',

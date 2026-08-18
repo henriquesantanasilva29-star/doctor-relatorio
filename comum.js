@@ -60,7 +60,9 @@ function periodoDe(p) {
 }
 
 /* ---------- estado no fragmento, sempre inteiro ---------- */
-var CAMPOS = ['k', 'kd', 'ka', 'ini', 'fim', 'doc', 'e', 'a', 'p'];
+// 't' = lado do switch de tráfego (pago | organico). Viaja junto com o resto do estado,
+// senão mandar o link para alguém abre no lado errado.
+var CAMPOS = ['k', 'kd', 'ka', 'ini', 'fim', 'doc', 'e', 'a', 'p', 't'];
 var estado = {};
 function leEstado() {
   var h = new URLSearchParams(location.hash.replace(/^#/, ''));
@@ -122,6 +124,13 @@ var REGUAS = {
   'proposta.face': { rot: 'valor de face',
     txt: 'Valor do orçamento criado no período, classificado pelo status de hoje. Não é caixa e não deve bater com ele.',
     naoBate: ['caixa.hub.semdoc'] },
+  'lead.anuncio': { rot: 'veio de anúncio',
+    txt: 'Contato criado no período que tem marca de clique em anúncio: o WhatsApp carimbou REFERRAL_CONVERSION na conversa, ou o coletor capturou o código do anúncio. Janela de 3 dias entre a marca e a criação do contato.' },
+  'lead.sem_marca': { rot: 'sem marca de anúncio',
+    txt: 'Contato criado no período SEM marca de clique em anúncio. Não é prova de origem orgânica — é ausência de rastreio. Antes de a coleta da marca começar, tudo cai aqui.',
+    naoBate: ['lead.anuncio'] },
+  'lead.origem_declarada': { rot: 'origem declarada',
+    txt: 'Texto livre digitado no cadastro do contato. Sai como veio, sem normalização: “indicacao”, “indicao” e “ind icacao” são três linhas. A maior parte dos contatos não tem nada preenchido aqui.' },
   'disparo.indefinida': { rot: 'régua não resolvida',
     txt: 'O gerador define disparo como origin=API (16.718) ou como qualquer saída com template (30.300). A escolha dobra o denominador.' }
 };

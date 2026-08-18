@@ -27,6 +27,7 @@ iframe{border:0;width:100%;flex:1;background:#faf9fc}
   <button class="aba" id="ab-inicio">Início</button>
   <button class="aba" id="ab-bi">BI do grupo</button>
   <button class="aba" id="ab-crm">Life CRM</button>
+  <button class="aba" id="ab-trafego">Tráfego</button>
   <button class="aba" id="ab-doctor">Doctor+</button>
   <button class="aba" id="ab-acesso">Acesso Saúde</button>
  </nav>
@@ -37,9 +38,9 @@ iframe{border:0;width:100%;flex:1;background:#faf9fc}
 <script>
 var h=new URLSearchParams(location.hash.replace(/^#/,''));
 // o Life CRM sai do mesmo hub que o BI, então anda com a mesma chave: quem perde kb perde os dois
-var K={inicio:h.get('kb')||'',bi:h.get('kb')||'',crm:h.get('kb')||'',doctor:h.get('kd')||'',acesso:h.get('ka')||''};
-var P={inicio:'inicio.html',bi:'bi.html',crm:'crm.html',doctor:'index.html',acesso:'acesso.html'};
-var ABAS=['inicio','bi','crm','doctor','acesso'];
+var K={inicio:h.get('kb')||'',bi:h.get('kb')||'',crm:h.get('kb')||'',trafego:h.get('kb')||'',doctor:h.get('kd')||'',acesso:h.get('ka')||''};
+var P={inicio:'inicio.html',bi:'bi.html',crm:'crm.html',trafego:'trafego.html',doctor:'index.html',acesso:'acesso.html'};
+var ABAS=['inicio','bi','crm','trafego','doctor','acesso'];
 function abre(id){
  if(!K[id])return;
  var url=P[id]+'#k='+K[id];
