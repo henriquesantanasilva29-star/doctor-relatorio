@@ -505,9 +505,12 @@ function montaAlternador(){
 }
 
 /* ============ agregação ============ */
-function zero(){return {ct:0,ctp:0,k:0,p:0,o:0,e:0,ne:0,vne:0,vprop:0,v:0,pg:0,ab:0,nf:0,pf:0,qa:0,qat:0};}
+/* 'ch' (conversas abertas) e somavel e entra aqui. 'pes' (contatos distintos com
+   conversa no dia) NAO entra: somar distinto de varios dias da pessoa-dia, nao
+   pessoa, e publicar isso como "pessoas" seria inventar um numero. */
+function zero(){return {ch:0,ct:0,ctp:0,k:0,p:0,o:0,e:0,ne:0,vne:0,vprop:0,v:0,pg:0,ab:0,nf:0,pf:0,qa:0,qat:0};}
 function soma(a,x){
-  ['ct','ctp','k','p','o','e','ne','vne','vprop','v','pg','ab','nf','pf','qa','qat']
+  ['ch','ct','ctp','k','p','o','e','ne','vne','vprop','v','pg','ab','nf','pf','qa','qat']
     .forEach(function(c){ a[c] += x[c]||0; });
   return a;
 }
@@ -552,15 +555,17 @@ function pintaDuelo(tp, tn, inv){
   document.getElementById('duelo').innerHTML =
     '<div class="lado p"><h4>Tráfego pago</h4><div class="big">'+BRL0(tp.v)+'</div>' +
       linha('faturado por '+BRL0(inv)+' investido', inv ? (tp.v/inv).toFixed(1).replace('.',',')+'×' : '—') +
-      linha('contatos', N(tp.ct)) +
-      linha('viraram paciente', N(tp.p) + (tp.ct ? ' · '+PCT1(100*tp.p/tp.ct) : '')) +
+      linha('chegadas', N(tp.ch)) +
+      linha('contatos novos', N(tp.ct) + (tp.ch ? ' · '+PCT1(100*tp.ct/tp.ch)+' das chegadas' : '')) +
+      linha('viraram paciente', N(tp.p) + (tp.ch ? ' · '+PCT1(100*tp.p/tp.ch)+' das chegadas' : '')) +
       linha('recebido', BRL0(tp.pg)) +
       linha('em aberto', BRL0(tp.ab)) +
     '</div>' +
     '<div class="lado o"><h4>Não pago — orgânico e direto</h4><div class="big">'+BRL0(tn.v)+'</div>' +
       linha('custo de mídia', 'R$ 0') +
-      linha('contatos', N(tn.ct)) +
-      linha('viraram paciente', N(tn.p) + (tn.ct ? ' · '+PCT1(100*tn.p/tn.ct) : '')) +
+      linha('chegadas', N(tn.ch)) +
+      linha('contatos novos', N(tn.ct) + (tn.ch ? ' · '+PCT1(100*tn.ct/tn.ch)+' das chegadas' : '')) +
+      linha('viraram paciente', N(tn.p) + (tn.ch ? ' · '+PCT1(100*tn.p/tn.ch)+' das chegadas' : '')) +
       linha('recebido', BRL0(tn.pg)) +
       linha('em aberto', BRL0(tn.ab)) +
     '</div>';
@@ -571,8 +576,11 @@ function pintaKpis(t, inv){
              : lado === 'organico' ? 'Não pago, em detalhe' : 'Pago e não pago somados';
   document.getElementById('tituloLado').textContent = titulo;
   var cartoes = [
-    [N(t.ct), 'Contatos', 'conversas que entraram no CRM'],
-    [N(t.p), 'Viraram paciente', t.ct ? PCT1(100*t.p/t.ct)+' dos contatos' : '—'],
+    [N(t.ch), 'Chegadas', 'toda conversa aberta no período, nova ou repetida'],
+    [N(t.ct), 'Contatos novos', t.ch ? PCT1(100*t.ct/t.ch)+' das chegadas' : '—'],
+    [t.ct ? (t.ch/t.ct).toFixed(2).replace('.',',') : '—', 'Conversas por contato novo',
+     'quanto atendimento cada aquisição custa'],
+    [N(t.p), 'Viraram paciente', t.ch ? PCT1(100*t.p/t.ch)+' das chegadas' : '—'],
     [BRL0(t.v), 'Faturado', N(t.nf)+' faturas de '+N(t.pf)+' pacientes'],
     [BRL0(t.pg), 'Recebido', t.v ? PCT0(100*t.pg/t.v)+' do faturado' : '—'],
     [BRL0(t.ab), 'Em aberto', t.v ? PCT0(100*t.ab/t.v)+' do faturado' : '—'],
@@ -587,6 +595,14 @@ function pintaKpis(t, inv){
     return '<div class="kpi-card"><div class="kpi-val">'+c[0]+'</div>' +
            '<div class="kpi-label">'+c[1]+'</div><div class="kpi-sub">'+c[2]+'</div></div>';
   }).join('');
+  /* A confusao mais cara desta tela e achar que chegada e contato novo. Sao denominadores
+     diferentes para a MESMA receita, e a taxa muda de nome junto. */
+  var notaUnidade = '<div class="nota"><b>Chegada e contato novo não são a mesma coisa.</b> ' +
+    'Chegada é toda conversa aberta no período — inclusive de quem já era da base e voltou. ' +
+    'Contato novo é registro criado pela primeira vez. O dinheiro abaixo é o mesmo nos dois casos: ' +
+    'ele fica atribuído ao paciente uma única vez, no canal do primeiro contato dele. ' +
+    'O que muda é o denominador, e por isso a conversão sobre chegadas é sempre menor que a ' +
+    'conversão sobre contatos novos — não é piora, é outra pergunta.</div>';
   var notas = {
     pago: '<div class="nota"><b>O investimento é só o da Meta.</b> Google Ads aparece como canal porque o ' +
       'contato traz o utm, mas a conta de mídia do Google não é coletada — então o retorno acima está ' +
@@ -601,15 +617,15 @@ function pintaKpis(t, inv){
       'somado pela verba da Meta daria um número enorme e falso: a maior parte deste dinheiro veio de quem ' +
       'não passou por anúncio nenhum. Retorno sobre mídia só faz sentido no lado pago.</div>'
   };
-  document.getElementById('notaInvest').innerHTML = notas[lado];
+  document.getElementById('notaInvest').innerHTML = notaUnidade + notas[lado];
 }
 
 function pintaBarras(mapa, canais){
   var linhas = canais.map(function(c){ return {c:c, t:mapa[c]||zero()}; })
-                     .filter(function(x){ return x.t.ct || x.t.v; })
+                     .filter(function(x){ return x.t.ch || x.t.ct || x.t.v; })
                      .sort(function(a,b){ return b.t.v - a.t.v || b.t.ct - a.t.ct; });
   var maxV = Math.max.apply(null, linhas.map(function(x){return x.t.v;}).concat([1]));
-  var maxC = Math.max.apply(null, linhas.map(function(x){return x.t.ct;}).concat([1]));
+  var maxC = Math.max.apply(null, linhas.map(function(x){return x.t.ch;}).concat([1]));
   var bloco = function(titulo, chave, max, fmt){
     return '<div style="font-family:var(--font-display);font-size:12.5px;font-weight:700;' +
            'color:var(--dark);margin:2px 0 8px">'+titulo+'</div>' +
@@ -623,30 +639,31 @@ function pintaBarras(mapa, canais){
   document.getElementById('barras').innerHTML =
     bloco('Faturado por canal', 'v', maxV, BRL0) +
     '<div style="height:14px"></div>' +
-    bloco('Contatos por canal', 'ct', maxC, N);
+    bloco('Chegadas por canal', 'ch', maxC, N);
 }
 
 function pintaTabela(mapa, canais, tot, inv){
   var linhas = canais.map(function(c){ return {c:c, t:mapa[c]||zero()}; })
-                     .filter(function(x){ return x.t.ct || x.t.v; })
+                     .filter(function(x){ return x.t.ch || x.t.ct || x.t.v; })
                      .sort(function(a,b){ return b.t.v - a.t.v || b.t.ct - a.t.ct; });
   var td = function(v){ return '<td class="num">'+v+'</td>'; };
   document.getElementById('tCanais').innerHTML =
     '<thead><tr class="faixa"><th colspan="4"></th>' +
       '<th colspan="2" class="fx fx-prop">Serviço prestado, e o que ficou na mesa</th>' +
       '<th colspan="2" class="fx fx-fat">A mesma fatura, quitada ou não</th></tr>' +
-    '<tr><th>Canal</th><th class="num">Contatos</th><th class="num">Pacientes</th>' +
+    '<tr><th>Canal</th><th class="num">Chegadas</th><th class="num">Contatos novos</th>' +
+      '<th class="num">Pacientes</th>' +
       '<th class="num">Conversão</th><th class="num">Faturado</th><th class="num">Não executado</th>' +
       '<th class="num">Recebido</th><th class="num">Em aberto</th></tr></thead>' +
     '<tbody>' + linhas.map(function(x){
       var t = x.t;
-      return '<tr><td>'+esc(x.c)+'</td>' + td(N(t.ct)) + td(N(t.p)) +
-        td(t.ct ? PCT1(100*t.p/t.ct) : '—') +
+      return '<tr><td>'+esc(x.c)+'</td>' + td(N(t.ch)) + td(N(t.ct)) + td(N(t.p)) +
+        td(t.ch ? PCT1(100*t.p/t.ch) : '—') +
         td(t.v ? BRL0(t.v) : '—') + td(t.vne ? BRL0(t.vne) : '—') +
         td(t.pg ? BRL0(t.pg) : '—') + td(t.ab ? BRL0(t.ab) : '—') + '</tr>';
     }).join('') + '</tbody>' +
-    '<tfoot><tr><td>Total</td>' + td(N(tot.ct)) + td(N(tot.p)) +
-      td(tot.ct ? PCT1(100*tot.p/tot.ct) : '—') + td(BRL0(tot.v)) + td(BRL0(tot.vne)) +
+    '<tfoot><tr><td>Total</td>' + td(N(tot.ch)) + td(N(tot.ct)) + td(N(tot.p)) +
+      td(tot.ch ? PCT1(100*tot.p/tot.ch) : '—') + td(BRL0(tot.v)) + td(BRL0(tot.vne)) +
       td(BRL0(tot.pg)) + td(BRL0(tot.ab)) + '</tr></tfoot>';
   document.getElementById('notaTabela').innerHTML = '<div class="nota">' +
     '<b>Cada paciente aparece em um canal só.</b> Ele pertence ao primeiro contato que teve no CRM, e ' +
@@ -663,7 +680,7 @@ function pintaTabela(mapa, canais, tot, inv){
 function pintaFora(mapa){
   var bi = mapa['Base importada'] || zero(), eq = mapa['Criado pela equipe'] || zero();
   var resumo = function(t){
-    return N(t.ct) + ' contatos · ' + N(t.p) + ' pacientes · ' + BRL0(t.v) + ' faturados · ' +
+    return N(t.ch) + ' chegadas · ' + N(t.ct) + ' contatos novos · ' + N(t.p) + ' pacientes · ' + BRL0(t.v) + ' faturados · ' +
            BRL0(t.pg) + ' recebidos';
   };
   document.getElementById('fora').innerHTML = '<div class="nota mudo">' +
