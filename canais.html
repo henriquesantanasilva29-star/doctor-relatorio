@@ -337,28 +337,20 @@ tfoot td{padding:8px 10px;font-weight:700;border-top:2px solid var(--dark)}
 
 <div class="section-title" id="tituloLado"></div>
 <div class="kpi-grid" id="kpis"></div>
-<div id="notaInvest"></div>
 
 <div class="section-title">Cada porta de entrada</div>
 <div class="cbars" id="barras"></div>
 
 <table id="tCanais"></table>
-<div id="notaTabela"></div>
 
 <div class="section-title">A mídia paga em detalhe</div>
-<div id="midiaAviso"></div>
 <div class="kpi-grid" id="midiaKpis"></div>
 <div class="section-title">O que a mídia devolveu</div>
 <div class="kpi-grid" id="midiaRetorno"></div>
 <div class="section-title">Campanhas por especialidade</div>
 <table id="tEspec"></table>
-<div id="notaEspec"></div>
 
-<div class="section-title">Fora da comparação</div>
-<div id="fora"></div>
 
-<div class="section-title">O que este painel não tem</div>
-<div id="ausencias"></div>
 
 </div></div>
 <script>
@@ -620,13 +612,6 @@ function pintaMidia(){
   var nDias = Object.keys(dias).length;
   var cob = t.conv ? 100 * cr.r / t.conv : 0;
 
-  document.getElementById("midiaAviso").innerHTML =
-    "<div class=\"nota\"><b>" + PCT0(cob) + " de cobertura de rastreio.</b> " +
-    N(cr.r) + " das " + N(t.conv) + " conversas do per\u00edodo chegaram ao CRM trazendo o ID do an\u00fancio. " +
-    "Abaixo de 50% o funil por campanha vira estimativa e n\u00e3o deve ser usado para decidir verba." +
-    (fora.r ? " <b>Fora do total:</b> " + N(fora.r) + " contatos de an\u00fancio que n\u00e3o veiculou no per\u00edodo " +
-      "-- resultado conhecido, custo desconhecido, ent\u00e3o n\u00e3o entram no retorno." : "") + "</div>";
-
   document.getElementById("midiaKpis").innerHTML = [
     [BRL(t.inv), "Investimento Meta Ads", nDias + " dias com veicula\u00e7\u00e3o"],
     [N(t.imp), "Impress\u00f5es", t.imp ? BRL(1000 * t.inv / t.imp) + " de CPM" : "\u2014"],
@@ -676,15 +661,6 @@ function pintaMidia(){
       td(BRL0(cr.v)) + td(BRL0(cr.vne)) + td(N(cr.ne)) + td(BRL0(cr.pg)) + td(BRL0(cr.ab)) +
       "</tr></tfoot>";
 
-  document.getElementById("notaEspec").innerHTML = "<div class=\"nota\">" +
-    "<b>O investimento \u00e9 s\u00f3 o da Meta.</b> Google Ads aparece como canal l\u00e1 em cima porque o " +
-    "contato traz o utm, mas a conta de m\u00eddia do Google n\u00e3o \u00e9 coletada \u2014 o retorno acima est\u00e1 " +
-    "medido contra um investimento que exclui o que foi gasto l\u00e1. " +
-    "<b>A especialidade sai do nome da campanha</b>, e a mesma ag\u00eancia nomeia as duas contas em ordem " +
-    "oposta; a regra descarta ag\u00eancia, formato, p\u00fablico e data, e fica com o primeiro peda\u00e7o que sobra. " +
-    "Campanha sem taxonomia cai em \"Sem classifica\u00e7\u00e3o\" em vez de ser distribu\u00edda no chute. " +
-    "<b>Cada paciente pertence a um an\u00fancio s\u00f3</b> \u2014 o primeiro que o trouxe \u2014 e s\u00f3 entra o que " +
-    "aconteceu depois disso, igual \u00e0 tabela de canais acima.</div>";
 }
 
 /* ============ desenho ============ */
@@ -699,8 +675,6 @@ function render(){
   pintaKpis(alvo, inv);
   pintaBarras(mapa, canais);
   pintaTabela(mapa, canais, alvo, inv);
-  pintaFora(mapa);
-  pintaAusencias();
   pintaMidia();
 }
 
@@ -771,7 +745,6 @@ function pintaKpis(t, inv){
       'somado pela verba da Meta daria um número enorme e falso: a maior parte deste dinheiro veio de quem ' +
       'não passou por anúncio nenhum. Retorno sobre mídia só faz sentido no lado pago.</div>'
   };
-  document.getElementById('notaInvest').innerHTML = notaUnidade + notas[lado];
 }
 
 function pintaBarras(mapa, canais){
@@ -819,51 +792,6 @@ function pintaTabela(mapa, canais, tot, inv){
     '<tfoot><tr><td>Total</td>' + td(N(tot.ch)) + td(N(tot.ct)) + td(N(tot.p)) +
       td(tot.ch ? PCT1(100*tot.p/tot.ch) : '—') + td(BRL0(tot.v)) + td(BRL0(tot.vne)) +
       td(BRL0(tot.pg)) + td(BRL0(tot.ab)) + '</tr></tfoot>';
-  document.getElementById('notaTabela').innerHTML = '<div class="nota">' +
-    '<b>Cada paciente aparece em um canal só.</b> Ele pertence ao primeiro contato que teve no CRM, e ' +
-    'só entra o que aconteceu depois disso. Sem essas duas regras o mesmo dinheiro apareceria nos dois ' +
-    'lados do alternador e a soma passaria do faturamento real da clínica. ' +
-    '<b>Faturado = Recebido + Em aberto</b>, sempre, aqui como no relatório de campanha — sai das mesmas faturas. ' +
-    '<br><br><b>"Direto / sem origem" não é sinônimo de orgânico puro.</b> É quem chegou no WhatsApp sem ' +
-    'nenhuma marca de campanha: pode ter vindo de um post, de indicação, da fachada ou de já conhecer a ' +
-    'clínica. O CRM registra a chegada, não o motivo. ' +
-    '<b>"Meta sem id do anúncio"</b> é clique em anúncio cujo identificador não veio — é pago, e por isso ' +
-    'está do lado pago, mas não dá para dizer de qual campanha.</div>';
-}
-
-function pintaFora(mapa){
-  var bi = mapa['Base importada'] || zero(), eq = mapa['Criado pela equipe'] || zero();
-  var resumo = function(t){
-    return N(t.ch) + ' chegadas · ' + N(t.ct) + ' contatos novos · ' + N(t.p) + ' pacientes · ' + BRL0(t.v) + ' faturados · ' +
-           BRL0(t.pg) + ' recebidos';
-  };
-  document.getElementById('fora').innerHTML = '<div class="nota mudo">' +
-    '<b>Dois grupos ficam fora do alternador de propósito, porque não são porta de entrada.</b>' +
-    '<br><br><b>Base importada</b> — ' + resumo(bi) + '.<br>' +
-    'Cadastros que entraram no CRM por importação em massa, não por alguém ter chamado a clínica. ' +
-    'A data de criação é a do import, não a da chegada — contar isso como canal creditaria a marketing ' +
-    'a base inteira que a clínica já tinha antes de existir rastreio.' +
-    '<br><br><b>Criado pela equipe</b> — ' + resumo(eq) + '.<br>' +
-    'Contato aberto pela recepção. Uma parte é gente que ligou ou apareceu na porta, o que seria não pago ' +
-    'de verdade; outra parte é paciente antigo sendo cadastrado na hora do atendimento. ' +
-    (eq.ct ? 'A taxa de virar paciente aqui é de ' + PCT1(100*eq.p/eq.ct) + ', contra ' : '') +
-    'muito menos em qualquer canal de aquisição — e essa distância é justamente o sinal de que a maioria ' +
-    'já era paciente antes. Enquanto a recepção não separar os dois casos, somar isto ao orgânico ' +
-    'inflaria o não pago sem que ninguém conseguisse defender o número.</div>';
-}
-
-function pintaAusencias(){
-  document.getElementById('ausencias').innerHTML = '<div class="nota">' +
-    '<b>Não existe métrica de mídia orgânica aqui, e é melhor dizer isso do que inventar.</b> ' +
-    'Alcance de post, impressão de perfil, seguidores, engajamento — nada disso é coletado hoje. ' +
-    'Nenhuma rotina lê o Insights da página do Instagram ou do Facebook. O que esta página chama de ' +
-    '"não pago" é medido pela <i>chegada</i> — a conversa que entrou sem anúncio — e não pela publicação ' +
-    'que a provocou.' +
-    '<br><br><b>O que daria para ligar, se valer a pena:</b> a API de Insights da página entrega alcance, ' +
-    'impressões e engajamento por publicação, e o mesmo token da Meta que já usamos para os anúncios ' +
-    'costuma servir. Com isso o lado orgânico ganharia o topo do funil que hoje só o pago tem. ' +
-    '<br><br><b>Custo de mídia do Google também não é coletado</b> — só o contato com utm de CPC. ' +
-    'E não há dado de SEO: posição, clique de busca, página de entrada.</div>';
 }
 
 carrega();
