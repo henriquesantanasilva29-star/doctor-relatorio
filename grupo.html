@@ -24,43 +24,38 @@ iframe{border:0;width:100%;flex:1;background:#faf9fc}
 <header>
  <h1>Grupo JOB · <span>painéis</span></h1>
  <nav>
-  <button class="aba" id="ab-inicio">Início</button>
   <button class="aba" id="ab-bi">BI do grupo</button>
-  <button class="aba" id="ab-crm">Life CRM</button>
   <button class="aba" id="ab-doctor">Doctor+</button>
   <button class="aba" id="ab-acesso">Acesso Saúde</button>
  </nav>
- <div class="dir"><a id="regua" href="regua.html" target="_blank" rel="noopener">régua ↗</a> &nbsp;<a id="cheia" href="#" target="_blank" rel="noopener">abrir em página própria ↗</a></div>
+ <div class="dir"><a id="cheia" href="#" target="_blank" rel="noopener">abrir em página própria ↗</a></div>
 </header>
 <div id="aviso" style="display:none"></div>
 <iframe id="painel" title="Painel do Grupo JOB"></iframe>
 <script>
 var h=new URLSearchParams(location.hash.replace(/^#/,''));
-// o Life CRM sai do mesmo hub que o BI, então anda com a mesma chave: quem perde kb perde os dois
-var K={inicio:h.get('kb')||'',bi:h.get('kb')||'',crm:h.get('kb')||'',doctor:h.get('kd')||'',acesso:h.get('ka')||''};
-var P={inicio:'inicio.html',bi:'bi.html',crm:'crm.html',doctor:'index.html',acesso:'acesso.html'};
-var ABAS=['inicio','bi','crm','doctor','acesso'];
+var K={bi:h.get('kb')||'',doctor:h.get('kd')||'',acesso:h.get('ka')||''};
+var P={bi:'bi.html',doctor:'index.html',acesso:'acesso.html'};
 function abre(id){
  if(!K[id])return;
  var url=P[id]+'#k='+K[id];
  document.getElementById('painel').src=url;
  document.getElementById('cheia').href=url;
- ABAS.forEach(function(x){
+ ['bi','doctor','acesso'].forEach(function(x){
   document.getElementById('ab-'+x).classList.toggle('ativa',x===id);
  });
 }
-ABAS.forEach(function(x){
+['bi','doctor','acesso'].forEach(function(x){
  var b=document.getElementById('ab-'+x);
  if(!K[x]){b.disabled=true;b.title='chave não incluída no link';}
  b.addEventListener('click',function(){abre(x)});
 });
-var inicial=null;
-ABAS.some(function(x){if(K[x]){inicial=x;return true}return false});
+var inicial=K.bi?'bi':(K.doctor?'doctor':(K.acesso?'acesso':null));
 if(inicial){abre(inicial);}
 else{
  document.getElementById('painel').style.display='none';
  var av=document.getElementById('aviso');
  av.style.display='block';
- av.textContent='Nenhuma chave no link. Abra o endereço com as chaves depois do # — por exemplo: grupo.html#kb=CHAVE_BI&kd=CHAVE_DOCTOR&ka=CHAVE_ACESSO (qualquer combinação funciona; as chaves nunca saem do seu navegador). O kb abre duas abas: BI do grupo e Life CRM.';
+ av.textContent='Nenhuma chave no link. Abra o endereço com as chaves depois do # — por exemplo: grupo.html#kb=CHAVE_BI&kd=CHAVE_DOCTOR&ka=CHAVE_ACESSO (qualquer combinação funciona; as chaves nunca saem do seu navegador).';
 }
 </script></body></html>
