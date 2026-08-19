@@ -723,14 +723,14 @@ function pintaMidia(tpago){
     if (!tpago || (!tpago.v && !cr.v)) { el.innerHTML = ''; return; }
     var gapV = Math.max(0, tpago.v - cr.v - fora.v);
     var linhaFora = fora.v ? ('Anúncio que NÃO veiculou no período mas seguiu vendendo: ' + BRL0(fora.v) + ' faturado (fora da tabela acima, de propósito — não tem investimento aqui). ') : '';
-    el.innerHTML = '<b>Fecho de contas do lado pago, no período:</b> ' +
-      'amarrado a anúncio (tabela acima): <b>' + BRL0(cr.v) + '</b> faturado · <b>' + BRL0(cr.pg) + '</b> recebido. ' +
+    el.innerHTML = '<b>Fecho de contas do faturado do lado pago:</b> ' +
+      'amarrado a anúncio (tabela acima): <b>' + BRL0(cr.v) + '</b>. ' +
       linhaFora +
-      'Coorte por canal (tabela “cada porta de entrada”): <b>' + BRL0(tpago.v) + '</b> faturado · <b>' + BRL0(tpago.pg) + '</b> recebido — ' +
+      'Coorte por canal (tabela “cada porta de entrada”): <b>' + BRL0(tpago.v) + '</b> — ' +
       'a diferença de ' + BRL0(gapV) + ' é paciente de canal pago cujo anúncio específico não é identificável ' +
       '(“Meta sem id”, Google, ou ponte contato→anúncio não resolvida). ' +
-      'E o <b>caixa do período</b> do lado pago é outra pergunta: <b>' + BRL0(tpago.pgd || 0) + '</b> — pagamentos datados ' +
-      'dentro do período, inclusive de paciente que chegou antes dele. Três réguas, três perguntas; nenhuma é erro da outra.';
+      '<b>Recebido</b> nesta tela é um só, na régua do caixa: <b>' + BRL0(tpago.pgd || 0) + '</b> no período — ' +
+      'o mesmo número do cartão do topo e da coluna “Recebido no período”.';
   })();
 
   /* expansao: clique na linha abre os cartoes de anuncio da especialidade */
