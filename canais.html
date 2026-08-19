@@ -720,7 +720,8 @@ function pintaMidia(tpago){
   (function(){
     var el = document.getElementById('fechoPago');
     if (!el) return;
-    if (!tpago || (!tpago.v && !cr.v)) { el.innerHTML = ''; return; }
+    el.innerHTML = ''; return;
+    /* fecho desativado a pedido — rotulos passaram a carregar a explicacao */
     var gapV = Math.max(0, tpago.v - cr.v - fora.v);
     var linhaFora = fora.v ? ('Anúncio que NÃO veiculou no período mas seguiu vendendo: ' + BRL0(fora.v) + ' faturado (fora da tabela acima, de propósito — não tem investimento aqui). ') : '';
     el.innerHTML = '<b>Fecho de contas do faturado do lado pago:</b> ' +
@@ -856,10 +857,7 @@ function abreProcAd(adId, btn){
           tdn(x.vn ? BRL0(x.vn) : '—') + '</tr>';
       }).join('') + '</tbody><tfoot><tr><td>Total do período</td>' +
       tdn(N(soma('qe'))) + tdn(BRL0(soma('ve'))) + tdn(BRL0(soma('vp'))) +
-      tdn(N(soma('qn'))) + tdn(BRL0(soma('vn'))) + '</tr></tfoot></table>' +
-      '<div class="nota">Faturado, Recebido e Valor parado fecham com o cartão acima. ' +
-      'A categoria é deduzida do nome do procedimento no Feegow; o que não casa com regra nenhuma ' +
-      'fica em “Outros procedimentos”. Este bloco respeita o período escolhido no topo.</div>';
+      tdn(N(soma('qn'))) + tdn(BRL0(soma('vn'))) + '</tr></tfoot></table>';
   el.style.display = '';
   btn.textContent = 'fechar detalhe';
 }
@@ -903,17 +901,13 @@ function render(){
     var li = function(r, v){ return '<div class="linha"><span>'+r+'</span><b>'+BRL0(v)+'</b></div>'; };
     el.innerHTML =
       '<div class="lado" style="margin:12px 0;border-left:4px solid #241b35">' +
-      '<h4>Dinheiro que entrou no período — caixa completo</h4>' +
+      '<h4>Caixa do período — todas as origens</h4>' +
       '<div class="big">'+BRL0(tot)+'</div>' +
-      li('de paciente vindo de anúncio', pago) +
-      li('de paciente orgânico e direto', org) +
-      li('de cadastro criado pela equipe (call center, recepção)', eq) +
-      li('da base importada', bs) +
-      li('sem canal identificável (telefone/balcão, elo não encontrado ou cliente antigo)', sr) +
-      '<div class="nota" style="margin-top:8px">Ancorado no dia do <b>pagamento</b>: é o caixa de verdade do período, ' +
-      'fechando com o financeiro. Os cartões acima ancoram no dia da <b>chegada</b> do paciente (coorte): mostram quanto ' +
-      'quem chegou no período já rendeu — por isso, em janelas curtas, eles são sempre pequenos: paciente novo ainda não teve tempo de pagar. ' +
-      'A linha “sem canal identificável” não é só cliente antigo: a maior parte é paciente que entrou por telefone ou balcão e nunca conversou no WhatsApp — canal só existe para quem conversa.</div>' +
+      li('Pacientes de anúncio', pago) +
+      li('Orgânico e direto', org) +
+      li('Criado pela equipe — call center e recepção', eq) +
+      li('Base importada', bs) +
+      li('Sem canal identificável — telefone, balcão e cliente antigo', sr) +
       '</div>';
   })();
   var alvo = lado === 'pago' ? tp : (lado === 'organico' ? tn : soma(soma(zero(), tp), tn));
@@ -979,9 +973,7 @@ function carregaEquipes(){
       tb.innerHTML = '<thead><tr><th>Equipe</th><th style="text-align:right">Pessoas</th>' +
         '<th style="text-align:right">Recebimentos</th><th style="text-align:right">Valor</th>' +
         '<th style="text-align:right">Participação</th><th>Melhor vendedor</th></tr></thead><tbody>' + linhas + '</tbody>';
-      nota.innerHTML = '<b>Quem vendeu ≠ por onde o paciente chegou.</b> Este quadro atribui a venda à pessoa que registrou o recebimento ' +
-        '(equipes do Life CRM, valores da planilha do financeiro — régua diferente do caixa acima). ' +
-        'Os cartões de canal atribuem o mesmo dinheiro à porta de entrada do paciente — são perguntas diferentes e não somam.';
+      nota.innerHTML = '';
     })
     .catch(function(e){
       eqCacheKey = '';
@@ -994,22 +986,22 @@ function pintaDuelo(tp, tn, inv){
   var linha = function(r, v){ return '<div class="linha"><span>'+r+'</span><b>'+v+'</b></div>'; };
   document.getElementById('duelo').innerHTML =
     '<div class="lado p"><h4>Tráfego pago</h4><div class="big">'+BRL0(tp.pgd)+'</div>' +
-      '<div class="nota" style="margin:0 0 8px">entrou em caixa no período</div>' +
-      linha('faturado da coorte (quem chegou no período)', BRL0(tp.v)) +
-      linha('retorno sobre '+BRL0(inv)+' investidos (coorte)', inv ? (tp.v/inv).toFixed(1).replace('.',',')+'×' : '—') +
-      linha('chegadas', N(tp.ch)) +
-      linha('contatos novos', N(tp.ct) + (tp.ch ? ' · '+PCT1(100*tp.ct/tp.ch)+' das chegadas' : '')) +
-      linha('viraram paciente', N(tp.p) + (tp.ch ? ' · '+PCT1(100*tp.p/tp.ch)+' das chegadas' : '')) +
-      linha('em aberto da coorte', BRL0(tp.ab)) +
+      '<div class="nota" style="margin:0 0 8px">Recebido em caixa no período</div>' +
+      linha('Faturado — quem chegou no período', BRL0(tp.v)) +
+      linha('Retorno sobre mídia (' + BRL0(inv) + ' investidos)', inv ? (tp.v/inv).toFixed(1).replace('.',',')+'×' : '—') +
+      linha('Conversas abertas', N(tp.ch)) +
+      linha('Leads novos', N(tp.ct) + (tp.ch ? ' · '+PCT1(100*tp.ct/tp.ch)+' das conversas' : '')) +
+      linha('Viraram paciente', N(tp.p) + (tp.ch ? ' · '+PCT1(100*tp.p/tp.ch)+' das conversas' : '')) +
+      linha('Em aberto — quem chegou no período', BRL0(tp.ab)) +
     '</div>' +
     '<div class="lado o"><h4>Não pago — orgânico e direto</h4><div class="big">'+BRL0(tn.pgd)+'</div>' +
       '<div class="nota" style="margin:0 0 8px">entrou em caixa no período</div>' +
-      linha('faturado da coorte (quem chegou no período)', BRL0(tn.v)) +
-      linha('custo de mídia', 'R$ 0') +
-      linha('chegadas', N(tn.ch)) +
-      linha('contatos novos', N(tn.ct) + (tn.ch ? ' · '+PCT1(100*tn.ct/tn.ch)+' das chegadas' : '')) +
-      linha('viraram paciente', N(tn.p) + (tn.ch ? ' · '+PCT1(100*tn.p/tn.ch)+' das chegadas' : '')) +
-      linha('em aberto da coorte', BRL0(tn.ab)) +
+      linha('Faturado — quem chegou no período', BRL0(tn.v)) +
+      linha('Custo de mídia', 'R$ 0') +
+      linha('Conversas abertas', N(tn.ch)) +
+      linha('Leads novos', N(tn.ct) + (tn.ch ? ' · '+PCT1(100*tn.ct/tn.ch)+' das conversas' : '')) +
+      linha('Viraram paciente', N(tn.p) + (tn.ch ? ' · '+PCT1(100*tn.p/tn.ch)+' das conversas' : '')) +
+      linha('Em aberto — quem chegou no período', BRL0(tn.ab)) +
     '</div>';
 }
 
@@ -1018,15 +1010,14 @@ function pintaKpis(t, inv){
              : lado === 'organico' ? 'Não pago, em detalhe' : 'Pago e não pago somados';
   document.getElementById('tituloLado').textContent = titulo;
   var cartoes = [
-    [N(t.ch), 'Chegadas', 'toda conversa aberta no período, nova ou repetida'],
-    [N(t.ct), 'Contatos novos', t.ch ? PCT1(100*t.ct/t.ch)+' das chegadas' : '—'],
-    [t.ct ? (t.ch/t.ct).toFixed(2).replace('.',',') : '—', 'Conversas por contato novo',
+    [N(t.ch), 'Conversas abertas', 'novas e reabertas no período'],
+    [N(t.ct), 'Leads novos', t.ch ? PCT1(100*t.ct/t.ch)+' das conversas' : '—'],
+    [t.ct ? (t.ch/t.ct).toFixed(2).replace('.',',') : '—', 'Conversas por lead',
      'quanto atendimento cada aquisição custa'],
-    [N(t.p), 'Viraram paciente', t.ch ? PCT1(100*t.p/t.ch)+' das chegadas' : '—'],
-    [BRL0(t.v), 'Faturado da coorte', N(t.nf)+' faturas de '+N(t.pf)+' pacientes'],
-    [BRL0(t.pg), 'Recebido da coorte', t.v ? PCT0(100*t.pg/t.v)+' do faturado' : '—'],
-    [BRL0(t.pgd), 'Entrou em caixa no período', 'pagamentos datados dentro do período'],
-    [BRL0(t.ab), 'Em aberto', t.v ? PCT0(100*t.ab/t.v)+' do faturado' : '—'],
+    [N(t.p), 'Viraram paciente', t.ch ? PCT1(100*t.p/t.ch)+' das conversas' : '—'],
+    [BRL0(t.v), 'Faturado — chegados no período', N(t.nf)+' faturas de '+N(t.pf)+' pacientes'],
+    [BRL0(t.pgd), 'Recebido em caixa no período', 'pagamentos datados dentro do período'],
+    [BRL0(t.ab), 'Em aberto — chegados no período', t.v ? PCT0(100*t.ab/t.v)+' do faturado' : '—'],
     [BRL0(t.vne), 'Não executado', N(t.ne)+' propostas paradas na mesa'],
     [t.p ? BRL0(t.v/t.p) : '—', 'Faturado por paciente', 'média, inclusive quem não comprou'],
     lado === 'pago'
@@ -1060,7 +1051,7 @@ function pintaKpis(t, inv){
       'somado pela verba da Meta daria um número enorme e falso: a maior parte deste dinheiro veio de quem ' +
       'não passou por anúncio nenhum. Retorno sobre mídia só faz sentido no lado pago.</div>'
   };
-  document.getElementById('notaLado').innerHTML = notaUnidade + (notas[lado] || notas.lado);
+  document.getElementById('notaLado').innerHTML = '';
 }
 
 function pintaBarras(mapa, canais){
@@ -1093,12 +1084,12 @@ function pintaTabela(mapa, canais, tot, inv){
   document.getElementById('tCanais').innerHTML =
     '<thead><tr class="faixa"><th colspan="5"></th>' +
       '<th class="fx fx-fat">Dinheiro do período</th>' +
-      '<th colspan="3" class="fx fx-prop">Coorte de quem chegou no período</th></tr>' +
-    '<tr><th>Canal</th><th class="num">Conversas (chegadas)</th><th class="num">Leads (contatos novos)</th>' +
+      '<th colspan="3" class="fx fx-prop">De quem chegou no período</th></tr>' +
+    '<tr><th>Canal</th><th class="num">Conversas abertas</th><th class="num">Leads novos</th>' +
       '<th class="num">Pacientes</th>' +
       '<th class="num">Conversão</th><th class="num">Recebido no período</th>' +
-      '<th class="num">Faturado (coorte)</th><th class="num">Não executado</th>' +
-      '<th class="num">Em aberto (coorte)</th></tr></thead>' +
+      '<th class="num">Faturado</th><th class="num">Não executado</th>' +
+      '<th class="num">Em aberto</th></tr></thead>' +
     '<tbody>' + linhas.map(function(x){
       var t = x.t;
       return '<tr><td>'+esc(x.c)+'</td>' + td(N(t.ch)) + td(N(t.ct)) + td(N(t.p)) +
@@ -1112,11 +1103,7 @@ function pintaTabela(mapa, canais, tot, inv){
       td(BRL0(tot.v)) + td(BRL0(tot.vne)) +
       td(BRL0(tot.ab)) + '</tr></tfoot>';
   var nc = document.getElementById('notaCanais');
-  if (nc) nc.innerHTML = '<b>“Recebido no período” soma exatamente o número grande do cartão lá em cima</b> — ' +
-    'é a única coluna de recebido desta tela, na régua oficial (caixa). As três colunas da direita são da ' +
-    '<b>coorte</b> (o que quem chegou no período faturou/deixou em aberto até hoje) — servem para julgar anúncio, ' +
-    'não para conferir caixa. <b>Conversas não são leads:</b> conversa conta reentrada (mutião, robô, follow-up) ' +
-    'e pode subir com a verba caindo; aquisição se julga por <b>Leads (contatos novos)</b>.';
+  if (nc) nc.innerHTML = '';
 }
 
 carrega();
