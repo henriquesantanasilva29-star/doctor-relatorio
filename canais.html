@@ -335,6 +335,7 @@ tfoot td{padding:8px 10px;font-weight:700;border-top:2px solid var(--dark)}
 <div class="alt" id="alternador"></div>
 <div id="cobertura" class="nota" style="display:none"></div>
 <div class="duelo" id="duelo"></div>
+<div id="caixaPeriodo"></div>
 
 <div class="section-title" id="tituloLado"></div>
 <div class="kpi-grid" id="kpis"></div>
@@ -514,9 +515,9 @@ function montaAlternador(){
 /* 'ch' (conversas abertas) e somavel e entra aqui. 'pes' (contatos distintos com
    conversa no dia) NAO entra: somar distinto de varios dias da pessoa-dia, nao
    pessoa, e publicar isso como "pessoas" seria inventar um numero. */
-function zero(){return {ch:0,ct:0,ctp:0,k:0,p:0,o:0,e:0,ne:0,vne:0,vprop:0,v:0,pg:0,ab:0,nf:0,pf:0,qa:0,qat:0};}
+function zero(){return {ch:0,ct:0,ctp:0,k:0,p:0,o:0,e:0,ne:0,vne:0,vprop:0,v:0,pg:0,ab:0,nf:0,pf:0,qa:0,qat:0,pgd:0,nqd:0};}
 function soma(a,x){
-  ['ch','ct','ctp','k','p','o','e','ne','vne','vprop','v','pg','ab','nf','pf','qa','qat']
+  ['ch','ct','ctp','k','p','o','e','ne','vne','vprop','v','pg','ab','nf','pf','qa','qat','pgd','nqd']
     .forEach(function(c){ a[c] += x[c]||0; });
   return a;
 }
@@ -686,6 +687,29 @@ function render(){
   var tp = totalDe(PAGO, mapa), tn = totalDe(NPAGO, mapa);
   var inv = investimento();
   pintaDuelo(tp, tn, inv);
+  (function(){
+    var el = document.getElementById('caixaPeriodo'); if(!el) return;
+    var g = function(c){ return (mapa[c] && mapa[c].pgd) || 0; };
+    var pago = PAGO.reduce(function(a,c){ return a + g(c); }, 0);
+    var org  = NPAGO.reduce(function(a,c){ return a + g(c); }, 0);
+    var eq = g('Criado pela equipe'), bs = g('Base importada'), sr = g('Sem rastreio (pré-CRM)');
+    var tot = 0; Object.keys(mapa).forEach(function(c){ tot += mapa[c].pgd || 0; });
+    if (!tot) { el.innerHTML = ''; return; }
+    var li = function(r, v){ return '<div class="linha"><span>'+r+'</span><b>'+BRL0(v)+'</b></div>'; };
+    el.innerHTML =
+      '<div class="lado" style="margin:12px 0;border-left:4px solid #241b35">' +
+      '<h4>Dinheiro que entrou no período — caixa completo</h4>' +
+      '<div class="big">'+BRL0(tot)+'</div>' +
+      li('de paciente vindo de anúncio', pago) +
+      li('de paciente orgânico e direto', org) +
+      li('de cadastro criado pela equipe (call center, recepção)', eq) +
+      li('da base importada', bs) +
+      li('de paciente anterior ao rastreio do CRM', sr) +
+      '<div class="nota" style="margin-top:8px">Ancorado no dia do <b>pagamento</b>: é o caixa de verdade do período, ' +
+      'fechando com o financeiro. Os cartões acima ancoram no dia da <b>chegada</b> do paciente (coorte): mostram quanto ' +
+      'quem chegou no período já rendeu — por isso, em janelas curtas, eles são sempre pequenos: paciente novo ainda não teve tempo de pagar.</div>' +
+      '</div>';
+  })();
   var alvo = lado === 'pago' ? tp : (lado === 'organico' ? tn : soma(soma(zero(), tp), tn));
   var canais = lado === 'pago' ? PAGO : (lado === 'organico' ? NPAGO : PAGO.concat(NPAGO));
   pintaKpis(alvo, inv);
@@ -702,7 +726,8 @@ function pintaDuelo(tp, tn, inv){
       linha('chegadas', N(tp.ch)) +
       linha('contatos novos', N(tp.ct) + (tp.ch ? ' · '+PCT1(100*tp.ct/tp.ch)+' das chegadas' : '')) +
       linha('viraram paciente', N(tp.p) + (tp.ch ? ' · '+PCT1(100*tp.p/tp.ch)+' das chegadas' : '')) +
-      linha('recebido', BRL0(tp.pg)) +
+      linha('recebido da coorte (desde a chegada)', BRL0(tp.pg)) +
+      linha('entrou em caixa no período', BRL0(tp.pgd)) +
       linha('em aberto', BRL0(tp.ab)) +
     '</div>' +
     '<div class="lado o"><h4>Não pago — orgânico e direto</h4><div class="big">'+BRL0(tn.v)+'</div>' +
@@ -710,7 +735,8 @@ function pintaDuelo(tp, tn, inv){
       linha('chegadas', N(tn.ch)) +
       linha('contatos novos', N(tn.ct) + (tn.ch ? ' · '+PCT1(100*tn.ct/tn.ch)+' das chegadas' : '')) +
       linha('viraram paciente', N(tn.p) + (tn.ch ? ' · '+PCT1(100*tn.p/tn.ch)+' das chegadas' : '')) +
-      linha('recebido', BRL0(tn.pg)) +
+      linha('recebido da coorte (desde a chegada)', BRL0(tn.pg)) +
+      linha('entrou em caixa no período', BRL0(tn.pgd)) +
       linha('em aberto', BRL0(tn.ab)) +
     '</div>';
 }
@@ -726,7 +752,8 @@ function pintaKpis(t, inv){
      'quanto atendimento cada aquisição custa'],
     [N(t.p), 'Viraram paciente', t.ch ? PCT1(100*t.p/t.ch)+' das chegadas' : '—'],
     [BRL0(t.v), 'Faturado', N(t.nf)+' faturas de '+N(t.pf)+' pacientes'],
-    [BRL0(t.pg), 'Recebido', t.v ? PCT0(100*t.pg/t.v)+' do faturado' : '—'],
+    [BRL0(t.pg), 'Recebido da coorte', t.v ? PCT0(100*t.pg/t.v)+' do faturado' : '—'],
+    [BRL0(t.pgd), 'Entrou em caixa no período', 'pagamentos datados dentro do período'],
     [BRL0(t.ab), 'Em aberto', t.v ? PCT0(100*t.ab/t.v)+' do faturado' : '—'],
     [BRL0(t.vne), 'Não executado', N(t.ne)+' propostas paradas na mesa'],
     [t.p ? BRL0(t.v/t.p) : '—', 'Faturado por paciente', 'média, inclusive quem não comprou'],
