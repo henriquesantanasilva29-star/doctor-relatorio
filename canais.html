@@ -1000,7 +1000,6 @@ function pintaDuelo(tp, tn, inv){
       linha('chegadas', N(tp.ch)) +
       linha('contatos novos', N(tp.ct) + (tp.ch ? ' · '+PCT1(100*tp.ct/tp.ch)+' das chegadas' : '')) +
       linha('viraram paciente', N(tp.p) + (tp.ch ? ' · '+PCT1(100*tp.p/tp.ch)+' das chegadas' : '')) +
-      linha('recebido da coorte (desde a chegada)', BRL0(tp.pg)) +
       linha('em aberto da coorte', BRL0(tp.ab)) +
     '</div>' +
     '<div class="lado o"><h4>Não pago — orgânico e direto</h4><div class="big">'+BRL0(tn.pgd)+'</div>' +
@@ -1010,7 +1009,6 @@ function pintaDuelo(tp, tn, inv){
       linha('chegadas', N(tn.ch)) +
       linha('contatos novos', N(tn.ct) + (tn.ch ? ' · '+PCT1(100*tn.ct/tn.ch)+' das chegadas' : '')) +
       linha('viraram paciente', N(tn.p) + (tn.ch ? ' · '+PCT1(100*tn.p/tn.ch)+' das chegadas' : '')) +
-      linha('recebido da coorte (desde a chegada)', BRL0(tn.pg)) +
       linha('em aberto da coorte', BRL0(tn.ab)) +
     '</div>';
 }
@@ -1093,29 +1091,32 @@ function pintaTabela(mapa, canais, tot, inv){
                      .sort(function(a,b){ return b.t.v - a.t.v || b.t.ct - a.t.ct; });
   var td = function(v){ return '<td class="num">'+v+'</td>'; };
   document.getElementById('tCanais').innerHTML =
-    '<thead><tr class="faixa"><th colspan="4"></th>' +
-      '<th colspan="2" class="fx fx-prop">Serviço prestado, e o que ficou na mesa</th>' +
-      '<th colspan="2" class="fx fx-fat">A mesma fatura, quitada ou não</th></tr>' +
+    '<thead><tr class="faixa"><th colspan="5"></th>' +
+      '<th class="fx fx-fat">Dinheiro do período</th>' +
+      '<th colspan="3" class="fx fx-prop">Coorte de quem chegou no período</th></tr>' +
     '<tr><th>Canal</th><th class="num">Conversas (chegadas)</th><th class="num">Leads (contatos novos)</th>' +
       '<th class="num">Pacientes</th>' +
-      '<th class="num">Conversão</th><th class="num">Faturado (coorte)</th><th class="num">Não executado</th>' +
-      '<th class="num">Recebido (coorte)</th><th class="num">Em aberto</th></tr></thead>' +
+      '<th class="num">Conversão</th><th class="num">Recebido no período</th>' +
+      '<th class="num">Faturado (coorte)</th><th class="num">Não executado</th>' +
+      '<th class="num">Em aberto (coorte)</th></tr></thead>' +
     '<tbody>' + linhas.map(function(x){
       var t = x.t;
       return '<tr><td>'+esc(x.c)+'</td>' + td(N(t.ch)) + td(N(t.ct)) + td(N(t.p)) +
         td(t.ch ? PCT1(100*t.p/t.ch) : '—') +
+        td(t.pgd ? '<b>' + BRL0(t.pgd) + '</b>' : '—') +
         td(t.v ? BRL0(t.v) : '—') + td(t.vne ? BRL0(t.vne) : '—') +
-        td(t.pg ? BRL0(t.pg) : '—') + td(t.ab ? BRL0(t.ab) : '—') + '</tr>';
+        td(t.ab ? BRL0(t.ab) : '—') + '</tr>';
     }).join('') + '</tbody>' +
     '<tfoot><tr><td>Total</td>' + td(N(tot.ch)) + td(N(tot.ct)) + td(N(tot.p)) +
-      td(tot.ch ? PCT1(100*tot.p/tot.ch) : '—') + td(BRL0(tot.v)) + td(BRL0(tot.vne)) +
-      td(BRL0(tot.pg)) + td(BRL0(tot.ab)) + '</tr></tfoot>';
+      td(tot.ch ? PCT1(100*tot.p/tot.ch) : '—') + td('<b>' + BRL0(tot.pgd || 0) + '</b>') +
+      td(BRL0(tot.v)) + td(BRL0(tot.vne)) +
+      td(BRL0(tot.ab)) + '</tr></tfoot>';
   var nc = document.getElementById('notaCanais');
-  if (nc) nc.innerHTML = '<b>Conversas não são leads.</b> Conversa conta reentrada — mutião, ' +
-    'robô e follow-up reabrindo papo com contato antigo entram aqui, e por isso ela pode subir com o ' +
-    'investimento caindo. <b>Para julgar aquisição de mídia, use Leads (contatos novos)</b> — é o ' +
-    'número que anda junto com a verba. Faturado/Recebido desta tabela são da <b>coorte</b>: o que quem ' +
-    'chegou no período já rendeu até hoje.';
+  if (nc) nc.innerHTML = '<b>“Recebido no período” soma exatamente o número grande do cartão lá em cima</b> — ' +
+    'é a única coluna de recebido desta tela, na régua oficial (caixa). As três colunas da direita são da ' +
+    '<b>coorte</b> (o que quem chegou no período faturou/deixou em aberto até hoje) — servem para julgar anúncio, ' +
+    'não para conferir caixa. <b>Conversas não são leads:</b> conversa conta reentrada (mutião, robô, follow-up) ' +
+    'e pode subir com a verba caindo; aquisição se julga por <b>Leads (contatos novos)</b>.';
 }
 
 carrega();
