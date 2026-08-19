@@ -359,6 +359,13 @@ tfoot td{padding:8px 10px;font-weight:700;border-top:2px solid var(--dark)}
     <label>de <input type="date" id="de"></label>
     <label>até <input type="date" id="ate"></label>
     <button class="preset" id="aplicar">aplicar</button>
+    <button class="preset" id="btnCmp">comparar com…</button>
+  </div>
+  <div class="editor" id="editorCmp" style="display:none">
+    <label>comparar com: de <input type="date" id="de2"></label>
+    <label>até <input type="date" id="ate2"></label>
+    <button class="preset" id="aplicar2">comparar</button>
+    <button class="preset" id="sairCmp">sair da comparação</button>
   </div>
 </div>
 
@@ -367,6 +374,10 @@ tfoot td{padding:8px 10px;font-weight:700;border-top:2px solid var(--dark)}
 
 <div class="alt" id="alternador"></div>
 <div id="cobertura" class="nota" style="display:none"></div>
+<div id="cmpSec" style="display:none">
+  <div class="section-title">Comparação de períodos</div>
+  <table id="tCmp"></table>
+</div>
 <div class="duelo" id="duelo"></div>
 <div id="caixaPeriodo"></div>
 
@@ -415,6 +426,7 @@ var COR = {'Meta Ads':'var(--red)','Meta sem id do anúncio':'#F5136E99','Google
 var CAN = [], MID = [], JOR = [], MARCAS_OK = [], lado = 'pago', marcaSel = 'todas';
 var PROC = [], PROCADS = {}, CONTA = {}, CRI = {}, criPedido = {}; /* detalhe de campanha (portado do dossiê) */
 var de = '', ate = '';
+var cmpAtivo = false, de2 = '', ate2 = '';
 
 /* ============ formatadores, iguais aos do relatório ============ */
 var BRL = function(v){return (v||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});};
@@ -516,6 +528,27 @@ function montaPresets(pri, ult){
     document.getElementById('editor').classList.toggle('aberto');
     document.getElementById('de').value = de; document.getElementById('ate').value = ate;
   });
+  document.getElementById('btnCmp').addEventListener('click', function(){
+    var ed = document.getElementById('editorCmp');
+    ed.style.display = '';
+    if (!de2) { // sugere a janela anterior de mesmo tamanho
+      var n = diasEntreCmp(de, ate);
+      ate2 = novaData(de, -1); de2 = novaData(ate2, -(n - 1));
+    }
+    document.getElementById('de2').value = de2;
+    document.getElementById('ate2').value = ate2;
+  });
+  document.getElementById('aplicar2').addEventListener('click', function(){
+    var a2 = document.getElementById('de2').value, b2 = document.getElementById('ate2').value;
+    if (!a2 || !b2) return;
+    if (a2 > b2) { var t2 = a2; a2 = b2; b2 = t2; }
+    de2 = a2; ate2 = b2; cmpAtivo = true; render();
+  });
+  document.getElementById('sairCmp').addEventListener('click', function(){
+    cmpAtivo = false;
+    document.getElementById('editorCmp').style.display = 'none';
+    render();
+  });
   document.getElementById('aplicar').addEventListener('click', function(){
     var a = document.getElementById('de').value, b = document.getElementById('ate').value;
     if(a && b && a <= b){ de = a; ate = b;
@@ -570,6 +603,67 @@ function soma(a,x){
 function noPeriodo(x){
   return x.d >= de && x.d <= ate && (marcaSel==='todas' || x.m===marcaSel);
 }
+function resumoJanela(d1, d2){
+  var r = {pgdPago:0, pgdOrg:0, pgdTudo:0, ct:0, ctOrg:0, ch:0, p:0, vPago:0, inv:0};
+  CAN.forEach(function(x){
+    if (x.d < d1 || x.d > d2) return;
+    if (marcaSel !== 'todas' && x.m !== marcaSel) return;
+    r.pgdTudo += x.pgd || 0;
+    var pago = PAGO.indexOf(x.c) >= 0, org = NPAGO.indexOf(x.c) >= 0;
+    if (pago) { r.pgdPago += x.pgd||0; r.ct += x.ct||0; r.ch += x.ch||0; r.p += x.p||0; r.vPago += x.v||0; }
+    if (org)  { r.pgdOrg += x.pgd||0; r.ctOrg += x.ct||0; }
+  });
+  MID.forEach(function(m){
+    if (m.d < d1 || m.d > d2) return;
+    if (marcaSel !== 'todas' && m.m !== marcaSel) return;
+    r.inv += m.inv || 0;
+  });
+  r.cpl = r.ct ? r.inv / r.ct : null;
+  return r;
+}
+
+function pintaComparacao(){
+  var sec = document.getElementById('cmpSec');
+  if (!cmpAtivo || !de2 || !ate2) { sec.style.display = 'none'; return; }
+  sec.style.display = '';
+  var A = resumoJanela(de, ate), B = resumoJanela(de2, ate2);
+  var linhas = [
+    ['Recebido em caixa — tráfego pago',   A.pgdPago, B.pgdPago, BRL0, false],
+    ['Recebido em caixa — orgânico e direto', A.pgdOrg, B.pgdOrg, BRL0, false],
+    ['Caixa do período — todas as origens', A.pgdTudo, B.pgdTudo, BRL0, false],
+    ['Leads novos — pagos',                A.ct, B.ct, N, false],
+    ['Leads novos — orgânicos',           A.ctOrg, B.ctOrg, N, false],
+    ['Conversas abertas — pagas',          A.ch, B.ch, N, false],
+    ['Viraram paciente — pagos',           A.p, B.p, N, false],
+    ['Investimento em mídia',               A.inv, B.inv, BRL, null],
+    ['Custo por lead',                     A.cpl, B.cpl, BRL, true],
+    ['Faturado — chegados no período (pago)', A.vPago, B.vPago, BRL0, false]
+  ];
+  var td = function(v){ return '<td class="num">' + v + '</td>'; };
+  document.getElementById('tCmp').innerHTML =
+    '<thead><tr><th>Indicador</th><th class="num">' + fmtBR(de) + ' — ' + fmtBR(ate) +
+    ' (' + (diasEntreCmp(de, ate)) + 'd)</th><th class="num">' + fmtBR(de2) + ' — ' + fmtBR(ate2) +
+    ' (' + (diasEntreCmp(de2, ate2)) + 'd)</th><th class="num">variação</th></tr></thead><tbody>' +
+    linhas.map(function(l){
+      var va = l[1], vb = l[2], fmt = l[3], invertido = l[4];
+      var fa = (va == null) ? '—' : fmt(va), fb = (vb == null) ? '—' : fmt(vb);
+      var delta = '—', cor = '';
+      if (va != null && vb != null && vb !== 0) {
+        var pc = 100 * (va - vb) / Math.abs(vb);
+        delta = (pc >= 0 ? '▲ +' : '▼ ') + pc.toFixed(1).replace('.', ',') + '%';
+        if (invertido !== null) {
+          var bom = invertido ? pc < 0 : pc > 0;
+          cor = Math.abs(pc) < 1 ? '' : (bom ? 'style="color:#0e7a4e;font-weight:700"' : 'style="color:#c2185b;font-weight:700"');
+        }
+      }
+      return '<tr><td>' + l[0] + '</td>' + td('<b>' + fa + '</b>') + td(fb) +
+        '<td class="num" ' + cor + '>' + delta + '</td></tr>';
+    }).join('') + '</tbody>';
+}
+function diasEntreCmp(a, b){
+  return Math.round((new Date(b + 'T00:00:00Z') - new Date(a + 'T00:00:00Z')) / 86400000) + 1;
+}
+
 function porCanal(){
   var m = {};
   CAN.filter(noPeriodo).forEach(function(x){
@@ -917,6 +1011,7 @@ function render(){
   pintaTabela(mapa, canais, alvo, inv);
   pintaMidia(tp);
   carregaEquipes();
+  pintaComparacao();
 }
 
 /* Quadro de vendas por equipe — vem do hub (bi-painel), regua da planilha.

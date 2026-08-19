@@ -60,10 +60,18 @@ footer{color:var(--cinza);font-size:12px;margin-top:40px}
  <button class="chipbtn on" data-doc="sem_doc">Sem DOC</button>
  <button class="chipbtn" data-doc="com_doc">Com + Sem DOC</button>
  <button class="chipbtn" data-doc="so_doc">Só DOC</button>
+ <span class="sep"></span>
+ <button class="chipbtn" id="cmpBtn">Comparar</button>
+ <span class="datas" id="cmpDatas" style="display:none"><input type="date" id="ini2"> até <input type="date" id="fim2"> <button class="chipbtn" id="aplicar2">OK</button> <button class="chipbtn" id="sairCmp">fechar</button></span>
 </div>
 </header>
 <div id="estado">Buscando dados do hub…</div>
 <main id="conteudo" style="display:none">
+<section id="cmpSec" style="display:none">
+<h2>Comparação de períodos</h2>
+<div class="sub" id="cmpAviso" style="display:none;color:#c76400;background:#fff7ee;border:1px solid #FF8A1E;border-radius:8px;padding:6px 10px;margin-bottom:10px"></div>
+<div style="overflow-x:auto"><table><thead id="cmpH"></thead><tbody id="cmpB"></tbody></table></div>
+</section>
 <h2 id="tit-emp">Período por empresa</h2>
 <div class="cards" id="cards"></div>
 <div class="nota">Empresas são operações distintas e não são somadas. O número grande é o <b>caixa do Feegow</b> (pagamentos pela data em que o dinheiro entrou — régua oficial desde 18/08/2026). A linha "planilha" é a régua do app Modular (Quitado/Parcialmente pago, dedup por conta+item, valor final) — as duas medem coisas diferentes e não têm obrigação de bater. Hapvida não passa pelo caixa e aparece em linha própria.</div>
@@ -117,7 +125,7 @@ function br(s){var p=s.split('-');return p[2]+'/'+p[1]+'/'+p[0]}
 function hojeManaus(){var d=new Date(Date.now()-4*3600*1000);return new Date(d.getUTCFullYear(),d.getUTCMonth(),d.getUTCDate())}
 function mesRot(m){var p=m.split('-');return ['','jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'][Number(p[1])]+'/'+p[0].slice(2)}
 var H=new URLSearchParams(location.hash.replace(/^#/,''));
-var estado={k:H.get('k')||'',ini:H.get('ini')||'',fim:H.get('fim')||'',doc:H.get('doc')||'sem_doc',preset:H.get('p')||'mes'};
+var estado={k:H.get('k')||'',ini:H.get('ini')||'',fim:H.get('fim')||'',doc:H.get('doc')||'sem_doc',preset:H.get('p')||'mes',cmp:H.get('c')==='1',ini2:H.get('ini2')||'',fim2:H.get('fim2')||''};
 function periodoDe(p){
  var h=hojeManaus(),a,b;
  if(p==='hoje'){a=h;b=h}
@@ -132,6 +140,7 @@ function periodoDe(p){
 if(!estado.ini||!estado.fim){var pp=periodoDe(estado.preset);estado.ini=pp[0];estado.fim=pp[1];}
 function salvaHash(){
  var q=new URLSearchParams();q.set('k',estado.k);q.set('ini',estado.ini);q.set('fim',estado.fim);q.set('doc',estado.doc);if(estado.preset)q.set('p',estado.preset);
+ if(estado.cmp&&estado.ini2&&estado.fim2){q.set('c','1');q.set('ini2',estado.ini2);q.set('fim2',estado.fim2);}
  history.replaceState(null,'','#'+q.toString());
 }
 function pintaFiltros(){
@@ -141,6 +150,27 @@ function pintaFiltros(){
 }
 document.querySelectorAll('[data-p]').forEach(function(b){b.addEventListener('click',function(){estado.preset=b.getAttribute('data-p');var pp=periodoDe(estado.preset);estado.ini=pp[0];estado.fim=pp[1];pintaFiltros();salvaHash();carrega();})});
 document.querySelectorAll('[data-doc]').forEach(function(b){b.addEventListener('click',function(){estado.doc=b.getAttribute('data-doc');pintaFiltros();salvaHash();carrega();})});
+document.getElementById('cmpBtn').addEventListener('click',function(){
+ var cd=document.getElementById('cmpDatas');
+ cd.style.display='';
+ if(!estado.ini2){ // sugere a janela imediatamente anterior, de mesmo tamanho
+  var di=new Date(estado.ini+'T00:00:00Z'),df=new Date(estado.fim+'T00:00:00Z');
+  var n=Math.round((df-di)/86400000)+1;
+  var f2=new Date(di);f2.setUTCDate(f2.getUTCDate()-1);
+  var i2=new Date(f2);i2.setUTCDate(i2.getUTCDate()-(n-1));
+  estado.ini2=i2.toISOString().slice(0,10);estado.fim2=f2.toISOString().slice(0,10);
+ }
+ document.getElementById('ini2').value=estado.ini2;document.getElementById('fim2').value=estado.fim2;
+});
+document.getElementById('aplicar2').addEventListener('click',function(){
+ var a2=document.getElementById('ini2').value,b2=document.getElementById('fim2').value;
+ if(!a2||!b2)return;if(a2>b2){var t2=a2;a2=b2;b2=t2}
+ estado.ini2=a2;estado.fim2=b2;estado.cmp=true;salvaHash();carrega();
+});
+document.getElementById('sairCmp').addEventListener('click',function(){
+ estado.cmp=false;document.getElementById('cmpDatas').style.display='none';
+ document.getElementById('cmpSec').style.display='none';salvaHash();
+});
 document.getElementById('aplicar').addEventListener('click',function(){var a=document.getElementById('ini').value,b=document.getElementById('fim').value;if(!a||!b)return;if(a>b){var t=a;a=b;b=t}estado.ini=a;estado.fim=b;estado.preset='';pintaFiltros();salvaHash();carrega();});
 var timer=null;
 function carrega(){
@@ -400,6 +430,15 @@ function carrega(){
   document.getElementById('chips').innerHTML=chipDado+(d.frescor||[]).map(function(f){
    return '<span class="chip'+(f.atrasada?' chipAtraso':'')+'">'+esc(f.fonte)+' · '+(f.minutos_desde_carga!=null?('há '+f.minutos_desde_carga+' min'):'—')+'</span>';
   }).join('');
+  // comparação de períodos: segunda busca no hub e tabela de deltas
+  (function(){
+   var sec=document.getElementById('cmpSec');
+   if(!estado.cmp||!estado.ini2||!estado.fim2){sec.style.display='none';return}
+   var url2=API+'?k='+encodeURIComponent(estado.k)+'&ini='+estado.ini2+'&fim='+estado.fim2+'&doc='+estado.doc;
+   fetch(url2).then(function(r){if(!r.ok)throw new Error(r.status);return r.json()})
+    .then(function(d2){renderCmp(d,d2)})
+    .catch(function(){sec.style.display='none'});
+  })();
  }).catch(function(e){
   document.getElementById('estado').style.display='block';
   // ver o tamanho da chave que chegou é o que separa "revogaram" de "colei o link cortado"
@@ -410,5 +449,66 @@ function carrega(){
   clearTimeout(timer);timer=setTimeout(carrega,60000);
  });
 }
+function extraiCmp(d){
+ var A=d.app||{};
+ var caixaEmp={},caixa=0;
+ (d.caixa_unidades||[]).forEach(function(u){caixaEmp[u.empresa]=(caixaEmp[u.empresa]||0)+Number(u.realizado||0);caixa+=Number(u.realizado||0)});
+ var plan=0;(d.unidades||[]).forEach(function(u){plan+=Number(u.realizado||0)});
+ var consQ=0;(A.consultas||[]).forEach(function(c){consQ+=Number(c.qtd||0)});
+ var at=0,fa=0;(A.agenda||[]).forEach(function(x){at+=Number(x.atendidos||0);fa+=Number(x.faltas||0)});
+ var inv=0,conv=0;Object.keys(d.midia||{}).forEach(function(e){inv+=Number(d.midia[e].inv||0);conv+=Number(d.midia[e].conv||0)});
+ var P=d.propostas||{},tot=(P.total||{}).qtd||0,cv=((P.por_status||{})['Convertido']||{}).qtd||0;
+ var eq=0;(d.equipe||[]).forEach(function(x){eq+=Number(x.valor||0)});
+ return {caixa:caixa,caixaA:caixaEmp.acesso,caixaD:caixaEmp.doctor,plan:plan,consQ:consQ,
+   at:at,fa:fa,taxa:(at+fa)>0?100*fa/(at+fa):null,inv:inv,conv:conv,
+   custo:conv>0?inv/conv:null,propT:tot,propC:tot>0?100*cv/tot:null,eq:eq,
+   trocas:(d.trocas||[]).length};
+}
+function renderCmp(dA,dB){
+ var sec=document.getElementById('cmpSec');sec.style.display='';
+ var A=extraiCmp(dA),B=extraiCmp(dB);
+ var av=document.getElementById('cmpAviso');
+ if(A.trocas||B.trocas){av.style.display='block';
+  av.textContent='Atenção: um dos períodos atravessa troca de régua — os deltas de dinheiro comparam definições diferentes. Detalhe na página Régua.';}
+ else av.style.display='none';
+ var pct1=function(v){return v==null?'—':(Math.round(v*10)/10).toLocaleString('pt-BR')+'%'};
+ var brl2=function(v){return v==null?'—':Number(v).toLocaleString('pt-BR',{style:'currency',currency:'BRL'})};
+ var linhas=[
+  ['Recebido em caixa — grupo',A.caixa,B.caixa,brl,false],
+  ['Recebido em caixa — Acesso Saúde',A.caixaA,B.caixaA,brl,false],
+  ['Recebido em caixa — Doctor+',A.caixaD,B.caixaD,brl,false],
+  ['Recebido planilha (recorte da tela)',A.plan,B.plan,brl,false],
+  ['Consultas particulares',A.consQ,B.consQ,num,false],
+  ['Agenda — atendidos',A.at,B.at,num,false],
+  ['Agenda — faltas',A.fa,B.fa,num,true],
+  ['Agenda — taxa de falta',A.taxa,B.taxa,pct1,true],
+  ['Mídia — investimento',A.inv,B.inv,brl,null],
+  ['Mídia — conversas',A.conv,B.conv,num,false],
+  ['Custo por conversa',A.custo,B.custo,brl2,true],
+  ['Propostas criadas',A.propT,B.propT,num,false],
+  ['Propostas — taxa de conversão',A.propC,B.propC,pct1,false],
+  ['Venda atribuída por equipe',A.eq,B.eq,brl,false]
+ ];
+ var td=function(v,extra){return '<td class="r"'+(extra||'')+'>'+v+'</td>'};
+ document.getElementById('cmpH').innerHTML='<tr><th>Indicador</th><th class="r">'+br(dA.periodo.ini)+' — '+br(dA.periodo.fim)+
+  '</th><th class="r">'+br(dB.periodo.ini)+' — '+br(dB.periodo.fim)+'</th><th class="r">variação</th></tr>';
+ document.getElementById('cmpB').innerHTML=linhas.map(function(l){
+  var va=l[1],vb=l[2],fmt=l[3],invertido=l[4];
+  var fa=(va==null)?'—':fmt(va),fb=(vb==null)?'—':fmt(vb);
+  var delta='—',estilo='';
+  if(va!=null&&vb!=null&&vb!==0){
+   var pc=100*(va-vb)/Math.abs(vb);
+   delta=(pc>=0?'▲ +':'▼ ')+Math.abs(pc).toFixed(1).replace('.',',')+'%';
+   if(pc<0)delta='▼ −'+Math.abs(pc).toFixed(1).replace('.',',')+'%';
+   if(invertido!==null&&Math.abs(pc)>=1){
+    var bom=invertido?pc<0:pc>0;
+    estilo=' style="color:'+(bom?'#14B879':'#e03131')+';font-weight:700"';
+   }
+  }
+  return '<tr><td>'+l[0]+'</td>'+td('<b>'+fa+'</b>')+td(fb)+td(delta,estilo)+'</tr>';
+ }).join('');
+}
 pintaFiltros();salvaHash();carrega();setInterval(carrega,300000);
+if(estado.cmp&&estado.ini2&&estado.fim2){document.getElementById('cmpDatas').style.display='';
+ document.getElementById('ini2').value=estado.ini2;document.getElementById('fim2').value=estado.fim2;}
 </script></body></html>
