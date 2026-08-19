@@ -354,14 +354,14 @@ tfoot td{padding:8px 10px;font-weight:700;border-top:2px solid var(--dark)}
   <div class="periodo">
     <button class="chip-data" id="chipData"><span id="rotuloData"></span> ✎</button>
     <div class="presets" id="presets"></div>
+    <button class="preset" id="btnCmp" style="margin-left:auto">comparar…</button>
   </div>
   <div class="editor" id="editor">
     <label>de <input type="date" id="de"></label>
     <label>até <input type="date" id="ate"></label>
     <button class="preset" id="aplicar">aplicar</button>
-    <button class="preset" id="btnCmp">comparar com…</button>
   </div>
-  <div class="editor" id="editorCmp" style="display:none">
+  <div class="editor" id="editorCmp">
     <label>comparar com: de <input type="date" id="de2"></label>
     <label>até <input type="date" id="ate2"></label>
     <button class="preset" id="aplicar2">comparar</button>
@@ -530,7 +530,7 @@ function montaPresets(pri, ult){
   });
   document.getElementById('btnCmp').addEventListener('click', function(){
     var ed = document.getElementById('editorCmp');
-    ed.style.display = '';
+    ed.classList.add('aberto');
     if (!de2) { // sugere a janela anterior de mesmo tamanho
       var n = diasEntreCmp(de, ate);
       ate2 = novaData(de, -1); de2 = novaData(ate2, -(n - 1));
@@ -546,7 +546,7 @@ function montaPresets(pri, ult){
   });
   document.getElementById('sairCmp').addEventListener('click', function(){
     cmpAtivo = false;
-    document.getElementById('editorCmp').style.display = 'none';
+    document.getElementById('editorCmp').classList.remove('aberto');
     render();
   });
   document.getElementById('aplicar').addEventListener('click', function(){
