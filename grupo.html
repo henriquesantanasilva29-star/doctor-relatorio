@@ -46,6 +46,7 @@ function endereco(id){
     var q=[];
     if(K.doctor) q.push('kd='+K.doctor);
     if(K.acesso) q.push('ka='+K.acesso);
+    if(K.bi) q.push('kb='+K.bi); /* o quadro de equipes vem do hub */
     return 'canais.html#'+q.join('&');
   }
   return {bi:'bi.html',doctor:'index.html',acesso:'acesso.html'}[id]+'#k='+K[id];

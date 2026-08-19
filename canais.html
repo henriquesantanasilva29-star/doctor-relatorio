@@ -346,6 +346,10 @@ tfoot td{padding:8px 10px;font-weight:700;border-top:2px solid var(--dark)}
 
 <table id="tCanais"></table>
 
+<div class="section-title">Quadro de vendas por equipe</div>
+<table id="tEquipes"></table>
+<div id="notaEquipes" class="nota"></div>
+
 <div class="section-title">A mídia paga em detalhe</div>
 <div class="kpi-grid" id="midiaKpis"></div>
 <div class="section-title">O que a mídia devolveu</div>
@@ -363,6 +367,7 @@ var MARCAS = [
   {id:'doctor', nome:'Doctor Mais Saúde', api:'https://myiqdeonxuznvhtsvfxg.supabase.co/functions/v1/relatorio', k:H.get('kd')||''},
   {id:'acesso', nome:'Acesso Saúde Manaus', api:'https://dfvmuqxjdcvwskrrdbfm.supabase.co/functions/v1/relatorio', k:H.get('ka')||''},
 ];
+var KB = H.get('kb') || ''; /* chave do hub, para o quadro de equipes */
 if (location.hash) history.replaceState(null,'',location.pathname+location.search);
 
 var PAGO = ['Meta Ads','Meta sem id do anúncio','Google Ads'];
@@ -717,6 +722,72 @@ function render(){
   pintaBarras(mapa, canais);
   pintaTabela(mapa, canais, alvo, inv);
   pintaMidia();
+  carregaEquipes();
+}
+
+/* Quadro de vendas por equipe — vem do hub (bi-painel), regua da planilha.
+   Responde "quem vendeu"; os cartoes acima respondem "por onde o paciente chegou". */
+var eqCacheKey = '';
+function carregaEquipes(){
+  var tb = document.getElementById('tEquipes'), nota = document.getElementById('notaEquipes');
+  if (!tb) return;
+  if (!KB) {
+    tb.innerHTML = '';
+    nota.textContent = 'Para ver as equipes aqui, abra esta tela pelo portal do grupo — a chave do BI (kb) não veio no link.';
+    return;
+  }
+  var chave = de + '|' + ate + '|' + marcaSel;
+  if (chave === eqCacheKey) return;
+  eqCacheKey = chave;
+  nota.textContent = 'Buscando o quadro de equipes no hub…';
+  fetch('https://oqzbmdajkqexbpivkacv.supabase.co/functions/v1/bi-painel?k=' + encodeURIComponent(KB) +
+        '&ini=' + de + '&fim=' + ate + '&doc=sem_doc')
+    .then(function(r){ if(!r.ok) throw new Error('hub ' + r.status); return r.json(); })
+    .then(function(d){
+      var ROTE = {recepcao_i:'Recepção Unidade I', recepcao_ii:'Recepção Unidade II',
+        recepcao_iii:'Recepção Unidade III', recepcao_iv:'Recepção Unidade IV',
+        recepcao_v:'Recepção Unidade V', recepcao_vi:'Recepção Unidade VI',
+        call_doctor:'Call Center Doctor+', call_acesso:'Call Center Acesso Saúde'};
+      var porEq = {}, tot = 0;
+      (d.equipe || []).forEach(function(e){
+        if (marcaSel !== 'todas' && e.empresa !== marcaSel) return;
+        var k = e.equipe || '';
+        var o = (porEq[k] = porEq[k] || {valor:0, qtd:0, pessoas:{}});
+        var v = Number(e.valor || 0);
+        o.valor += v; o.qtd += Number(e.qtd || 0); tot += v;
+        o.pessoas[e.pessoa] = (o.pessoas[e.pessoa] || 0) + v;
+      });
+      var nomes = Object.keys(porEq).sort(function(a,b){ return porEq[b].valor - porEq[a].valor; });
+      if (!nomes.length) {
+        tb.innerHTML = '';
+        nota.textContent = 'Sem venda atribuída a equipe no período (régua da planilha).';
+        return;
+      }
+      var mx = Math.max(1, porEq[nomes[0]].valor);
+      var linhas = nomes.map(function(k){
+        var o = porEq[k];
+        var ps = Object.keys(o.pessoas);
+        var top = ps.sort(function(a,b){ return o.pessoas[b] - o.pessoas[a]; })[0] || '—';
+        var w = Math.max(3, Math.round(100 * o.valor / mx));
+        return '<tr><td>' + esc(ROTE[k] || k || '(sem equipe mapeada)') + '</td>' +
+          '<td style="text-align:right">' + N(ps.length) + '</td>' +
+          '<td style="text-align:right">' + N(o.qtd) + '</td>' +
+          '<td style="text-align:right;min-width:160px"><div style="height:5px;border-radius:3px;margin-bottom:3px;opacity:.85;background:var(--red);width:' + w + '%"></div><b>' + BRL0(o.valor) + '</b></td>' +
+          '<td style="text-align:right"><b>' + (tot > 0 ? (Math.round(1000 * o.valor / tot) / 10).toFixed(1).replace('.', ',') + '%' : '—') + '</b></td>' +
+          '<td>' + esc(top) + ' <span style="color:var(--ink-3)">' + BRL0(o.pessoas[top] || 0) + '</span></td></tr>';
+      }).join('');
+      tb.innerHTML = '<thead><tr><th>Equipe</th><th style="text-align:right">Pessoas</th>' +
+        '<th style="text-align:right">Recebimentos</th><th style="text-align:right">Valor</th>' +
+        '<th style="text-align:right">Participação</th><th>Melhor vendedor</th></tr></thead><tbody>' + linhas + '</tbody>';
+      nota.innerHTML = '<b>Quem vendeu ≠ por onde o paciente chegou.</b> Este quadro atribui a venda à pessoa que registrou o recebimento ' +
+        '(equipes do Life CRM, valores da planilha do financeiro — régua diferente do caixa acima). ' +
+        'Os cartões de canal atribuem o mesmo dinheiro à porta de entrada do paciente — são perguntas diferentes e não somam.';
+    })
+    .catch(function(e){
+      eqCacheKey = '';
+      tb.innerHTML = '';
+      nota.textContent = 'Não consegui buscar o quadro de equipes agora (' + e.message + '). Ele volta na próxima atualização.';
+    });
 }
 
 function pintaDuelo(tp, tn, inv){
