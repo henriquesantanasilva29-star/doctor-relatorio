@@ -79,8 +79,7 @@ function ladrilho(o){
 function carrega(){
   el('estado').hidden = false;
   el('estado').textContent = 'Buscando os sinais no hub…';
-  if (!E.k) { el('estado').textContent = 'Falta a chave: abra o endereço com #k=SUACHAVE no final. ' +
-    'Se você chegou aqui pelo portal, é a chave kb que não veio.'; return; }
+  if (!E.k) { el('estado').textContent = 'Falta a chave: abra o endereço com #k=SUACHAVE no final.'; return; }
 
   J.busca({ k:E.k, ini:E.ini, fim:E.fim, doc:E.doc, bloco:'resumo' }, function(d){
     el('estado').hidden = true;
@@ -101,17 +100,23 @@ function carrega(){
     var atrasoDe = function(ultimo){ return ultimo ? J.diasEntre(String(ultimo).slice(0,10), fim) : null; };
     var L = [];
 
-    // dinheiro
+    // dinheiro — caixa Feegow e a regua oficial; a planilha responde pelos recortes DOC
     var din = A.dinheiro || {}, dinC = (C.dinheiro || {});
+    var cxA = A.caixa || {}, cxC = (C.caixa || {});
+    var usaCaixa = d.periodo.doc === 'sem_doc' && Number(cxA.dias_com_dado || 0) > 0;
+    if (usaCaixa) { din = { metrica:'recebido_caixa', valor:cxA.valor, dias_com_dado:cxA.dias_com_dado,
+        primeiro_dia:cxA.primeiro_dia, ultimo_dia:cxA.ultimo_dia };
+      dinC = { valor:cxC.valor }; }
     var atrDin = atrasoDe(din.ultimo_dia);
-    var reguaDin = { sem_doc:'caixa.hub.semdoc', com_doc:'caixa.hub.total', so_doc:'caixa.hub.sodoc' }[d.periodo.doc];
+    var reguaDin = usaCaixa ? 'caixa.oficial'
+      : { sem_doc:'caixa.hub.semdoc', com_doc:'caixa.hub.total', so_doc:'caixa.hub.sodoc' }[d.periodo.doc];
     if (!din.dias_com_dado) {
       L.push(ladrilho({ nome:'Dinheiro', nsei:'a régua ' + din.metrica + ' não existia neste período', para:'#' }));
     } else if (atrDin != null && atrDin >= LIMITE_ATRASO) {
       L.push(ladrilho({ nome:'Dinheiro', nsei:'fonte parada em ' + J.br(din.ultimo_dia) + ' (' + atrDin + ' dias)' }));
     } else {
       L.push(ladrilho({
-        nome:'Dinheiro', delta:J.delta(din.valor, dinC.valor, trocas),
+        nome: usaCaixa ? 'Dinheiro (caixa)' : 'Dinheiro (planilha)', delta:J.delta(din.valor, dinC.valor, trocas),
         abs:J.renderNum(J.brl(din.valor), reguaDin),
         antes:J.brl(dinC.valor),
         titulo: atrDin > 0 ? 'cobertura até ' + J.br(din.ultimo_dia) + ': faltam ' + atrDin + ' dia(s) do período' : ''
@@ -192,6 +197,13 @@ function carrega(){
     /* ---------- aviso de confiança: só existe quando algo parou ---------- */
     var paradas = (S.fontes || []).filter(function(f){ return f.dias_atraso != null && f.dias_atraso > 0; });
     var itens = [];
+    var BL = S.briefing_lote || {};
+    if (BL.veredito && BL.veredito !== 'ok') {
+      paradas.push(BL); // pinta o aviso como grave
+      itens.push('<b>importação da planilha</b> — ' + (BL.veredito === 'nunca importou'
+        ? 'nenhum lote já foi importado.'
+        : 'último lote há ' + Math.round(Number(BL.horas_sem_lote || 0)) + ' horas. As réguas de planilha estão congeladas nesse ponto — foi exatamente assim que agosto ficou 17 dias sem entrar, em silêncio.'));
+    }
     paradas.forEach(function(f){
       itens.push('<b>' + J.esc(f.fonte) + '</b> — dado até ' + J.br(f.dado_max) + ', ' + f.dias_atraso +
         ' dias atrás. Veredito: <b>' + J.esc(f.veredito) + '</b>.');

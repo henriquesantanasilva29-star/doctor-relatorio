@@ -62,21 +62,42 @@
 var J = window.JOB; J.leEstado(); J.ligaNavegacao();
 
 var VERBETES = [
-  { id:'caixa.hub.semdoc', rot:'Recebido em caixa · particular',
-    conta:'Dinheiro que efetivamente entrou, vindo do Feegow.',
+  { id:'caixa.oficial', rot:'Recebido em caixa · OFICIAL',
+    conta:'Pagamentos do Feegow somados pela data em que o dinheiro entrou (feegow_invoice_payments). É a régua oficial de “Recebido” das telas desde 18/08/2026.',
+    data:'Data do pagamento — não a da fatura, não a da planilha.',
+    fora:'<b>Hapvida inteiro:</b> convênio não passa pelo caixa do Feegow e só existe na régua da planilha, como linha própria. Pagamento sem data também fica fora.',
+    naosoma:'Recebido da planilha (dedup e status do app) · Recebido por fatura (pago ancorado na emissão) · Valor de face de proposta.',
+    onde:'BI do grupo › cartões por empresa e série diária · Início › Dinheiro.',
+    perigo:'<b>Cobertura:</b> Doctor desde 31/03/2025, Acesso só desde 29/06/2026 — período anterior mostra a planilha no lugar, avisado. E comparar caixa com a planilha dá diferença por construção: são réguas diferentes, não erro.' },
+  { id:'leads.contatos', rot:'Leads · contatos novos (oficial)',
+    conta:'Pessoas registradas pela primeira vez no espelho do WhatsApp, por dia (helena_contacts).',
+    data:'Dia da criação do contato, em Manaus.',
+    fora:'Reentrada de quem já era da base (isso é “chegada”, outra régua) e ficha aberta no kanban (isso é “cartão”, outra régua).',
+    naosoma:'Chegadas (sessões; reentrada conta) · Cartões criados (um contato gera N fichas, e robôs criam ficha de paciente que nunca conversou).',
+    onde:'Canais › contatos novos · hub bi.fato_lead_dia (desde 19/08/2026).',
+    perigo:'“Quantos leads entraram” tinha três respostas vivas (2.471, 8.377 e 6.047 na Doctor em 01–17/08) porque cada tela usava uma régua com o mesmo rótulo. O rótulo “leads” sem sobrenome não identifica nada — exija o sobrenome.' },
+  { id:'funil.snapshot', rot:'Funil · foto diária do quadro',
+    conta:'Quantos cartões existem em cada etapa AGORA, fotografado uma vez por dia (bi.fato_funil_snapshot).',
+    data:'Dia da foto, em Manaus.',
+    fora:'Nada — todos os cartões do quadro entram, inclusive antigos.',
+    naosoma:'Coorte de criação (funil.coorte): lá cada cartão conta no dia em que nasceu; aqui ele conta todo dia, onde estiver.',
+    onde:'Hub, desde 19/08/2026. A diferença entre fotos de dias seguidos é o movimento líquido real — a régua que faltava.',
+    perigo:'A série começa em 19/08/2026: não existe foto retroativa. Perguntas de movimento sobre períodos anteriores continuam sem resposta honesta.' },
+  { id:'caixa.hub.semdoc', rot:'Recebido (planilha) · particular',
+    conta:'A régua do app Modular: recebíveis da planilha do financeiro, dedup por conta+item, status Quitado/Parcialmente pago. Não é o caixa oficial — ver caixa.oficial.',
     data:'Data do pagamento.',
     fora:'<b>O convênio Hapvida fica de fora.</b> Duplicidade de conta+item também: fica só o registro sincronizado mais recente. Status diferente de Quitado ou Parcialmente pago não entra.',
     naosoma:'Valor de face de proposta · Movimento de cartão do Life CRM · O “recebido” dos dossiês, que inclui Hapvida e não deduplica.',
     onde:'Início › Dinheiro · BI do grupo › Recebido no período',
     perigo:'O número é menor que o do dossiê e a diferença não é erro: é o Hapvida fora e a dedup aplicada.' },
-  { id:'caixa.hub.total', rot:'Recebido em caixa · particular + convênio',
+  { id:'caixa.hub.total', rot:'Recebido (planilha) · particular + convênio',
     conta:'O mesmo acima, somando o Hapvida.',
     data:'Data do pagamento.',
     fora:'Mesma dedup por conta+item.',
     naosoma:'Valor de face de proposta · Movimento de cartão.',
     onde:'Início › Dinheiro, com o recorte “particular + convênio”.',
     perigo:'<b>Só existe a partir de 01/05/2026.</b> Pedir esta régua para março devolve ausência, não zero — e a tela precisa dizer “a régua não existia”, que é diferente de “sem coleta”.' },
-  { id:'caixa.hub.sodoc', rot:'Recebido em caixa · só convênio',
+  { id:'caixa.hub.sodoc', rot:'Recebido (planilha) · só convênio',
     conta:'Só o Hapvida.', data:'Data do pagamento.', fora:'Todo o particular.',
     naosoma:'Meta cadastrada, que é sempre de particular nos dois ramos do cadastro.',
     onde:'Início › Dinheiro, recorte “só convênio”.',
@@ -155,7 +176,14 @@ var PARES = [
 var BURACOS = [
   ['✔ Produção por procedimento — <b>consertado em 17/08/2026</b>','17/08/2026','Era erro de leitura de data: o Feegow manda DD-MM-YYYY e o banco lia como MM-DD. Dia até 12 virava data no futuro, dia 13 em diante estourava e gravava nulo — por isso “parou” justamente em 13/08. Corrigido o parse e recuperados 48.378 itens relendo o payload cru. Sem chamada nova ao Feegow.'],
   ['✔ Etapa Desqualificado “congelada” — <b>era diagnóstico errado</b>','17/08/2026','Nunca houve parada. A fonte conta cartão pela data de criação, na etapa de hoje: cartão novo ainda não teve tempo de ser desqualificado. O movimento real registrou 382 desqualificações em 17/08. O alarme foi removido e a métrica renomeada para coorte.'],
-  ['Hub não recebe movimento de cartão','17/08/2026','helena_card_moves tem o movimento de verdade e o bi_push não o empurra. Enquanto isso, o funil do hub só responde “quantos cartões nasceram”, nunca “onde eles andaram”.'],
+  ['✔ Hub não recebia movimento de cartão — <b>foto diária desde 19/08/2026</b>','17/08/2026','helena_card_moves é só o log dos robôs (não registra arrasto humano). A resposta foi outra: o quadro inteiro é fotografado por etapa uma vez por dia (bi.fato_funil_snapshot) e o movimento real é a diferença entre fotos. Não existe foto retroativa.'],
+  ['✔ Resumo somava a agenda duas vezes — <b>consertado em 19/08/2026</b>','18/08/2026','bi_resumo_periodo somava briefing + coletor da mesma agenda (11.419 contra 6.054 reais na Acesso). Passou a ler a mesma view oficial do painel, com dedup por fonte.'],
+  ['✔ Funil do hub carregava cartões fantasmas — <b>consertado em 19/08/2026</b>','18/08/2026','O upsert nunca zerava célula que esvaziou no CRM (+15 Doctor, +10 Acesso). A ingestão passou a apagar a janela do lote antes de gravar.'],
+  ['✔ Produção da Doctor no hub: 18 meses com data invertida — <b>expurgado e recarregado em 19/08/2026</b>','18/08/2026','2025-01 a 2026-06 estava 100% em dias ≤12 (inversão DD-MM). A fonte já estava limpa; o hub foi expurgado e recebeu re-push desde 2025.'],
+  ['✔ Corrida transformação × importação — <b>cron das :25 desativado em 18/08/2026</b>','18/08/2026','O job redundante das :25 correu em corrida literal com o lote de 18/08. Ficaram o gatilho por lote (5 em 5 min) e o completo noturno, agora com trava (advisory lock).'],
+  ['✔ Propostas sem unidade eram descartadas em silêncio — <b>resgate em 19/08/2026</b>','18/08/2026','813 propostas órfãs voltaram pelo número da conta; 822 (R$ 417 mil) seguem fora por não terem unidade rastreável — agora CONTADAS no status do hub, não silenciadas.'],
+  ['Atribuição de dinheiro por canal ainda ignora o carimbo de anúncio','19/08/2026','canal_serie já promove a “Meta Ads” o contato com carimbo REFERRAL_CONVERSION (16,7% caíam em Direto), mas a mv_paciente_canal — que atribui faturamento/recebido por canal — ainda usa só o utm. Recriar a matview aguarda autorização.'],
+  ['Venda por equipe/pessoa ainda sem tela','19/08/2026','bi.fato_equipe_dia tem R$ 831,7 mil atribuídos nome a nome em 01–17/08 (call center R$ 405,9 mil) e nenhuma tela lê. O bloco “equipe” no bi-painel aguarda autorização.'],
   ['build_lc.py fora do repositório','17/08/2026','O gerador dos dois dossiês não está versionado aqui, então a régua de disparo não pode ser conferida por leitura de código.'],
   ['Mensagens sem coluna de marca','17/08/2026','Não há como separar Doctor de Acesso nos disparos: 131.264 das 144.587 mensagens vêm de um canal só.'],
   ['recebido_particular ≠ recebido_sem_doc','17/08/2026','Diferença de R$ 40.563,93 em maio. Não dá para usar uma para atravessar a fronteira da outra.'],
@@ -196,7 +224,7 @@ document.getElementById('presets').innerHTML = J.tabela(
 
 document.getElementById('buracos').innerHTML = J.tabela(
   [{rot:'Buraco'},{rot:'Constatado em'},{rot:'O que invalida'}],
-  BURACOS.map(function(b){ return ['<b>' + J.esc(b[0]) + '</b>', J.br(b[1].split('/').reverse().join('-')), J.esc(b[2])]; }));
+  BURACOS.map(function(b){ return ['<b>' + b[0] + '</b>', J.br(b[1].split('/').reverse().join('-')), J.esc(b[2])]; }));
 
 /* verbete endereçável por #m=id vindo do chip de régua */
 function pula(){
@@ -209,9 +237,11 @@ function pula(){
 document.getElementById('trocas').innerHTML = J.tabela(
   [{rot:'Métrica'},{rot:'Muda em'},{rot:'Antes era'},{rot:'Depois virou'}],
   [['<b>recebido</b>','01/05/2026','total: particular + Hapvida','idêntico a recebido_sem_doc: só particular'],
-   ['<b>recebido_particular</b>','01/05/2026','única régua de particular','convive com recebido_sem_doc, que não é igual a ela']]
+   ['<b>recebido_particular</b>','01/05/2026','única régua de particular','convive com recebido_sem_doc, que não é igual a ela'],
+   ['<b>recebido (história reescrita)</b>','14/08/2026','série gravada com a régua vigente em cada época','o job noturno recalcula TODA a história com a regra atual — o degrau de 01/05 não existe mais no dado armazenado'],
+   ['<b>recebido (oficial = caixa)</b>','18/08/2026','oficial das telas era a régua da planilha','oficial das telas é o caixa do Feegow (pagamentos por data de entrada); a planilha continua ao lado, nomeada']]
     .map(function(r){ return [r[0], r[1], J.esc(r[2]), J.esc(r[3])]; }),
-  'Conferido no banco: de janeiro a abril a diferença entre recebido e (particular + Hapvida) é 0,00 nos quatro meses; em maio vira −318.228,93.');
+  'Atenção à linha de 14/08: relatório impresso antes dessa data não é mais reproduzível a partir do fato, e quem “corrigir” o pré-maio somando Hapvida de volta vai dobrar a correção. O catálogo vivo é bi.regua_troca, no hub.');
 pula();
 window.addEventListener('hashchange', pula);
 })();

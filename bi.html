@@ -46,6 +46,7 @@ footer{color:var(--cinza);font-size:12px;margin-top:40px}
 </style></head><body>
 <header><h1>Grupo JOB · <span>BI ao vivo</span></h1>
 <div class="sub" id="carimbo">carregando…</div>
+<div class="sub" id="trocas" style="display:none;color:#c76400;background:#fff7ee;border:1px solid #FF8A1E;border-radius:8px;padding:6px 10px;margin-top:8px"></div>
 <div class="filtros">
  <button class="chipbtn" data-p="hoje">Hoje</button>
  <button class="chipbtn" data-p="ontem">Ontem</button>
@@ -65,8 +66,8 @@ footer{color:var(--cinza);font-size:12px;margin-top:40px}
 <main id="conteudo" style="display:none">
 <h2 id="tit-emp">Período por empresa</h2>
 <div class="cards" id="cards"></div>
-<div class="nota">Empresas são operações distintas e não são somadas. Régua idêntica ao app Modular (Quitado/Parcialmente pago, dedup por conta+item, valor final).</div>
-<h2>Recebido por dia</h2>
+<div class="nota">Empresas são operações distintas e não são somadas. O número grande é o <b>caixa do Feegow</b> (pagamentos pela data em que o dinheiro entrou — régua oficial desde 18/08/2026). A linha "planilha" é a régua do app Modular (Quitado/Parcialmente pago, dedup por conta+item, valor final) — as duas medem coisas diferentes e não têm obrigação de bater. Hapvida não passa pelo caixa e aparece em linha própria.</div>
+<h2 id="tit-serie">Recebido por dia</h2>
 <div class="serie" id="serie"></div>
 <h2 id="tit-proj">Por unidade · projeção de fechamento do mês</h2>
 <div style="overflow-x:auto"><table><thead><tr><th>Unidade</th><th class="r">Realizado</th><th class="r">Consultas</th><th class="r">Ritmo/dia</th><th class="r">Dias rest.</th><th class="r">Projeção</th><th class="r">Meta</th><th class="r">% proj.</th></tr></thead><tbody id="proj"></tbody></table></div>
@@ -93,6 +94,7 @@ footer{color:var(--cinza);font-size:12px;margin-top:40px}
 <div class="nota">Meses sem barra são ausência de coleta, não de movimento.</div>
 <h2>Frescor das fontes</h2>
 <div class="chips" id="chips"></div>
+<div class="nota">"há X min" diz quando o robô rodou; <b>"dado até"</b> diz até que dia existe régua — as duas coisas podem divergir: robô em dia com importação parada mostra carga recente e dado velho.</div>
 <footer>Painel de leitura do hub Grupo JOB · acesso por chave revogável · atualiza sozinho a cada 5 minutos · o módulo completo vive no app Modular.</footer>
 </main>
 <script>
@@ -143,8 +145,19 @@ function carrega(){
   var rotDoc={sem_doc:'sem DOC',com_doc:'com + sem DOC',so_doc:'só DOC'}[d.periodo.doc]||d.periodo.doc;
   document.getElementById('carimbo').textContent='Período '+br(d.periodo.ini)+' a '+br(d.periodo.fim)+' · '+rotDoc+' · dados direto do hub, consulta feita em '+ge.toLocaleString('pt-BR',{timeZone:'America/Manaus',dateStyle:'short',timeStyle:'short'})+' (Manaus)';
   document.getElementById('tit-emp').textContent='Recebido no período por empresa';
+  // aviso de troca de régua quando o período atravessa uma fronteira do catálogo
+  (function(){
+   var tr=d.trocas||[],el=document.getElementById('trocas');
+   if(!tr.length){el.style.display='none';return}
+   el.style.display='block';
+   el.innerHTML='<b>O período atravessa troca de régua:</b> '+tr.map(function(t){
+    return esc(t.metrica)+' muda em '+br(t.muda_em)}).join(' · ')+'. Comparar antes × depois dá diferença de definição, não de desempenho — detalhe na página Régua.';
+  })();
   var emp={},cons={},consU={},hapU={},hapE={};
   (d.unidades||[]).forEach(function(u){emp[u.empresa]=(emp[u.empresa]||0)+Number(u.realizado||0)});
+  var cx={},cxIni=null;
+  (d.caixa_unidades||[]).forEach(function(u){cx[u.empresa]=(cx[u.empresa]||0)+Number(u.realizado||0);
+   if(cxIni==null||u.primeiro_dia<cxIni)cxIni=u.primeiro_dia});
   var A=d.app||{};
   var NUA={"acesso|20":"Unidade I","acesso|21":"Unidade II","acesso|55":"Unidade III","doctor|0":"Unidade IV","doctor|2":"Unidade V","doctor|4":"Unidade VI"};
   (A.consultas||[]).forEach(function(c){cons[c.empresa]=(cons[c.empresa]||0)+Number(c.qtd||0);consU[NUA[c.empresa+"|"+c.fid]||c.fid]={qtd:Number(c.qtd||0),valor:Number(c.valor||0)}});
@@ -154,17 +167,22 @@ function carrega(){
    var m=(d.midia||{})[e],n=(d.nps||{})[e];
    if(emp[e]==null&&!m&&!n)return;
    var npsv=(n&&n.r>0)?Math.round(100*(n.p-n.d)/n.r):null;
+   var oficialCx=(cx[e]!=null);
    cards+='<div class="card"><div class="emp" style="color:'+CORES[e]+'">'+ROT[e]+'</div>'
-    +'<div class="big">'+(emp[e]!=null?brl(emp[e]):'—')+'</div><div class="sub">recebido no período'+(cons[e]?(' · '+num(cons[e])+' consultas particulares'):'')+'</div>'
+    +'<div class="big">'+(oficialCx?brl(cx[e]):(emp[e]!=null?brl(emp[e]):'—'))+'</div>'
+    +'<div class="sub">'+(oficialCx?'recebido em caixa (oficial)':'recebido (planilha — caixa sem cobertura no período)')+(cons[e]?(' · '+num(cons[e])+' consultas particulares'):'')+'</div>'
+    +(oficialCx?('<div class="linha">planilha (régua do app): '+(emp[e]!=null?brl(emp[e]):'—')+'</div>'):'')
     +'<div class="linha">'+(m?('mídia '+brl(m.inv)+' · '+num(m.conv)+' conversas · '+(m.conv>0?brl(m.inv/m.conv):'—')+'/conversa'):'mídia sem dado no período')+'</div>'
     +'<div class="linha">'+(npsv!=null?('NPS '+npsv+' ('+num(n.r)+' respostas)'):'NPS sem dado no período')+'</div>'
     +(hapE[e]&&hapE[e].at>0?('<div class="linha">Hapvida (DOC): '+brl(hapE[e].v)+' · '+num(hapE[e].at)+' atendimentos · '+num(hapE[e].pr)+' procedimentos</div>'):'')
     +'</div>';
   });
   document.getElementById('cards').innerHTML=cards||'<div class="avi">sem dados no período</div>';
-  // série diária empilhada por empresa
+  // série diária empilhada por empresa — caixa (oficial) no recorte padrão; planilha nos recortes DOC
+  var usaCaixa=(d.periodo.doc==='sem_doc')&&(d.caixa_serie||[]).length>0;
+  document.getElementById('tit-serie').textContent=usaCaixa?'Recebido por dia (caixa — oficial)':'Recebido por dia (planilha — régua do recorte)';
   var dias={},max=1;
-  (d.serie||[]).forEach(function(s){dias[s.dia]=dias[s.dia]||{};dias[s.dia][s.empresa]=Number(s.valor||0)});
+  ((usaCaixa?d.caixa_serie:d.serie)||[]).forEach(function(s){dias[s.dia]=dias[s.dia]||{};dias[s.dia][s.empresa]=Number(s.valor||0)});
   var ds=Object.keys(dias).sort();
   ds.forEach(function(k){var t=0;Object.keys(dias[k]).forEach(function(e){t+=dias[k][e]});if(t>max)max=t});
   document.getElementById('serie').innerHTML=ds.map(function(k){
@@ -287,7 +305,8 @@ function carrega(){
     return '<td class="r"><div class="bar" style="width:'+w+'%;background:'+(CORES[e]||'#A9A3BC')+'"></div>'+brl(v)+'</td>';
    }).join('')+'</tr>';
   }).join('')||'<tr><td class="avi">sem dados</td></tr>';
-  document.getElementById('chips').innerHTML=(d.frescor||[]).map(function(f){
+  var chipDado=d.periodo.fim_com_dado?('<span class="chip" style="border-color:#8E2DE2;color:#6a1fb0"><b>dado até '+br(d.periodo.fim_com_dado)+'</b> (régua do recorte)</span>'):'';
+  document.getElementById('chips').innerHTML=chipDado+(d.frescor||[]).map(function(f){
    return '<span class="chip'+(f.atrasada?' chipAtraso':'')+'">'+esc(f.fonte)+' · '+(f.minutos_desde_carga!=null?('há '+f.minutos_desde_carga+' min'):'—')+'</span>';
   }).join('');
  }).catch(function(e){

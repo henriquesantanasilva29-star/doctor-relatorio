@@ -74,7 +74,7 @@ ser desqualificado, então as etapas finais sempre parecem vazias nos dias recen
 Conferido em 17/08: cartões criados de 09 a 13/08 têm 178 a 387 desqualificados por dia; os criados de 14 a 17/08
 têm zero, enquanto o registro de movimento real acusava 382 desqualificações só no dia 17.
 O movimento de verdade vive em <span class="m" style="font-family:monospace">helena_card_moves</span> e o hub ainda não o recebe.</div>
-<h2>Movimento por dia</h2>
+<h2>Cartões criados por dia</h2>
 <div class="serie" id="serie"></div>
 <h2>Etapas por quadro</h2>
 <div id="funil"></div>
@@ -138,7 +138,7 @@ function pinta(){
   var o=por[e];
   return '<div class="card"><div class="emp" style="color:'+CORES[e]+'">'+ROT[e]+'</div>'
    +'<div class="big">'+num(o.qtd)+'</div><div class="sub">cartões criados no período</div>'
-   +'<div class="linha">valor que passou pelas etapas: '+brl(o.valor)+'</div>'
+   +'<div class="linha">valor anotado nos cartões: '+brl(o.valor)+'</div>'
    +'<div class="linha">etapa Pago: '+num(o.pagoQ)+' · '+brl(o.pagoV)+'</div></div>';
  }).join('')||'<div class="avi">sem dados no período</div>';
  // série empilhada
@@ -151,7 +151,7 @@ function pinta(){
   var segs=ORDEM.filter(function(e){return dias[k][e]}).map(function(e){
    return '<div class="seg" style="height:'+Math.max(1,Math.round(96*dias[k][e]/max))+'px;background:'+CORES[e]+'"></div>';
   }).join('');
-  return '<div class="col" title="'+br(k)+' · '+num(tot)+' movimentações">'+segs+'</div>';
+  return '<div class="col" title="'+br(k)+' · '+num(tot)+' cartões criados">'+segs+'</div>';
  }).join('')||'<span class="avi">sem dados</span>';
  // etapas por empresa e quadro
  var grupos={};
