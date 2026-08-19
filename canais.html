@@ -312,6 +312,39 @@ tfoot td{padding:8px 10px;font-weight:700;border-top:2px solid var(--dark)}
 .cbar .v{text-align:right;font-variant-numeric:tabular-nums;color:var(--dark);font-weight:700}
 @media(max-width:640px){.cbar{grid-template-columns:110px 1fr 80px}}
 .mudo{opacity:.62}
+/* cartoes de campanha (portados do dossie) */
+.esp-linha{cursor:pointer}
+.esp-linha:hover td{background:#faf7fb}
+.esp-seta{display:inline-block;width:14px;color:#F5136E;font-size:11px}
+.esp-det>td{background:#fbfafc;padding:14px 16px}
+.ad-cartao{display:grid;grid-template-columns:132px 1fr;gap:16px;background:#fff;
+  border:1px solid #eee6f2;border-radius:14px;padding:16px;margin:0 0 12px}
+.ad-foto{width:132px;height:132px;object-fit:cover;border-radius:10px}
+.ad-semfoto{width:132px;height:132px;border-radius:10px;background:#f3eff7;color:#a89fc0;
+  font-size:11px;display:flex;align-items:center;justify-content:center;text-align:center;padding:8px}
+.ad-titulo{margin:0 0 2px;font-size:14.5px}
+.ad-marca{font-size:11.5px;color:#8d84a3;margin-bottom:6px}
+.ad-copy{font-size:12.5px;color:#5f5876;max-height:3.1em;overflow:hidden;white-space:pre-line}
+.ad-copy.aberta{max-height:none}
+.ad-mais{background:none;border:none;color:#F5136E;font-size:12px;font-weight:700;cursor:pointer;padding:2px 0}
+.ad-tagrow{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
+.ad-tag,.ad-cob{font-size:11px;border-radius:999px;padding:3px 9px;background:#f3eff7;color:#5f5876}
+.ad-tag a{color:inherit;text-decoration:none}
+.ad-cob.boa{background:#e2f6ec;color:#0e7a4e}
+.ad-cob.media{background:#fdf1dc;color:#9a6b00}
+.ad-cob.baixa,.ad-cob.nula{background:#fde7ec;color:#c2185b}
+.ad-mini{display:grid;grid-template-columns:repeat(auto-fit,minmax(92px,1fr));gap:8px;margin-top:8px}
+.ad-mv{display:block;font-weight:700;font-size:13.5px}
+.ad-ml{display:block;font-size:10.5px;color:#8d84a3}
+.ad-acao{margin-top:10px}
+.ad-detbtn{font-size:12px;font-weight:700;border:1px solid #F5136E;color:#F5136E;background:#fff;
+  border-radius:999px;padding:6px 16px;cursor:pointer}
+.ad-proc{margin-top:10px}
+.ad-tproc{width:100%;border-collapse:collapse;font-size:12.5px;background:#fff}
+.ad-tproc th,.ad-tproc td{padding:7px 10px;border-bottom:1px solid #eee6f2;text-align:left}
+.ad-tproc .num{text-align:right}
+.ad-tproc tfoot td{font-weight:700;border-top:2px solid #eee6f2}
+@media(max-width:640px){.ad-cartao{grid-template-columns:1fr}.ad-foto,.ad-semfoto{width:100%;height:150px}}
 </style></head><body><div class="wrap">
 
 <div class="capa">
@@ -378,6 +411,7 @@ var COR = {'Meta Ads':'var(--red)','Meta sem id do anúncio':'#F5136E99','Google
            'Social orgânico':'var(--purple)','Site e busca':'var(--orange)','Base importada':'var(--mute)'};
 
 var CAN = [], MID = [], JOR = [], MARCAS_OK = [], lado = 'pago', marcaSel = 'todas';
+var PROC = [], PROCADS = {}, CONTA = {}, CRI = {}, criPedido = {}; /* detalhe de campanha (portado do dossiê) */
 var de = '', ate = '';
 
 /* ============ formatadores, iguais aos do relatório ============ */
@@ -408,7 +442,12 @@ function carrega(){
         (d.midia||[]).forEach(function(r){ MID.push({m:m.id, d:r[0], camp:r[1], anuncio:r[2],
           id:String(r[3]), inv:r[4]||0, imp:r[5]||0, cli:r[6]||0, conv:r[7]||0}); });
         (d.jornada||[]).forEach(function(x){ JOR.push({m:m.id, d:x.d, a:String(x.a),
-          r:x.r||0, p:x.p||0, v:x.v||0, pg:x.pg||0, ab:x.ab||0, vne:x.vne||0, ne:x.ne||0}); });
+          r:x.r||0, p:x.p||0, e:x.e||0, v:x.v||0, pg:x.pg||0, ab:x.ab||0, vne:x.vne||0, ne:x.ne||0}); });
+        (d.crmproc||[]).forEach(function(x){ var aid=String(x.a); PROCADS[aid]=1;
+          PROC.push({m:m.id, a:aid, d:x.d, c:x.c, qe:x.qe||0, ve:x.ve||0, vp:x.vp||0, qn:x.qn||0, vn:x.vn||0}); });
+        (d.cria||[]).forEach(function(c){ var k=String(c.a);
+          CRI[k] = {b:c.b||'', t:c.t||'', cta:c.cta||'', link:c.link||'', img:(CRI[k]&&CRI[k].img)||''}; });
+        CONTA[m.id] = d.conta || '';
       });
   })).then(inicia).catch(function(e){
     document.getElementById('carregando').innerHTML =
@@ -595,13 +634,16 @@ function cartao(c){
 
 function pintaMidia(){
   var mid = midiaNoPeriodo();
-  var t = {inv:0, imp:0, cli:0, conv:0}, dias = {}, espec = {}, adEsp = {}, adsPer = {};
+  var t = {inv:0, imp:0, cli:0, conv:0}, dias = {}, espec = {}, adEsp = {}, adsPer = {}, ads = {}, jorAd = {};
   mid.forEach(function(r){
     t.inv += r.inv; t.imp += r.imp; t.cli += r.cli; t.conv += r.conv;
     dias[r.d] = 1; adsPer[r.id] = 1;
     var e = curto(r.camp); adEsp[r.id] = e;
     var o = espec[e] || (espec[e] = {inv:0, conv:0, dias:{}, v:0, pg:0, ab:0, vne:0, ne:0});
     o.inv += r.inv; o.conv += r.conv; o.dias[r.d] = 1;
+    var ad = ads[r.id] || (ads[r.id] = {id:r.id, m:r.m, nome:r.anuncio || r.camp, esp:e,
+      inv:0, imp:0, cli:0, conv:0, dias:{}});
+    ad.inv += r.inv; ad.imp += r.imp; ad.cli += r.cli; ad.conv += r.conv; ad.dias[r.d] = 1;
   });
 
   /* Mesma regra do dossie: contato de anuncio que nao veiculou no periodo nao entra
@@ -613,6 +655,9 @@ function pintaMidia(){
     if (!adsPer[x.a]) { fora.r += x.r; fora.p += x.p; fora.v += x.v; return; }
     cr.r += x.r; cr.p += x.p; cr.v += x.v; cr.pg += x.pg; cr.ab += x.ab;
     cr.vne += x.vne; cr.ne += x.ne;
+    var ja = jorAd[x.a] || (jorAd[x.a] = {r:0,p:0,e:0,v:0,pg:0,ab:0,vne:0,ne:0});
+    ja.r += x.r; ja.p += x.p; ja.e += (x.e||0); ja.v += x.v; ja.pg += x.pg;
+    ja.ab += x.ab; ja.vne += x.vne; ja.ne += x.ne;
     var o = espec[adEsp[x.a]];
     if (o) { o.v += x.v; o.pg += x.pg; o.ab += x.ab; o.vne += x.vne; o.ne += x.ne; }
   });
@@ -656,9 +701,9 @@ function pintaMidia(){
       "<th class=\"num\">Faturado</th><th class=\"num\">N\u00e3o executado</th>" +
       "<th class=\"num\">Propostas paradas</th>" +
       "<th class=\"num\">Recebido</th><th class=\"num\">Em aberto</th></tr></thead><tbody>" +
-    linhas.map(function(x){
+    linhas.map(function(x, i){
       var o = x.o;
-      return "<tr><td>" + esc(x.e) + "</td>" + td(N(Object.keys(o.dias).length)) + td(BRL(o.inv)) +
+      return "<tr class=\"esp-linha\" data-i=\"" + i + "\"><td><span class=\"esp-seta\">▸</span> " + esc(x.e) + "</td>" + td(N(Object.keys(o.dias).length)) + td(BRL(o.inv)) +
         td(N(o.conv)) + td(o.conv ? BRL(o.inv / o.conv) : "\u2014") +
         td(o.v ? BRL0(o.v) : "\u2014") + td(o.vne ? BRL0(o.vne) : "\u2014") +
         td(o.ne ? N(o.ne) : "\u2014") +
@@ -669,6 +714,142 @@ function pintaMidia(){
       td(BRL0(cr.v)) + td(BRL0(cr.vne)) + td(N(cr.ne)) + td(BRL0(cr.pg)) + td(BRL0(cr.ab)) +
       "</tr></tfoot>";
 
+  /* expansao: clique na linha abre os cartoes de anuncio da especialidade */
+  EXPD = {ads:ads, jorAd:jorAd, linhas:linhas};
+  Array.prototype.forEach.call(document.querySelectorAll('#tEspec .esp-linha'), function(tr){
+    tr.addEventListener('click', function(){ toggleEspec(tr); });
+  });
+}
+
+/* ============ cartoes de campanha (portado do dossie em 19/08/2026) ============ */
+var EXPD = null;
+
+function toggleEspec(tr){
+  var det = tr.nextElementSibling;
+  if (det && det.classList.contains('esp-det')) {
+    det.parentNode.removeChild(det);
+    tr.querySelector('.esp-seta').textContent = '▸';
+    return;
+  }
+  var i = Number(tr.getAttribute('data-i'));
+  if (!EXPD || !EXPD.linhas[i]) return;
+  var esp = EXPD.linhas[i].e;
+  det = document.createElement('tr');
+  det.className = 'esp-det';
+  det.innerHTML = '<td colspan="10"><div class="esp-caixa" data-esp="' + esc(esp) + '">carregando cartões…</div></td>';
+  tr.parentNode.insertBefore(det, tr.nextSibling);
+  tr.querySelector('.esp-seta').textContent = '▾';
+  var marcas = {};
+  Object.keys(EXPD.ads).forEach(function(id){ if (EXPD.ads[id].esp === esp) marcas[EXPD.ads[id].m] = 1; });
+  Promise.all(Object.keys(marcas).map(carregaCriativos)).then(function(){
+    var caixa = det.querySelector('.esp-caixa');
+    if (caixa) caixa.innerHTML = htmlCartoes(esp);
+  });
+  det.querySelector('.esp-caixa').innerHTML = htmlCartoes(esp);
+}
+
+function carregaCriativos(mid){
+  if (criPedido[mid]) return criPedido[mid];
+  var m = null;
+  MARCAS.forEach(function(x){ if (x.id === mid) m = x; });
+  if (!m || !m.k) return Promise.resolve();
+  criPedido[mid] = fetch(m.api + '?k=' + encodeURIComponent(m.k) + '&f=criativos.json', {cache:'no-cache'})
+    .then(function(r){ return r.ok ? r.json() : {}; })
+    .then(function(j){ Object.keys(j || {}).forEach(function(k){
+      (CRI[k] = CRI[k] || {}).img = j[k] || ''; }); })
+    .catch(function(){});
+  return criPedido[mid];
+}
+
+function classeCob(c){ return c >= 70 ? 'boa' : (c >= 40 ? 'media' : 'baixa'); }
+
+function htmlCartoes(esp){
+  var lista = Object.keys(EXPD.ads).map(function(id){ return EXPD.ads[id]; })
+    .filter(function(a){ return a.esp === esp; })
+    .sort(function(a,b){ return b.conv - a.conv; });
+  if (!lista.length) return '<div class="nota">Nenhum anúncio desta especialidade veiculou no período.</div>';
+  return lista.map(cartaoAd).join('');
+}
+
+function cartaoAd(a){
+  var j = (EXPD.jorAd[a.id]) || {r:0,p:0,e:0,v:0,pg:0,ab:0,vne:0,ne:0};
+  var cr = CRI[a.id] || {};
+  var foto = cr.img ? '<img class="ad-foto" alt="" src="data:image/jpeg;base64,' + cr.img + '">'
+                    : '<div class="ad-semfoto">sem miniatura coletada</div>';
+  var cob = a.conv ? 100 * j.r / a.conv : 0;
+  var mini = [
+    [BRL0(a.inv), 'Investido'], [N(a.conv), 'Conversas'],
+    [a.conv ? BRL(a.inv / a.conv) : '—', 'Custo/conversa'],
+    [N(j.r), 'No CRM'], [N(j.p), 'Pacientes'], [N(j.e), 'Executadas'],
+    [j.v ? BRL0(j.v) : '—', 'Faturado'],
+    [j.vne ? BRL0(j.vne) : '—', 'Não executado'],
+    [j.pg ? BRL0(j.pg) : '—', 'Recebido'],
+    [j.ab ? BRL0(j.ab) : '—', 'Em aberto']
+  ].map(function(x){ return '<div><span class="ad-mv">' + x[0] + '</span><span class="ad-ml">' + x[1] + '</span></div>'; }).join('');
+  var copia = cr.b ? '<div class="ad-copy" id="cp' + a.id + '">' + esc(cr.b) + '</div>' +
+    '<button class="ad-mais" onclick="maisCopy(\'' + a.id + '\', this)">ver texto completo</button>' : '';
+  var marcaNome = ''; MARCAS.forEach(function(x){ if (x.id === a.m) marcaNome = x.nome; });
+  var tags = [
+    '<span class="ad-cob ' + (a.conv ? classeCob(cob) : 'nula') + '">' + (a.conv ? 'rastreio de ' + PCT0(cob) : 'sem conversa') + '</span>',
+    cr.cta ? '<span class="ad-tag">' + esc(String(cr.cta).replace(/_/g, ' ').toLowerCase()) + '</span>' : '',
+    '<span class="ad-tag">' + Object.keys(a.dias).length + (Object.keys(a.dias).length === 1 ? ' dia no ar' : ' dias no ar') + '</span>',
+    cr.link ? '<span class="ad-tag"><a href="' + esc(cr.link) + '" target="_blank" rel="noopener">ver publicação ↗</a></span>' : '',
+    CONTA[a.m] ? '<span class="ad-tag"><a href="https://adsmanager.facebook.com/adsmanager/manage/ads?act=' + esc(CONTA[a.m]) + '&selected_ad_ids=' + esc(a.id) + '" target="_blank" rel="noopener">gerenciador ↗</a></span>' : ''
+  ].filter(Boolean).join('');
+  return '<div class="ad-cartao">' + foto + '<div>' +
+    '<h5 class="ad-titulo">' + esc(a.nome) + '</h5>' +
+    '<div class="ad-marca">' + esc(marcaNome) + '</div>' +
+    copia +
+    '<div class="ad-tagrow">' + tags + '</div>' +
+    '<div class="ad-mini">' + mini + '</div>' +
+    (PROCADS[a.id] ? '<div class="ad-acao"><button class="ad-detbtn" onclick="abreProcAd(\'' + a.id + '\', this)">detalhado</button></div>' : '') +
+    '<div class="ad-proc" id="prc' + a.id + '" style="display:none"></div>' +
+    '</div></div>';
+}
+
+/* o que foi vendido, item a item — mesmo bloco do dossie, respeitando o periodo da tela */
+function abreProcAd(adId, btn){
+  var el = document.getElementById('prc' + adId);
+  if (!el) return;
+  if (el.style.display !== 'none') {
+    el.style.display = 'none'; btn.textContent = 'detalhado'; return;
+  }
+  var acc = {};
+  PROC.forEach(function(r){
+    if (r.a !== adId || r.d < de || r.d > ate) return;
+    var o = acc[r.c] || (acc[r.c] = {n:r.c, qe:0, ve:0, vp:0, qn:0, vn:0});
+    o.qe += r.qe; o.ve += r.ve; o.vp += r.vp; o.qn += r.qn; o.vn += r.vn;
+  });
+  var itens = Object.keys(acc).map(function(k){ return acc[k]; })
+    .sort(function(a,b){ return b.ve - a.ve || b.qe - a.qe; });
+  var soma = function(k){ return itens.reduce(function(t,x){ return t + (x[k]||0); }, 0); };
+  var tdn = function(v){ return '<td class="num">' + v + '</td>'; };
+  el.innerHTML = !itens.length
+    ? '<div class="nota">Nenhum procedimento amarrado a este anúncio no período.</div>'
+    : '<table class="ad-tproc"><thead><tr><th>Procedimento</th><th class="num">Itens</th>' +
+      '<th class="num">Faturado</th><th class="num">Recebido</th>' +
+      '<th class="num">Não executados</th><th class="num">Valor parado</th></tr></thead><tbody>' +
+      itens.map(function(x){
+        var nome = x.n.length > 62 ? x.n.slice(0, 60) + '…' : x.n;
+        return '<tr><td title="' + esc(x.n) + '">' + esc(nome) + '</td>' +
+          tdn(x.qe ? N(x.qe) : '—') + tdn(x.ve ? BRL0(x.ve) : '—') +
+          tdn(x.vp ? BRL0(x.vp) : '—') + tdn(x.qn ? N(x.qn) : '—') +
+          tdn(x.vn ? BRL0(x.vn) : '—') + '</tr>';
+      }).join('') + '</tbody><tfoot><tr><td>Total do período</td>' +
+      tdn(N(soma('qe'))) + tdn(BRL0(soma('ve'))) + tdn(BRL0(soma('vp'))) +
+      tdn(N(soma('qn'))) + tdn(BRL0(soma('vn'))) + '</tr></tfoot></table>' +
+      '<div class="nota">Faturado, Recebido e Valor parado fecham com o cartão acima. ' +
+      'A categoria é deduzida do nome do procedimento no Feegow; o que não casa com regra nenhuma ' +
+      'fica em “Outros procedimentos”. Este bloco respeita o período escolhido no topo.</div>';
+  el.style.display = '';
+  btn.textContent = 'fechar detalhe';
+}
+
+function maisCopy(id, btn){
+  var el = document.getElementById('cp' + id);
+  if (!el) return;
+  var aberta = el.classList.toggle('aberta');
+  btn.textContent = aberta ? 'recolher texto' : 'ver texto completo';
 }
 
 /* ============ desenho ============ */
