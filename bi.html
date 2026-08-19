@@ -75,7 +75,9 @@ footer{color:var(--cinza);font-size:12px;margin-top:40px}
 <div style="overflow-x:auto"><table><thead><tr><th>Categoria</th><th class="r">Itens</th><th class="r">Valor</th><th class="r">Ticket médio</th><th class="r">Participação</th></tr></thead><tbody id="cat"></tbody></table></div>
 <div class="nota">Mesma régua e mesmo recorte de DOC do resto da página. Soma as equipes: a mesma categoria registrada por recepção e por call center entra na mesma linha. Participação é sobre o valor do período. A categoria vem escrita como está no cadastro do Feegow, sem normalização: quando o mesmo serviço aparece grafado de dois jeitos, saem duas linhas. Somar mentalmente é mais seguro que confiar numa fusão automática que ninguém conferiu.</div>
 <h2>Agenda no período</h2>
-<div style="overflow-x:auto"><table><thead><tr><th>Unidade</th><th class="r">Atendidos</th><th class="r">Faltas</th><th class="r">Taxa de falta</th><th class="r">Cancelados</th><th class="r">Sem desfecho</th></tr></thead><tbody id="agenda"></tbody></table></div>
+<div class="chips" id="agChips" style="margin-bottom:10px"></div>
+<div style="overflow-x:auto" id="agResumo"><table><thead><tr><th>Unidade</th><th class="r">Atendidos</th><th class="r">Faltas</th><th class="r">Taxa de falta</th><th class="r">Cancelados</th><th class="r">Sem desfecho</th></tr></thead><tbody id="agenda"></tbody></table></div>
+<div style="overflow-x:auto;display:none" id="agMatriz"><table><thead id="agMatH"></thead><tbody id="agMatB"></tbody></table></div>
 <div class="nota">Régua do app: agendamentos dos lotes do período, excluindo retornos. Taxa de falta = faltas ÷ (atendidos + faltas). "Sem desfecho" são agendamentos que seguem marcados/confirmados sem baixa. Entre parênteses, consultas atendidas (com retornos, como no app).</div>
 <h2>Faltas por categoria</h2>
 <div style="overflow-x:auto"><table><thead><tr><th>Categoria</th><th class="r">Agendamentos</th><th class="r">Atendidos</th><th class="r">Faltas</th><th class="r">Sem baixa</th><th class="r">Taxa de falta</th></tr></thead><tbody id="agcat"></tbody></table></div>
@@ -208,7 +210,56 @@ function carrega(){
   });
   document.getElementById('proj').innerHTML=pr||'<tr><td colspan="8" class="avi">sem dados</td></tr>';
   document.getElementById('tit-proj').textContent=(d.periodo.fim>=iso(hojeManaus()))?'Por unidade · projeção de fechamento do mês':'Por unidade (período fechado — projeção não se aplica)';
-  // agenda
+  // agenda — visao alternavel: resumo por unidade ou taxa de falta por
+  // especialidade x unidade dentro de uma categoria (Consulta, ECG, USG...)
+  (function(){
+   var ESP=A.agenda_especialidade||[];
+   var chips=document.getElementById('agChips');
+   if(!chips) return;
+   if(!ESP.length){ chips.innerHTML=''; return; }
+   var vol={};
+   ESP.forEach(function(r){ vol[r.category]=(vol[r.category]||0)+Number(r.agendamentos||0); });
+   var cats=Object.keys(vol).sort(function(a,b){ return vol[b]-vol[a]; });
+   if(typeof vistaAgenda==='undefined') window.vistaAgenda='resumo';
+   if(vistaAgenda!=='resumo' && cats.indexOf(vistaAgenda)<0) window.vistaAgenda='resumo';
+   chips.innerHTML='<button class="chipbtn'+(vistaAgenda==='resumo'?' on':'')+'" data-ag="resumo">Resumo por unidade</button>'+
+    cats.map(function(c){ return '<button class="chipbtn'+(vistaAgenda===c?' on':'')+'" data-ag="'+esc(c)+'">'+esc(c)+'</button>'; }).join('');
+   chips.querySelectorAll('[data-ag]').forEach(function(btn){
+    btn.addEventListener('click',function(){ window.vistaAgenda=btn.getAttribute('data-ag'); pintaAgendaVista(); });
+   });
+   window.pintaAgendaVista=function(){
+    var resumo=vistaAgenda==='resumo';
+    document.getElementById('agResumo').style.display=resumo?'':'none';
+    document.getElementById('agMatriz').style.display=resumo?'none':'';
+    chips.querySelectorAll('[data-ag]').forEach(function(b){ b.classList.toggle('on', b.getAttribute('data-ag')===vistaAgenda); });
+    if(resumo) return;
+    var rows=ESP.filter(function(r){ return r.category===vistaAgenda; });
+    var unisOrd=['acesso|20','acesso|21','acesso|55','doctor|0','doctor|2','doctor|4'];
+    var unis=unisOrd.filter(function(u){ return rows.some(function(r){ return r.empresa+'|'+r.fid===u; }); });
+    var porEsp={};
+    rows.forEach(function(r){
+     var o=(porEsp[r.specialty]=porEsp[r.specialty]||{tot:{ag:0,at:0,fa:0},u:{}});
+     var c=(o.u[r.empresa+'|'+r.fid]=o.u[r.empresa+'|'+r.fid]||{ag:0,at:0,fa:0});
+     ['ag','at','fa'].forEach(function(k,i){ var v=Number([r.agendamentos,r.atendidos,r.faltas][i]||0); c[k]+=v; o.tot[k]+=v; });
+    });
+    var cel=function(c){
+     if(!c||!c.ag) return '<td class="r avi">—</td>';
+     var base=c.at+c.fa;
+     if(!base) return '<td class="r avi" title="'+c.ag+' agendados, nenhum com desfecho">s/ baixa</td>';
+     var tx=Math.round(1000*c.fa/base)/10, firme=base*2>=c.ag;
+     var cls=firme?(tx<=15?'ok':(tx<=25?'quase':'ruim')):'';
+     return '<td class="r '+cls+'" title="'+c.fa+' faltas de '+base+' com desfecho · '+c.ag+' agendados">'+tx+'%'+(firme?'':' *')+'</td>';
+    };
+    document.getElementById('agMatH').innerHTML='<tr><th>Especialidade</th>'+
+     unis.map(function(u){ return '<th class="r">'+esc(NUA[u]||u)+'</th>'; }).join('')+'<th class="r">Total</th><th class="r">Agendados</th></tr>';
+    var esps=Object.keys(porEsp).sort(function(a,b){ return porEsp[b].tot.ag-porEsp[a].tot.ag; });
+    document.getElementById('agMatB').innerHTML=esps.map(function(e){
+     var o=porEsp[e];
+     return '<tr><td>'+esc(e)+'</td>'+unis.map(function(u){ return cel(o.u[u]); }).join('')+cel(o.tot)+'<td class="r">'+num(o.tot.ag)+'</td></tr>';
+    }).join('')||'<tr><td colspan="9" class="avi">sem dados</td></tr>';
+   };
+   pintaAgendaVista();
+  })();
   document.getElementById('agenda').innerHTML=(A.agenda||[]).map(function(a){
    var at=Number(a.atendidos||0),fa=Number(a.faltas||0),ca=Number(a.cancelados||0),sd=Number(a.sem_desfecho||0);
    var tx=(at+fa)>0?Math.round(1000*fa/(at+fa))/10:null;
