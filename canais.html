@@ -704,10 +704,11 @@ function render(){
       li('de paciente orgânico e direto', org) +
       li('de cadastro criado pela equipe (call center, recepção)', eq) +
       li('da base importada', bs) +
-      li('de paciente anterior ao rastreio do CRM', sr) +
+      li('sem canal identificável (telefone/balcão, elo não encontrado ou cliente antigo)', sr) +
       '<div class="nota" style="margin-top:8px">Ancorado no dia do <b>pagamento</b>: é o caixa de verdade do período, ' +
       'fechando com o financeiro. Os cartões acima ancoram no dia da <b>chegada</b> do paciente (coorte): mostram quanto ' +
-      'quem chegou no período já rendeu — por isso, em janelas curtas, eles são sempre pequenos: paciente novo ainda não teve tempo de pagar.</div>' +
+      'quem chegou no período já rendeu — por isso, em janelas curtas, eles são sempre pequenos: paciente novo ainda não teve tempo de pagar. ' +
+      'A linha “sem canal identificável” não é só cliente antigo: a maior parte é paciente que entrou por telefone ou balcão e nunca conversou no WhatsApp — canal só existe para quem conversa.</div>' +
       '</div>';
   })();
   var alvo = lado === 'pago' ? tp : (lado === 'organico' ? tn : soma(soma(zero(), tp), tn));
