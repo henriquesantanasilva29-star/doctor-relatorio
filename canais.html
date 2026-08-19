@@ -674,10 +674,10 @@ function render(){
              ['Acesso Saúde','2026-07-22','espelho de utm do WhatsApp']];
     var afetadas=COB.filter(function(c){ return de < c[1]; });
     var ult=null; CAN.forEach(function(x){ if(!ult||x.d>ult) ult=x.d; });
-    var pre=ult?('Dados carregados até <b>'+dbr(ult)+'</b>. '):'';
+    var pre=ult?('Dados carregados até <b>'+dbr(ult)+'</b>'):'';
     if(!afetadas.length){ el.style.display=pre?'block':'none'; el.innerHTML=pre; return; }
     el.style.display='block';
-    el.innerHTML=pre+'<b>O período começa antes do rastreio de anúncio:</b> '+afetadas.map(function(c){
+    el.innerHTML=pre+' · <b>O período começa antes do rastreio de anúncio:</b> '+afetadas.map(function(c){
       return c[0]+' só tem tráfego pago comprovável desde '+dbr(c[1])+' ('+c[2]+')';}).join(' · ')+
       '. Antes dessas datas o lado "não pago" está inflado — ausência de carimbo não é prova de origem orgânica.';
   })();
