@@ -1031,27 +1031,7 @@ function pintaKpis(t, inv){
   }).join('');
   /* A confusao mais cara desta tela e achar que chegada e contato novo. Sao denominadores
      diferentes para a MESMA receita, e a taxa muda de nome junto. */
-  var notaUnidade = '<div class="nota"><b>Chegada e contato novo não são a mesma coisa.</b> ' +
-    'Chegada é toda conversa aberta no período — inclusive de quem já era da base e voltou. ' +
-    'Contato novo é registro criado pela primeira vez. O dinheiro abaixo é o mesmo nos dois casos: ' +
-    'ele fica atribuído ao paciente uma única vez, no canal do primeiro contato dele. ' +
-    'O que muda é o denominador, e por isso a conversão sobre chegadas é sempre menor que a ' +
-    'conversão sobre contatos novos — não é piora, é outra pergunta.</div>';
-  var notas = {
-    pago: '<div class="nota"><b>O investimento é só o da Meta.</b> Google Ads aparece como canal porque o ' +
-      'contato traz o utm, mas a conta de mídia do Google não é coletada — então o retorno acima está ' +
-      'medido contra um investimento que exclui o que foi gasto lá.</div>',
-    organico: '<div class="nota"><b>Aqui não existe custo de mídia, e por isso não existe retorno sobre mídia.</b> ' +
-      'O que existe é custo de operação — atendente, tempo de resposta, o CRM — que não passa por este painel. ' +
-      'Trate este faturamento como o piso da casa: é o que entra mesmo sem verba. ' +
-      '<br><br><b>Boa parte disto é retorno, não conquista.</b> Paciente que já conhece a clínica e chama ' +
-      'de novo pelo WhatsApp cai em "Direto / sem origem" igual a quem nunca veio. O painel sabe que a ' +
-      'pessoa chegou sozinha; não sabe se foi a primeira vez.</div>',
-    lado: '<div class="nota"><b>Aqui não aparece retorno sobre mídia, de propósito.</b> Dividir o faturamento ' +
-      'somado pela verba da Meta daria um número enorme e falso: a maior parte deste dinheiro veio de quem ' +
-      'não passou por anúncio nenhum. Retorno sobre mídia só faz sentido no lado pago.</div>'
-  };
-  document.getElementById('notaLado').innerHTML = '';
+  /* notas explicativas removidas a pedido em 19/08/2026 - os rotulos carregam a explicacao */
 }
 
 function pintaBarras(mapa, canais){
