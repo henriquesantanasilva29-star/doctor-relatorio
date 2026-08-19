@@ -84,6 +84,9 @@ footer{color:var(--cinza);font-size:12px;margin-top:40px}
 <div class="cards" id="origem"></div>
 <div class="nota">Venda direta é o atendimento que entra sem passar por orçamento. Estes três cards partem do recebido do topo e somam exatamente ele.<br>
 <b>A seção abaixo não é a continuação desta conta.</b> Aqui é dinheiro que entrou no período; lá são orçamentos <i>criados</i> no período, pelo valor de face, classificados pelo status de hoje. Por isso "Convertido" lá embaixo é maior que "Com orçamento" aqui em cima — proposta feita e dinheiro recebido são grandezas diferentes, em datas diferentes. Não devem bater, e bater seria sinal de erro.</div>
+<h2>Quadro de vendas por equipe</h2>
+<div style="overflow-x:auto"><table><thead><tr><th>Equipe</th><th class="r">Pessoas</th><th class="r">Recebimentos</th><th class="r">Valor</th><th class="r">Participação</th><th>Melhor vendedor</th></tr></thead><tbody id="equipes"></tbody></table></div>
+<div class="nota">Equipes conforme o Life CRM (sincronizadas diariamente). Time que atua nas duas empresas aparece somado, com a divisão no passar do mouse. Participação é sobre o total atribuído do período.</div>
 <h2>Venda por equipe e pessoa</h2>
 <div style="overflow-x:auto"><table><thead><tr><th>Equipe</th><th>Pessoa</th><th class="r">Recebimentos</th><th class="r">Valor</th></tr></thead><tbody id="equipe"></tbody></table></div>
 <div class="nota"><b>Quem vendeu ≠ por onde o paciente chegou.</b> Esta tabela responde "quem vendeu" (valores da planilha, nome a nome). <b>As equipes são as definidas no Life CRM</b> (sincronizadas diariamente — inclusive a divisão SDR × Closers); quem não atende no Life CRM cai no mapa antigo do hub (códigos recepcao_*, call_*). Linha com equipe vazia é pessoa sem time em nenhum dos dois mapas, não venda sem dono. A tela de canais responde outra pergunta — de onde o paciente veio no primeiro contato.</div>
@@ -214,6 +217,31 @@ function carrega(){
   // venda por equipe e pessoa (fato_equipe_dia — a resposta certa para "quem vendeu")
   (function(){
    var ROTE={recepcao_i:'Recepção Unidade I',recepcao_ii:'Recepção Unidade II',recepcao_iii:'Recepção Unidade III',recepcao_iv:'Recepção Unidade IV',recepcao_v:'Recepção Unidade V',recepcao_vi:'Recepção Unidade VI',call_doctor:'Call Center Doctor+',call_acesso:'Call Center Acesso Saúde'};
+   // quadro por equipe: soma as duas empresas, guarda a divisão e o melhor vendedor
+   var porEq={}, totEq=0;
+   (d.equipe||[]).forEach(function(e){
+    var k=e.equipe||'';
+    var o=(porEq[k]=porEq[k]||{valor:0,qtd:0,pessoas:{},emp:{}});
+    var v=Number(e.valor||0);
+    o.valor+=v; o.qtd+=Number(e.qtd||0); totEq+=v;
+    o.pessoas[e.pessoa]=(o.pessoas[e.pessoa]||0)+v;
+    o.emp[e.empresa]=(o.emp[e.empresa]||0)+v;
+   });
+   var nomes=Object.keys(porEq).sort(function(a,b){return porEq[b].valor-porEq[a].valor});
+   var mxEq=nomes.length?Math.max(1,porEq[nomes[0]].valor):1;
+   document.getElementById('equipes').innerHTML=nomes.map(function(k){
+    var o=porEq[k];
+    var ps=Object.keys(o.pessoas);
+    var top=ps.sort(function(a,b){return o.pessoas[b]-o.pessoas[a]})[0]||'—';
+    var emps=Object.keys(o.emp);
+    var corEq=emps.length===1?(CORES[emps[0]]||'#A9A3BC'):'#A9A3BC';
+    var mist=emps.length>1?emps.map(function(e){return ROT[e]+' '+brl(o.emp[e])}).join(' · '):'';
+    return '<tr'+(mist?' title="'+esc(mist)+'"':'')+'><td><span class="dot" style="background:'+corEq+'"></span>'+esc(ROTE[k]||k||'(sem equipe mapeada)')+'</td>'
+     +'<td class="r">'+num(ps.length)+'</td><td class="r">'+num(o.qtd)+'</td>'
+     +'<td class="r"><div class="bar" style="width:'+Math.max(3,Math.round(100*o.valor/mxEq))+'%;background:'+corEq+'"></div><b>'+brl(o.valor)+'</b></td>'
+     +'<td class="r b">'+(totEq>0?(Math.round(1000*o.valor/totEq)/10)+'%':'—')+'</td>'
+     +'<td>'+esc(top)+' <span class="linha">'+brl(o.pessoas[top]||0)+'</span></td></tr>';
+   }).join('')||'<tr><td colspan="6" class="avi">sem dados no período</td></tr>';
    var eq=(d.equipe||[]).slice(0,20);
    document.getElementById('equipe').innerHTML=eq.map(function(e){
     return '<tr><td><span class="dot" style="background:'+(CORES[e.empresa]||'#A9A3BC')+'"></span>'+esc(ROTE[e.equipe]||e.equipe||'(sem equipe mapeada)')+'</td>'
