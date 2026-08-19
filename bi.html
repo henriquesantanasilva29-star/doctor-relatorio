@@ -84,6 +84,9 @@ footer{color:var(--cinza);font-size:12px;margin-top:40px}
 <div class="cards" id="origem"></div>
 <div class="nota">Venda direta é o atendimento que entra sem passar por orçamento. Estes três cards partem do recebido do topo e somam exatamente ele.<br>
 <b>A seção abaixo não é a continuação desta conta.</b> Aqui é dinheiro que entrou no período; lá são orçamentos <i>criados</i> no período, pelo valor de face, classificados pelo status de hoje. Por isso "Convertido" lá embaixo é maior que "Com orçamento" aqui em cima — proposta feita e dinheiro recebido são grandezas diferentes, em datas diferentes. Não devem bater, e bater seria sinal de erro.</div>
+<h2>Venda por equipe e pessoa</h2>
+<div style="overflow-x:auto"><table><thead><tr><th>Equipe</th><th>Pessoa</th><th class="r">Recebimentos</th><th class="r">Valor</th></tr></thead><tbody id="equipe"></tbody></table></div>
+<div class="nota"><b>Quem vendeu ≠ por onde o paciente chegou.</b> Esta tabela responde "quem vendeu" (régua da planilha, nome a nome). A tela de canais responde outra pergunta — de onde o paciente veio no primeiro contato — e credita a venda do call center a "Direto". Linha com equipe vazia é pessoa sem mapeamento de time, não venda sem dono.</div>
 <h2>Propostas (orçamentos) no período</h2>
 <div class="cards" id="prop-cards"></div>
 <div class="nota">Régua do app: <b>Convertido</b> = executada e com pagamento casado no período; <b>Rejeitado</b> = rejeitada/cancelada; <b>Em aberto</b> = todo o resto — inclusive <b>executada e ainda não paga</b>, destacada abaixo. Contagem por número de proposta; recorte pela data de criação.</div>
@@ -208,6 +211,15 @@ function carrega(){
    var tx=(at+fa)>0?Math.round(1000*fa/(at+fa))/10:null;
    return '<tr><td><span class="dot" style="background:'+(CORES[a.empresa]||'#A9A3BC')+'"></span>'+esc(NUA[a.empresa+'|'+a.fid]||a.fid)+'</td><td class="r">'+num(at)+' <span class="linha">('+num(a.consultas_atendidas||0)+' consultas)</span></td><td class="r">'+num(fa)+'</td><td class="r '+(tx==null?'':(tx<=15?'ok':(tx<=25?'quase':'ruim')))+'">'+(tx!=null?tx+'%':'—')+'</td><td class="r">'+num(ca)+'</td><td class="r">'+num(sd)+'</td></tr>';
   }).join('')||'<tr><td colspan="6" class="avi">sem dados</td></tr>';
+  // venda por equipe e pessoa (fato_equipe_dia — a resposta certa para "quem vendeu")
+  (function(){
+   var ROTE={recepcao_i:'Recepção Unidade I',recepcao_ii:'Recepção Unidade II',recepcao_iii:'Recepção Unidade III',recepcao_iv:'Recepção Unidade IV',recepcao_v:'Recepção Unidade V',recepcao_vi:'Recepção Unidade VI',call_doctor:'Call Center Doctor+',call_acesso:'Call Center Acesso Saúde'};
+   var eq=(d.equipe||[]).slice(0,20);
+   document.getElementById('equipe').innerHTML=eq.map(function(e){
+    return '<tr><td><span class="dot" style="background:'+(CORES[e.empresa]||'#A9A3BC')+'"></span>'+esc(ROTE[e.equipe]||e.equipe||'(sem equipe mapeada)')+'</td>'
+     +'<td>'+esc(e.pessoa||'—')+'</td><td class="r">'+num(e.qtd)+'</td><td class="r b">'+brl(e.valor)+'</td></tr>';
+   }).join('')||'<tr><td colspan="4" class="avi">sem dados no período</td></tr>';
+  })();
   // propostas
   (function(){
    var P=d.propostas||{};var st=P.por_status||{};var tot=P.total||{qtd:0,valor:0};
