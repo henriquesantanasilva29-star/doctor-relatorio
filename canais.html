@@ -378,6 +378,7 @@ tfoot td{padding:8px 10px;font-weight:700;border-top:2px solid var(--dark)}
 <div class="cbars" id="barras"></div>
 
 <table id="tCanais"></table>
+<div id="notaCanais" class="nota"></div>
 
 <div class="section-title">Quadro de vendas por equipe</div>
 <table id="tEquipes"></table>
@@ -389,6 +390,7 @@ tfoot td{padding:8px 10px;font-weight:700;border-top:2px solid var(--dark)}
 <div class="kpi-grid" id="midiaRetorno"></div>
 <div class="section-title">Campanhas por especialidade</div>
 <table id="tEspec"></table>
+<div id="fechoPago" class="nota"></div>
 
 
 
@@ -632,7 +634,7 @@ function cartao(c){
          "<div class=\"kpi-sub\">" + c[2] + "</div></div>";
 }
 
-function pintaMidia(){
+function pintaMidia(tpago){
   var mid = midiaNoPeriodo();
   var t = {inv:0, imp:0, cli:0, conv:0}, dias = {}, espec = {}, adEsp = {}, adsPer = {}, ads = {}, jorAd = {};
   mid.forEach(function(r){
@@ -713,6 +715,23 @@ function pintaMidia(){
       td(N(nDias)) + td(BRL(t.inv)) + td(N(t.conv)) + td(t.conv ? BRL(t.inv / t.conv) : "\u2014") +
       td(BRL0(cr.v)) + td(BRL0(cr.vne)) + td(N(cr.ne)) + td(BRL0(cr.pg)) + td(BRL0(cr.ab)) +
       "</tr></tfoot>";
+
+  /* fecho de contas do lado pago: os tres numeros desta tela, amarrados */
+  (function(){
+    var el = document.getElementById('fechoPago');
+    if (!el) return;
+    if (!tpago || (!tpago.v && !cr.v)) { el.innerHTML = ''; return; }
+    var gapV = Math.max(0, tpago.v - cr.v - fora.v);
+    var linhaFora = fora.v ? ('Anúncio que NÃO veiculou no período mas seguiu vendendo: ' + BRL0(fora.v) + ' faturado (fora da tabela acima, de propósito — não tem investimento aqui). ') : '';
+    el.innerHTML = '<b>Fecho de contas do lado pago, no período:</b> ' +
+      'amarrado a anúncio (tabela acima): <b>' + BRL0(cr.v) + '</b> faturado · <b>' + BRL0(cr.pg) + '</b> recebido. ' +
+      linhaFora +
+      'Coorte por canal (tabela “cada porta de entrada”): <b>' + BRL0(tpago.v) + '</b> faturado · <b>' + BRL0(tpago.pg) + '</b> recebido — ' +
+      'a diferença de ' + BRL0(gapV) + ' é paciente de canal pago cujo anúncio específico não é identificável ' +
+      '(“Meta sem id”, Google, ou ponte contato→anúncio não resolvida). ' +
+      'E o <b>caixa do período</b> do lado pago é outra pergunta: <b>' + BRL0(tpago.pgd || 0) + '</b> — pagamentos datados ' +
+      'dentro do período, inclusive de paciente que chegou antes dele. Três réguas, três perguntas; nenhuma é erro da outra.';
+  })();
 
   /* expansao: clique na linha abre os cartoes de anuncio da especialidade */
   EXPD = {ads:ads, jorAd:jorAd, linhas:linhas};
@@ -902,7 +921,7 @@ function render(){
   pintaKpis(alvo, inv);
   pintaBarras(mapa, canais);
   pintaTabela(mapa, canais, alvo, inv);
-  pintaMidia();
+  pintaMidia(tp);
   carregaEquipes();
 }
 
@@ -1077,10 +1096,10 @@ function pintaTabela(mapa, canais, tot, inv){
     '<thead><tr class="faixa"><th colspan="4"></th>' +
       '<th colspan="2" class="fx fx-prop">Serviço prestado, e o que ficou na mesa</th>' +
       '<th colspan="2" class="fx fx-fat">A mesma fatura, quitada ou não</th></tr>' +
-    '<tr><th>Canal</th><th class="num">Chegadas</th><th class="num">Contatos novos</th>' +
+    '<tr><th>Canal</th><th class="num">Conversas (chegadas)</th><th class="num">Leads (contatos novos)</th>' +
       '<th class="num">Pacientes</th>' +
-      '<th class="num">Conversão</th><th class="num">Faturado</th><th class="num">Não executado</th>' +
-      '<th class="num">Recebido</th><th class="num">Em aberto</th></tr></thead>' +
+      '<th class="num">Conversão</th><th class="num">Faturado (coorte)</th><th class="num">Não executado</th>' +
+      '<th class="num">Recebido (coorte)</th><th class="num">Em aberto</th></tr></thead>' +
     '<tbody>' + linhas.map(function(x){
       var t = x.t;
       return '<tr><td>'+esc(x.c)+'</td>' + td(N(t.ch)) + td(N(t.ct)) + td(N(t.p)) +
@@ -1091,6 +1110,12 @@ function pintaTabela(mapa, canais, tot, inv){
     '<tfoot><tr><td>Total</td>' + td(N(tot.ch)) + td(N(tot.ct)) + td(N(tot.p)) +
       td(tot.ch ? PCT1(100*tot.p/tot.ch) : '—') + td(BRL0(tot.v)) + td(BRL0(tot.vne)) +
       td(BRL0(tot.pg)) + td(BRL0(tot.ab)) + '</tr></tfoot>';
+  var nc = document.getElementById('notaCanais');
+  if (nc) nc.innerHTML = '<b>Conversas não são leads.</b> Conversa conta reentrada — mutião, ' +
+    'robô e follow-up reabrindo papo com contato antigo entram aqui, e por isso ela pode subir com o ' +
+    'investimento caindo. <b>Para julgar aquisição de mídia, use Leads (contatos novos)</b> — é o ' +
+    'número que anda junto com a verba. Faturado/Recebido desta tabela são da <b>coorte</b>: o que quem ' +
+    'chegou no período já rendeu até hoje.';
 }
 
 carrega();
