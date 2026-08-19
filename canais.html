@@ -721,23 +721,25 @@ function render(){
 function pintaDuelo(tp, tn, inv){
   var linha = function(r, v){ return '<div class="linha"><span>'+r+'</span><b>'+v+'</b></div>'; };
   document.getElementById('duelo').innerHTML =
-    '<div class="lado p"><h4>Tráfego pago</h4><div class="big">'+BRL0(tp.v)+'</div>' +
-      linha('faturado por '+BRL0(inv)+' investido', inv ? (tp.v/inv).toFixed(1).replace('.',',')+'×' : '—') +
+    '<div class="lado p"><h4>Tráfego pago</h4><div class="big">'+BRL0(tp.pgd)+'</div>' +
+      '<div class="nota" style="margin:0 0 8px">entrou em caixa no período</div>' +
+      linha('faturado da coorte (quem chegou no período)', BRL0(tp.v)) +
+      linha('retorno sobre '+BRL0(inv)+' investidos (coorte)', inv ? (tp.v/inv).toFixed(1).replace('.',',')+'×' : '—') +
       linha('chegadas', N(tp.ch)) +
       linha('contatos novos', N(tp.ct) + (tp.ch ? ' · '+PCT1(100*tp.ct/tp.ch)+' das chegadas' : '')) +
       linha('viraram paciente', N(tp.p) + (tp.ch ? ' · '+PCT1(100*tp.p/tp.ch)+' das chegadas' : '')) +
       linha('recebido da coorte (desde a chegada)', BRL0(tp.pg)) +
-      linha('entrou em caixa no período', BRL0(tp.pgd)) +
-      linha('em aberto', BRL0(tp.ab)) +
+      linha('em aberto da coorte', BRL0(tp.ab)) +
     '</div>' +
-    '<div class="lado o"><h4>Não pago — orgânico e direto</h4><div class="big">'+BRL0(tn.v)+'</div>' +
+    '<div class="lado o"><h4>Não pago — orgânico e direto</h4><div class="big">'+BRL0(tn.pgd)+'</div>' +
+      '<div class="nota" style="margin:0 0 8px">entrou em caixa no período</div>' +
+      linha('faturado da coorte (quem chegou no período)', BRL0(tn.v)) +
       linha('custo de mídia', 'R$ 0') +
       linha('chegadas', N(tn.ch)) +
       linha('contatos novos', N(tn.ct) + (tn.ch ? ' · '+PCT1(100*tn.ct/tn.ch)+' das chegadas' : '')) +
       linha('viraram paciente', N(tn.p) + (tn.ch ? ' · '+PCT1(100*tn.p/tn.ch)+' das chegadas' : '')) +
       linha('recebido da coorte (desde a chegada)', BRL0(tn.pg)) +
-      linha('entrou em caixa no período', BRL0(tn.pgd)) +
-      linha('em aberto', BRL0(tn.ab)) +
+      linha('em aberto da coorte', BRL0(tn.ab)) +
     '</div>';
 }
 
@@ -751,7 +753,7 @@ function pintaKpis(t, inv){
     [t.ct ? (t.ch/t.ct).toFixed(2).replace('.',',') : '—', 'Conversas por contato novo',
      'quanto atendimento cada aquisição custa'],
     [N(t.p), 'Viraram paciente', t.ch ? PCT1(100*t.p/t.ch)+' das chegadas' : '—'],
-    [BRL0(t.v), 'Faturado', N(t.nf)+' faturas de '+N(t.pf)+' pacientes'],
+    [BRL0(t.v), 'Faturado da coorte', N(t.nf)+' faturas de '+N(t.pf)+' pacientes'],
     [BRL0(t.pg), 'Recebido da coorte', t.v ? PCT0(100*t.pg/t.v)+' do faturado' : '—'],
     [BRL0(t.pgd), 'Entrou em caixa no período', 'pagamentos datados dentro do período'],
     [BRL0(t.ab), 'Em aberto', t.v ? PCT0(100*t.ab/t.v)+' do faturado' : '—'],
