@@ -41,15 +41,18 @@ var K={bi:h.get('kb')||'',doctor:h.get('kd')||'',acesso:h.get('ka')||''};
 var ABAS=['bi','doctor','acesso','canais'];
 /* Canais junta as duas clínicas numa tela só, então aceita qualquer uma das
    duas chaves e usa as que existirem. */
+/* carimbo de hora na URL: fura o cache de 10 min do GitHub Pages — atualizacao
+   publicada chega ao leitor do portal em no maximo uma hora, sem Ctrl+F5 */
+function fresco(){ var d=new Date(); return '?r='+d.getFullYear()+(d.getMonth()+1)+d.getDate()+d.getHours(); }
 function endereco(id){
   if(id==='canais'){
     var q=[];
     if(K.doctor) q.push('kd='+K.doctor);
     if(K.acesso) q.push('ka='+K.acesso);
     if(K.bi) q.push('kb='+K.bi); /* o quadro de equipes vem do hub */
-    return 'canais.html#'+q.join('&');
+    return 'canais.html'+fresco()+'#'+q.join('&');
   }
-  return {bi:'bi.html',doctor:'index.html',acesso:'acesso.html'}[id]+'#k='+K[id];
+  return {bi:'bi.html',doctor:'index.html',acesso:'acesso.html'}[id]+fresco()+'#k='+K[id];
 }
 function temChave(id){ return id==='canais' ? !!(K.doctor||K.acesso) : !!K[id]; }
 function abre(id){
