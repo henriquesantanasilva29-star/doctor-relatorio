@@ -424,9 +424,19 @@ var COR = {'Meta Ads':'var(--red)','Meta sem id do anúncio':'#F5136E99','Google
            'Social orgânico':'var(--purple)','Site e busca':'var(--orange)','Base importada':'var(--mute)'};
 
 var CAN = [], MID = [], JOR = [], MARCAS_OK = [], lado = 'pago', marcaSel = 'todas';
-var PROC = [], PROCADS = {}, CONTA = {}, CRI = {}, criPedido = {}; /* detalhe de campanha (portado do dossiê) */
+var PROC = [], PROCADS = {}, CONTA = {}, CRI = {}, criPedido = {};
+/* delta pequeno ao lado do valor quando a comparacao esta ligada */
+function dtag(va, vb, invertido){
+  if (!cmpAtivo || vb == null || !isFinite(vb) || vb === 0 || va == null || !isFinite(va)) return '';
+  var pc = 100 * (va - vb) / Math.abs(vb);
+  var txt = (pc >= 0 ? '\u25b2+' : '\u25bc\u2212') + Math.abs(pc).toFixed(1).replace('.', ',') + '%';
+  var cor = '#8d84a3';
+  if (invertido !== null && Math.abs(pc) >= 1) cor = (invertido ? pc < 0 : pc > 0) ? '#0e7a4e' : '#c2185b';
+  return ' <span style="font-size:10.5px;font-weight:700;color:' + cor + ';white-space:nowrap">' + txt + '</span>';
+} /* detalhe de campanha (portado do dossiê) */
 var de = '', ate = '';
 var cmpAtivo = false, de2 = '', ate2 = '';
+var CMPB = null;
 
 /* ============ formatadores, iguais aos do relatório ============ */
 var BRL = function(v){return (v||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});};
@@ -728,7 +738,7 @@ function cartao(c){
          "<div class=\"kpi-sub\">" + c[2] + "</div></div>";
 }
 
-function pintaMidia(tpago){
+function midiaAgrega(){
   var mid = midiaNoPeriodo();
   var t = {inv:0, imp:0, cli:0, conv:0}, dias = {}, espec = {}, adEsp = {}, adsPer = {}, ads = {}, jorAd = {};
   mid.forEach(function(r){
@@ -761,22 +771,29 @@ function pintaMidia(tpago){
   var nDias = Object.keys(dias).length;
   var cob = t.conv ? 100 * cr.r / t.conv : 0;
 
+  return {t:t, nDias:nDias, cob:cob, cr:cr, fora:fora, espec:espec, ads:ads, jorAd:jorAd};
+}
+
+function pintaMidia(tpago){
+  var M = midiaAgrega(), MB = null;
+  if (cmpAtivo && de2 && ate2) { var sd = de, sa = ate; de = de2; ate = ate2; MB = midiaAgrega(); de = sd; ate = sa; }
+  var t = M.t, nDias = M.nDias, cob = M.cob, cr = M.cr, fora = M.fora, espec = M.espec, ads = M.ads, jorAd = M.jorAd;
   document.getElementById("midiaKpis").innerHTML = [
-    [BRL(t.inv), "Investimento Meta Ads", nDias + " dias com veicula\u00e7\u00e3o"],
+    [BRL(t.inv)+dtag(t.inv, MB&&MB.t.inv, null), "Investimento Meta Ads", nDias + " dias com veicula\u00e7\u00e3o"],
     [N(t.imp), "Impress\u00f5es", t.imp ? BRL(1000 * t.inv / t.imp) + " de CPM" : "\u2014"],
     [N(t.cli), "Cliques", t.imp ? ((100*t.cli/t.imp).toFixed(2).replace(".",",")+"%") + " de CTR" : "\u2014"],
     [t.cli ? BRL(t.inv / t.cli) : "\u2014", "CPC", "custo por clique"],
-    [N(t.conv), "Conversas iniciadas", t.conv ? BRL(t.inv / t.conv) + " por conversa \u00b7 a Meta contou" : "\u2014"],
-    [N(cr.r), "Leads no CRM", cr.r ? BRL(t.inv / cr.r) + " por lead \u00b7 " + PCT0(cob) + " das conversas" : "\u2014"],
-    [N(cr.p), "Viraram paciente", cr.p ? BRL(t.inv / cr.p) + " por paciente \u00b7 " + (cr.r ? PCT0(100 * cr.p / cr.r) : "\u2014") + " dos leads" : "\u2014"],
+    [N(t.conv)+dtag(t.conv, MB&&MB.t.conv, false), "Conversas iniciadas", t.conv ? BRL(t.inv / t.conv) + " por conversa \u00b7 a Meta contou" : "\u2014"],
+    [N(cr.r)+dtag(cr.r, MB&&MB.cr.r, false), "Leads no CRM", cr.r ? BRL(t.inv / cr.r) + " por lead \u00b7 " + PCT0(cob) + " das conversas" : "\u2014"],
+    [N(cr.p)+dtag(cr.p, MB&&MB.cr.p, false), "Viraram paciente", cr.p ? BRL(t.inv / cr.p) + " por paciente \u00b7 " + (cr.r ? PCT0(100 * cr.p / cr.r) : "\u2014") + " dos leads" : "\u2014"],
     [nDias ? BRL(t.inv / nDias) : "\u2014", "M\u00e9dia por dia", "investimento di\u00e1rio no per\u00edodo"]
   ].map(cartao).join("");
 
   document.getElementById("midiaRetorno").innerHTML = [
-    [BRL0(cr.v), "Faturado", "o que a m\u00eddia devolveu, vindo do Feegow"],
-    [BRL0(cr.pg), "Recebido", cr.v ? PCT0(100 * cr.pg / cr.v) + " do faturado" : "\u2014"],
-    [BRL0(cr.ab), "Em aberto", cr.v ? PCT0(100 * cr.ab / cr.v) + " do faturado" : "\u2014"],
-    [BRL0(cr.vne), "N\u00e3o executado", N(cr.ne) + " propostas paradas na mesa"],
+    [BRL0(cr.v)+dtag(cr.v, MB&&MB.cr.v, false), "Faturado", "o que a m\u00eddia devolveu, vindo do Feegow"],
+    [BRL0(cr.pg)+dtag(cr.pg, MB&&MB.cr.pg, false), "Recebido", cr.v ? PCT0(100 * cr.pg / cr.v) + " do faturado" : "\u2014"],
+    [BRL0(cr.ab)+dtag(cr.ab, MB&&MB.cr.ab, null), "Em aberto", cr.v ? PCT0(100 * cr.ab / cr.v) + " do faturado" : "\u2014"],
+    [BRL0(cr.vne)+dtag(cr.vne, MB&&MB.cr.vne, true), "N\u00e3o executado", N(cr.ne) + " propostas paradas na mesa"],
     [t.inv ? (cr.v / t.inv).toFixed(1).replace(".", ",") + "\u00d7" : "\u2014", "Retorno sobre a m\u00eddia",
       t.inv ? BRL(cr.v / t.inv) + " faturados por R$ 1 investido" : "sem investimento no per\u00edodo"],
     [t.inv ? (cr.pg / t.inv).toFixed(1).replace(".", ",") + "\u00d7" : "\u2014", "Retorno j\u00e1 em caixa",
@@ -796,19 +813,20 @@ function pintaMidia(tpago){
       "<th class=\"num\">Conversas</th><th class=\"num\">Custo/conversa</th>" +
       "<th class=\"num\">Faturado</th><th class=\"num\">N\u00e3o executado</th>" +
       "<th class=\"num\">Propostas paradas</th>" +
-      "<th class=\"num\">Recebido</th><th class=\"num\">Em aberto</th></tr></thead><tbody>" +
+      "<th class=\"num\">Recebido</th><th class=\"num\">Em aberto</th>" + (MB ? "<th class=\"num\">varia\u00e7\u00e3o do recebido</th>" : "") + "</tr></thead><tbody>" +
     linhas.map(function(x, i){
       var o = x.o;
       return "<tr class=\"esp-linha\" data-i=\"" + i + "\"><td><span class=\"esp-seta\">▸</span> " + esc(x.e) + "</td>" + td(N(Object.keys(o.dias).length)) + td(BRL(o.inv)) +
         td(N(o.conv)) + td(o.conv ? BRL(o.inv / o.conv) : "\u2014") +
         td(o.v ? BRL0(o.v) : "\u2014") + td(o.vne ? BRL0(o.vne) : "\u2014") +
         td(o.ne ? N(o.ne) : "\u2014") +
-        td(o.pg ? BRL0(o.pg) : "\u2014") + td(o.ab ? BRL0(o.ab) : "\u2014") + "</tr>";
+        td(o.pg ? BRL0(o.pg) : "\u2014") + td(o.ab ? BRL0(o.ab) : "\u2014") +
+        (MB ? td(dtag(o.pg, (MB.espec[x.e]||{}).pg || 0, false) || "\u2014") : "") + "</tr>";
     }).join("") + "</tbody>" +
     "<tfoot><tr><td>Total \u2014 " + N(linhas.length) + " especialidades</td>" +
       td(N(nDias)) + td(BRL(t.inv)) + td(N(t.conv)) + td(t.conv ? BRL(t.inv / t.conv) : "\u2014") +
       td(BRL0(cr.v)) + td(BRL0(cr.vne)) + td(N(cr.ne)) + td(BRL0(cr.pg)) + td(BRL0(cr.ab)) +
-      "</tr></tfoot>";
+      (MB ? td(dtag(cr.pg, MB.cr.pg, false) || "—") : "") + "</tr></tfoot>";
 
   /* fecho de contas do lado pago: os tres numeros desta tela, amarrados */
   (function(){
@@ -983,7 +1001,15 @@ function render(){
   var mapa = porCanal();
   var tp = totalDe(PAGO, mapa), tn = totalDe(NPAGO, mapa);
   var inv = investimento();
-  pintaDuelo(tp, tn, inv);
+  CMPB = null;
+  if (cmpAtivo && de2 && ate2) {
+    var sd = de, sa = ate; de = de2; ate = ate2;
+    CMPB = {mapa: porCanal()};
+    CMPB.tp = totalDe(PAGO, CMPB.mapa); CMPB.tn = totalDe(NPAGO, CMPB.mapa);
+    CMPB.inv = investimento();
+    de = sd; ate = sa;
+  }
+  pintaDuelo(tp, tn, inv, CMPB && CMPB.tp, CMPB && CMPB.tn);
   (function(){
     var el = document.getElementById('caixaPeriodo'); if(!el) return;
     var g = function(c){ return (mapa[c] && mapa[c].pgd) || 0; };
@@ -992,23 +1018,28 @@ function render(){
     var eq = g('Criado pela equipe'), bs = g('Base importada'), sr = g('Sem rastreio (pré-CRM)');
     var tot = 0; Object.keys(mapa).forEach(function(c){ tot += mapa[c].pgd || 0; });
     if (!tot) { el.innerHTML = ''; return; }
-    var li = function(r, v){ return '<div class="linha"><span>'+r+'</span><b>'+BRL0(v)+'</b></div>'; };
+    var gB = function(c){ return CMPB && CMPB.mapa[c] ? (CMPB.mapa[c].pgd || 0) : null; };
+    var somaB = function(cs){ if(!CMPB) return null; return cs.reduce(function(a,c){ return a + (gB(c)||0); }, 0); };
+    var totB = null;
+    if (CMPB) { totB = 0; Object.keys(CMPB.mapa).forEach(function(c){ totB += CMPB.mapa[c].pgd || 0; }); }
+    var li = function(r, v, vb){ return '<div class="linha"><span>'+r+'</span><b>'+BRL0(v)+dtag(v, vb, false)+'</b></div>'; };
     el.innerHTML =
       '<div class="lado" style="margin:12px 0;border-left:4px solid #241b35">' +
       '<h4>Caixa do período — todas as origens</h4>' +
-      '<div class="big">'+BRL0(tot)+'</div>' +
-      li('Pacientes de anúncio', pago) +
-      li('Orgânico e direto', org) +
-      li('Criado pela equipe — call center e recepção', eq) +
-      li('Base importada', bs) +
-      li('Sem canal identificável — telefone, balcão e cliente antigo', sr) +
+      '<div class="big">'+BRL0(tot)+dtag(tot, totB, false)+'</div>' +
+      li('Pacientes de anúncio', pago, somaB(PAGO)) +
+      li('Orgânico e direto', org, somaB(NPAGO)) +
+      li('Criado pela equipe — call center e recepção', eq, gB('Criado pela equipe')) +
+      li('Base importada', bs, gB('Base importada')) +
+      li('Sem canal identificável — telefone, balcão e cliente antigo', sr, gB('Sem rastreio (pré-CRM)')) +
       '</div>';
   })();
   var alvo = lado === 'pago' ? tp : (lado === 'organico' ? tn : soma(soma(zero(), tp), tn));
   var canais = lado === 'pago' ? PAGO : (lado === 'organico' ? NPAGO : PAGO.concat(NPAGO));
-  pintaKpis(alvo, inv);
+  var alvoB = CMPB ? (lado === 'pago' ? CMPB.tp : (lado === 'organico' ? CMPB.tn : soma(soma(zero(), CMPB.tp), CMPB.tn))) : null;
+  pintaKpis(alvo, inv, alvoB);
   pintaBarras(mapa, canais);
-  pintaTabela(mapa, canais, alvo, inv);
+  pintaTabela(mapa, canais, alvo, inv, CMPB && CMPB.mapa);
   pintaMidia(tp);
   carregaEquipes();
   pintaComparacao();
@@ -1025,36 +1056,43 @@ function carregaEquipes(){
     nota.textContent = 'Para ver as equipes aqui, abra esta tela pelo portal do grupo — a chave do BI (kb) não veio no link.';
     return;
   }
-  var chave = de + '|' + ate + '|' + marcaSel;
+  var chave = de + '|' + ate + '|' + marcaSel + '|' + (cmpAtivo && de2 && ate2 ? de2 + '|' + ate2 : '');
   if (chave === eqCacheKey) return;
   eqCacheKey = chave;
   nota.textContent = 'Buscando o quadro de equipes no hub…';
-  fetch('https://oqzbmdajkqexbpivkacv.supabase.co/functions/v1/bi-painel?k=' + encodeURIComponent(KB) +
-        '&ini=' + de + '&fim=' + ate + '&doc=sem_doc')
-    .then(function(r){ if(!r.ok) throw new Error('hub ' + r.status); return r.json(); })
-    .then(function(d){
+  var busca = function(i2, f2){
+    return fetch('https://oqzbmdajkqexbpivkacv.supabase.co/functions/v1/bi-painel?k=' + encodeURIComponent(KB) +
+                 '&ini=' + i2 + '&fim=' + f2 + '&doc=sem_doc')
+      .then(function(r){ if (!r.ok) throw new Error('hub ' + r.status); return r.json(); });
+  };
+  var rollup = function(d){
+    var porEq = {}, tot = 0;
+    (d.equipe || []).forEach(function(e){
+      if (marcaSel !== 'todas' && e.empresa !== marcaSel) return;
+      var k = e.equipe || '';
+      var o = (porEq[k] = porEq[k] || {valor:0, qtd:0, pessoas:{}});
+      var v = Number(e.valor || 0);
+      o.valor += v; o.qtd += Number(e.qtd || 0); tot += v;
+      o.pessoas[e.pessoa] = (o.pessoas[e.pessoa] || 0) + v;
+    });
+    return {porEq: porEq, tot: tot};
+  };
+  Promise.all([busca(de, ate), (cmpAtivo && de2 && ate2) ? busca(de2, ate2) : Promise.resolve(null)])
+    .then(function(rs){
+      var A = rollup(rs[0]), B = rs[1] ? rollup(rs[1]) : null;
       var ROTE = {recepcao_i:'Recepção Unidade I', recepcao_ii:'Recepção Unidade II',
         recepcao_iii:'Recepção Unidade III', recepcao_iv:'Recepção Unidade IV',
         recepcao_v:'Recepção Unidade V', recepcao_vi:'Recepção Unidade VI',
         call_doctor:'Call Center Doctor+', call_acesso:'Call Center Acesso Saúde'};
-      var porEq = {}, tot = 0;
-      (d.equipe || []).forEach(function(e){
-        if (marcaSel !== 'todas' && e.empresa !== marcaSel) return;
-        var k = e.equipe || '';
-        var o = (porEq[k] = porEq[k] || {valor:0, qtd:0, pessoas:{}});
-        var v = Number(e.valor || 0);
-        o.valor += v; o.qtd += Number(e.qtd || 0); tot += v;
-        o.pessoas[e.pessoa] = (o.pessoas[e.pessoa] || 0) + v;
-      });
-      var nomes = Object.keys(porEq).sort(function(a,b){ return porEq[b].valor - porEq[a].valor; });
+      var nomes = Object.keys(A.porEq).sort(function(a,b){ return A.porEq[b].valor - A.porEq[a].valor; });
       if (!nomes.length) {
         tb.innerHTML = '';
         nota.textContent = 'Sem venda atribuída a equipe no período (régua da planilha).';
         return;
       }
-      var mx = Math.max(1, porEq[nomes[0]].valor);
+      var mx = Math.max(1, A.porEq[nomes[0]].valor);
       var linhas = nomes.map(function(k){
-        var o = porEq[k];
+        var o = A.porEq[k];
         var ps = Object.keys(o.pessoas);
         var top = ps.sort(function(a,b){ return o.pessoas[b] - o.pessoas[a]; })[0] || '—';
         var w = Math.max(3, Math.round(100 * o.valor / mx));
@@ -1062,12 +1100,15 @@ function carregaEquipes(){
           '<td style="text-align:right">' + N(ps.length) + '</td>' +
           '<td style="text-align:right">' + N(o.qtd) + '</td>' +
           '<td style="text-align:right;min-width:160px"><div style="height:5px;border-radius:3px;margin-bottom:3px;opacity:.85;background:var(--red);width:' + w + '%"></div><b>' + BRL0(o.valor) + '</b></td>' +
-          '<td style="text-align:right"><b>' + (tot > 0 ? (Math.round(1000 * o.valor / tot) / 10).toFixed(1).replace('.', ',') + '%' : '—') + '</b></td>' +
+          '<td style="text-align:right"><b>' + (A.tot > 0 ? (Math.round(1000 * o.valor / A.tot) / 10).toFixed(1).replace('.', ',') + '%' : '—') + '</b></td>' +
+          (B ? '<td style="text-align:right">' + (dtag(o.valor, (B.porEq[k] || {}).valor || 0, false) || '—') + '</td>' : '') +
           '<td>' + esc(top) + ' <span style="color:var(--ink-3)">' + BRL0(o.pessoas[top] || 0) + '</span></td></tr>';
       }).join('');
       tb.innerHTML = '<thead><tr><th>Equipe</th><th style="text-align:right">Pessoas</th>' +
         '<th style="text-align:right">Recebimentos</th><th style="text-align:right">Valor</th>' +
-        '<th style="text-align:right">Participação</th><th>Melhor vendedor</th></tr></thead><tbody>' + linhas + '</tbody>';
+        '<th style="text-align:right">Participação</th>' +
+        (B ? '<th style="text-align:right">variação</th>' : '') +
+        '<th>Melhor vendedor</th></tr></thead><tbody>' + linhas + '</tbody>';
       nota.innerHTML = '';
     })
     .catch(function(e){
@@ -1076,44 +1117,43 @@ function carregaEquipes(){
       nota.textContent = 'Não consegui buscar o quadro de equipes agora (' + e.message + '). Ele volta na próxima atualização.';
     });
 }
-
-function pintaDuelo(tp, tn, inv){
+function pintaDuelo(tp, tn, inv, tpB, tnB){
   var linha = function(r, v){ return '<div class="linha"><span>'+r+'</span><b>'+v+'</b></div>'; };
   document.getElementById('duelo').innerHTML =
-    '<div class="lado p"><h4>Tráfego pago</h4><div class="big">'+BRL0(tp.pgd)+'</div>' +
+    '<div class="lado p"><h4>Tráfego pago</h4><div class="big">'+BRL0(tp.pgd)+dtag(tp.pgd, tpB&&tpB.pgd, false)+'</div>' +
       '<div class="nota" style="margin:0 0 8px">Recebido em caixa no período</div>' +
-      linha('Faturado — quem chegou no período', BRL0(tp.v)) +
+      linha('Faturado — quem chegou no período', BRL0(tp.v)+dtag(tp.v, tpB&&tpB.v, false)) +
       linha('Retorno sobre mídia (' + BRL0(inv) + ' investidos)', inv ? (tp.v/inv).toFixed(1).replace('.',',')+'×' : '—') +
-      linha('Conversas abertas', N(tp.ch)) +
-      linha('Leads novos', N(tp.ct) + (tp.ch ? ' · '+PCT1(100*tp.ct/tp.ch)+' das conversas' : '')) +
-      linha('Viraram paciente', N(tp.p) + (tp.ch ? ' · '+PCT1(100*tp.p/tp.ch)+' das conversas' : '')) +
-      linha('Em aberto — quem chegou no período', BRL0(tp.ab)) +
+      linha('Conversas abertas', N(tp.ch)+dtag(tp.ch, tpB&&tpB.ch, false)) +
+      linha('Leads novos', N(tp.ct) + (tp.ch ? ' · '+PCT1(100*tp.ct/tp.ch)+' das conversas' : '') + dtag(tp.ct, tpB&&tpB.ct, false)) +
+      linha('Viraram paciente', N(tp.p) + (tp.ch ? ' · '+PCT1(100*tp.p/tp.ch)+' das conversas' : '') + dtag(tp.p, tpB&&tpB.p, false)) +
+      linha('Em aberto — quem chegou no período', BRL0(tp.ab)+dtag(tp.ab, tpB&&tpB.ab, null)) +
     '</div>' +
-    '<div class="lado o"><h4>Não pago — orgânico e direto</h4><div class="big">'+BRL0(tn.pgd)+'</div>' +
+    '<div class="lado o"><h4>Não pago — orgânico e direto</h4><div class="big">'+BRL0(tn.pgd)+dtag(tn.pgd, tnB&&tnB.pgd, false)+'</div>' +
       '<div class="nota" style="margin:0 0 8px">entrou em caixa no período</div>' +
-      linha('Faturado — quem chegou no período', BRL0(tn.v)) +
+      linha('Faturado — quem chegou no período', BRL0(tn.v)+dtag(tn.v, tnB&&tnB.v, false)) +
       linha('Custo de mídia', 'R$ 0') +
-      linha('Conversas abertas', N(tn.ch)) +
-      linha('Leads novos', N(tn.ct) + (tn.ch ? ' · '+PCT1(100*tn.ct/tn.ch)+' das conversas' : '')) +
-      linha('Viraram paciente', N(tn.p) + (tn.ch ? ' · '+PCT1(100*tn.p/tn.ch)+' das conversas' : '')) +
-      linha('Em aberto — quem chegou no período', BRL0(tn.ab)) +
+      linha('Conversas abertas', N(tn.ch)+dtag(tn.ch, tnB&&tnB.ch, false)) +
+      linha('Leads novos', N(tn.ct) + (tn.ch ? ' · '+PCT1(100*tn.ct/tn.ch)+' das conversas' : '') + dtag(tn.ct, tnB&&tnB.ct, false)) +
+      linha('Viraram paciente', N(tn.p) + (tn.ch ? ' · '+PCT1(100*tn.p/tn.ch)+' das conversas' : '') + dtag(tn.p, tnB&&tnB.p, false)) +
+      linha('Em aberto — quem chegou no período', BRL0(tn.ab)+dtag(tn.ab, tnB&&tnB.ab, null)) +
     '</div>';
 }
 
-function pintaKpis(t, inv){
+function pintaKpis(t, inv, tB){
   var titulo = lado === 'pago' ? 'Tráfego pago, em detalhe'
              : lado === 'organico' ? 'Não pago, em detalhe' : 'Pago e não pago somados';
   document.getElementById('tituloLado').textContent = titulo;
   var cartoes = [
-    [N(t.ch), 'Conversas abertas', 'novas e reabertas no período'],
-    [N(t.ct), 'Leads novos', t.ch ? PCT1(100*t.ct/t.ch)+' das conversas' : '—'],
+    [N(t.ch)+dtag(t.ch, tB&&tB.ch, false), 'Conversas abertas', 'novas e reabertas no período'],
+    [N(t.ct)+dtag(t.ct, tB&&tB.ct, false), 'Leads novos', t.ch ? PCT1(100*t.ct/t.ch)+' das conversas' : '—'],
     [t.ct ? (t.ch/t.ct).toFixed(2).replace('.',',') : '—', 'Conversas por lead',
      'quanto atendimento cada aquisição custa'],
-    [N(t.p), 'Viraram paciente', t.ch ? PCT1(100*t.p/t.ch)+' das conversas' : '—'],
-    [BRL0(t.v), 'Faturado — chegados no período', N(t.nf)+' faturas de '+N(t.pf)+' pacientes'],
-    [BRL0(t.pgd), 'Recebido em caixa no período', 'pagamentos datados dentro do período'],
-    [BRL0(t.ab), 'Em aberto — chegados no período', t.v ? PCT0(100*t.ab/t.v)+' do faturado' : '—'],
-    [BRL0(t.vne), 'Não executado', N(t.ne)+' propostas paradas na mesa'],
+    [N(t.p)+dtag(t.p, tB&&tB.p, false), 'Viraram paciente', t.ch ? PCT1(100*t.p/t.ch)+' das conversas' : '—'],
+    [BRL0(t.v)+dtag(t.v, tB&&tB.v, false), 'Faturado — chegados no período', N(t.nf)+' faturas de '+N(t.pf)+' pacientes'],
+    [BRL0(t.pgd)+dtag(t.pgd, tB&&tB.pgd, false), 'Recebido em caixa no período', 'pagamentos datados dentro do período'],
+    [BRL0(t.ab)+dtag(t.ab, tB&&tB.ab, null), 'Em aberto — chegados no período', t.v ? PCT0(100*t.ab/t.v)+' do faturado' : '—'],
+    [BRL0(t.vne)+dtag(t.vne, tB&&tB.vne, true), 'Não executado', N(t.ne)+' propostas paradas na mesa'],
     [t.p ? BRL0(t.v/t.p) : '—', 'Faturado por paciente', 'média, inclusive quem não comprou'],
     lado === 'pago'
       ? [inv ? (t.v/inv).toFixed(1).replace('.',',')+'×' : '—', 'Retorno sobre a mídia',
@@ -1151,7 +1191,7 @@ function pintaBarras(mapa, canais){
     bloco('Chegadas por canal', 'ch', maxC, N);
 }
 
-function pintaTabela(mapa, canais, tot, inv){
+function pintaTabela(mapa, canais, tot, inv, mapaB){
   var linhas = canais.map(function(c){ return {c:c, t:mapa[c]||zero()}; })
                      .filter(function(x){ return x.t.ch || x.t.ct || x.t.v; })
                      .sort(function(a,b){ return b.t.v - a.t.v || b.t.ct - a.t.ct; });
@@ -1164,19 +1204,21 @@ function pintaTabela(mapa, canais, tot, inv){
       '<th class="num">Pacientes</th>' +
       '<th class="num">Conversão</th><th class="num">Recebido no período</th>' +
       '<th class="num">Faturado</th><th class="num">Não executado</th>' +
-      '<th class="num">Em aberto</th></tr></thead>' +
+      '<th class="num">Em aberto</th>' + (mapaB ? '<th class="num">variação do recebido</th>' : '') + '</tr></thead>' +
     '<tbody>' + linhas.map(function(x){
       var t = x.t;
       return '<tr><td>'+esc(x.c)+'</td>' + td(N(t.ch)) + td(N(t.ct)) + td(N(t.p)) +
         td(t.ch ? PCT1(100*t.p/t.ch) : '—') +
         td(t.pgd ? '<b>' + BRL0(t.pgd) + '</b>' : '—') +
         td(t.v ? BRL0(t.v) : '—') + td(t.vne ? BRL0(t.vne) : '—') +
-        td(t.ab ? BRL0(t.ab) : '—') + '</tr>';
+        td(t.ab ? BRL0(t.ab) : '—') +
+        (mapaB ? td(dtag(t.pgd, (mapaB[x.c]||{}).pgd || 0, false) || '—') : '') + '</tr>';
     }).join('') + '</tbody>' +
     '<tfoot><tr><td>Total</td>' + td(N(tot.ch)) + td(N(tot.ct)) + td(N(tot.p)) +
       td(tot.ch ? PCT1(100*tot.p/tot.ch) : '—') + td('<b>' + BRL0(tot.pgd || 0) + '</b>') +
       td(BRL0(tot.v)) + td(BRL0(tot.vne)) +
-      td(BRL0(tot.ab)) + '</tr></tfoot>';
+      td(BRL0(tot.ab)) +
+      (mapaB ? td(dtag(tot.pgd, totalDe(canais, mapaB).pgd, false) || '—') : '') + '</tr></tfoot>';
   var nc = document.getElementById('notaCanais');
   if (nc) nc.innerHTML = '';
 }
