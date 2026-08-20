@@ -1127,6 +1127,7 @@ function pintaDuelo(tp, tn, inv, tpB, tnB){
       linha('Conversas abertas', N(tp.ch)+dtag(tp.ch, tpB&&tpB.ch, false)) +
       linha('Leads novos', N(tp.ct) + (tp.ch ? ' · '+PCT1(100*tp.ct/tp.ch)+' das conversas' : '') + dtag(tp.ct, tpB&&tpB.ct, false)) +
       linha('Viraram paciente', N(tp.p) + (tp.ch ? ' · '+PCT1(100*tp.p/tp.ch)+' das conversas' : '') + dtag(tp.p, tpB&&tpB.p, false)) +
+      linha('Recebido — quem chegou no período', BRL0(tp.pg)+dtag(tp.pg, tpB&&tpB.pg, false)) +
       linha('Em aberto — quem chegou no período', BRL0(tp.ab)+dtag(tp.ab, tpB&&tpB.ab, null)) +
     '</div>' +
     '<div class="lado o"><h4>Não pago — orgânico e direto</h4><div class="big">'+BRL0(tn.pgd)+dtag(tn.pgd, tnB&&tnB.pgd, false)+'</div>' +
@@ -1136,6 +1137,7 @@ function pintaDuelo(tp, tn, inv, tpB, tnB){
       linha('Conversas abertas', N(tn.ch)+dtag(tn.ch, tnB&&tnB.ch, false)) +
       linha('Leads novos', N(tn.ct) + (tn.ch ? ' · '+PCT1(100*tn.ct/tn.ch)+' das conversas' : '') + dtag(tn.ct, tnB&&tnB.ct, false)) +
       linha('Viraram paciente', N(tn.p) + (tn.ch ? ' · '+PCT1(100*tn.p/tn.ch)+' das conversas' : '') + dtag(tn.p, tnB&&tnB.p, false)) +
+      linha('Recebido — quem chegou no período', BRL0(tn.pg)+dtag(tn.pg, tnB&&tnB.pg, false)) +
       linha('Em aberto — quem chegou no período', BRL0(tn.ab)+dtag(tn.ab, tnB&&tnB.ab, null)) +
     '</div>';
 }
