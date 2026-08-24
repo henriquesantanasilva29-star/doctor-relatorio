@@ -214,8 +214,15 @@ function carrega(){
       itens.push('<b>dinheiro</b> — ' + din.dias_com_dado + ' de ' + A.periodo.dias +
         ' dias do período têm dado. O valor é o que entrou até ' + J.br(din.ultimo_dia) + '.');
     }
+    // fontes mudas: pipeline carregando mas sem dado novo daquela sub-fonte além da cadência esperada
+    var mudas = (S.silencio || []).filter(function(s){ return s.mudo; });
+    if (mudas.length) {
+      itens.push('<b>🔇 ' + mudas.length + ' fonte(s) muda(s)</b> — ' +
+        mudas.map(function(s){ return J.esc(s.fonte) + ' (' + s.dias_sem_dado + ' dias)'; }).join(', ') + '.');
+    }
+    var grave = paradas.length > 0 || mudas.length > 0;
     el('confianca').innerHTML = itens.length
-      ? '<div class="aviso' + (paradas.length ? ' grave' : '') + '"><span class="ttl">O que não dá para afirmar hoje</span><ul><li>' +
+      ? '<div class="aviso' + (grave ? ' grave' : '') + '"><span class="ttl">O que não dá para afirmar hoje</span><ul><li>' +
         itens.join('</li><li>') + '</li></ul></div>'
       : '<div class="aviso calmo"><span class="ttl">Confiança</span><p>Nenhuma fonte atrasada e nenhuma etapa parada no período. Os seis sinais acima estão apoiados em dado completo.</p></div>';
 
