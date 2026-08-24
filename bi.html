@@ -100,11 +100,17 @@ footer{color:var(--cinza);font-size:12px;margin-top:40px}
 <h2>Venda por equipe e pessoa</h2>
 <div style="overflow-x:auto"><table><thead><tr><th>Equipe</th><th>Pessoa</th><th class="r">Recebimentos</th><th class="r">Valor</th></tr></thead><tbody id="equipe"></tbody></table></div>
 <div class="nota"><b>Quem vendeu ≠ por onde o paciente chegou.</b> Esta tabela responde "quem vendeu" (valores da planilha, nome a nome). <b>As equipes são as definidas no Life CRM</b> (sincronizadas diariamente — inclusive a divisão SDR × Closers); quem não atende no Life CRM cai no mapa antigo do hub (códigos recepcao_*, call_*). Linha com equipe vazia é pessoa sem time em nenhum dos dois mapas, não venda sem dono. A tela de canais responde outra pergunta — de onde o paciente veio no primeiro contato.</div>
+<h2>Venda por pessoa e unidade</h2>
+<div style="overflow-x:auto"><table><thead id="euH"></thead><tbody id="euB"></tbody></table></div>
+<div class="nota">Recebido em caixa creditado a quem vendeu, quebrado pela unidade do atendimento. Grafias com/sem acento são unificadas.</div>
 <h2>Propostas (orçamentos) no período</h2>
 <div class="cards" id="prop-cards"></div>
 <div class="nota">Régua do app: <b>Convertido</b> = executada e com pagamento casado no período; <b>Rejeitado</b> = rejeitada/cancelada; <b>Em aberto</b> = todo o resto — inclusive <b>executada e ainda não paga</b>, destacada abaixo. Contagem por número de proposta; recorte pela data de criação.</div>
 <div style="overflow-x:auto;margin-top:12px"><table><thead><tr><th>Equipe</th><th class="r">Convertidos</th><th class="r">Rejeitados</th><th class="r">Em aberto</th><th class="r">Total</th><th class="r">Conversão</th></tr></thead><tbody id="prop-equipe"></tbody></table></div>
 <div style="overflow-x:auto;margin-top:12px"><table><thead><tr><th>Unidade</th><th class="r">Convertidos</th><th class="r">Rejeitados</th><th class="r">Em aberto</th><th class="r">Total</th><th class="r">Conversão</th></tr></thead><tbody id="prop-unidade"></tbody></table></div>
+<h2>Propostas por vendedor</h2>
+<div style="overflow-x:auto"><table><thead><tr><th>Equipe</th><th>Pessoa</th><th class="r">Propostas</th><th class="r">Convertidas</th><th class="r">Valor convertido</th><th class="r">Em aberto</th><th class="r">Rejeitadas</th><th class="r">Conversão</th></tr></thead><tbody id="prop-pessoa"></tbody></table></div>
+<div class="nota">Convertido = proposta executada com pagamento identificado no caixa do período — não é o "Pago" do relatório do Feegow. Pessoas com grafias diferentes (acentos) são unificadas.</div>
 <h2>Recebido por mês e unidade (ano do período)</h2>
 <div style="overflow-x:auto"><table id="fatt"><thead id="fath"></thead><tbody id="fatb"></tbody></table></div>
 <div class="nota">Meses sem barra são ausência de coleta, não de movimento.</div>
@@ -329,6 +335,61 @@ function carrega(){
      +'<td>'+esc(e.pessoa||'—')+'</td><td class="r">'+num(e.qtd)+'</td><td class="r b">'+brl(e.valor)+'</td></tr>';
    }).join('')||'<tr><td colspan="4" class="avi">sem dados no período</td></tr>';
   })();
+  // venda por pessoa e unidade (equipe_unidade — pode ainda não existir no payload, degrada sem quebrar)
+  (function(){
+   var euH=document.getElementById('euH'),euB=document.getElementById('euB');
+   if(!euH||!euB)return;
+   var EU=(d.equipe_unidade||[]);
+   if(!EU.length){
+    euH.innerHTML='<tr><th>Pessoa</th><th class="r">Unidade I</th><th class="r">Unidade II</th><th class="r">Unidade III</th><th class="r">Unidade IV</th><th class="r">Unidade V</th><th class="r">Unidade VI</th><th class="r">Total</th></tr>';
+    euB.innerHTML='<tr><td colspan="8" class="avi">sem dados (bloco equipe_unidade ainda não publicado no hub)</td></tr>';
+    return;
+   }
+   var COLORD=['acesso|20','acesso|21','acesso|55','doctor|0','doctor|2','doctor|4'];
+   var colLabel={},colSeen={};
+   EU.forEach(function(e){var k=e.empresa+'|'+e.fid;colSeen[k]=true;if(!colLabel[k])colLabel[k]=e.unidade||k;});
+   var cols=COLORD.filter(function(k){return colSeen[k]}).concat(Object.keys(colSeen).filter(function(k){return COLORD.indexOf(k)<0}));
+   euH.innerHTML='<tr><th>Pessoa</th>'+cols.map(function(k){return '<th class="r">'+esc(colLabel[k])+'</th>'}).join('')+'<th class="r">Total</th></tr>';
+   var porPessoa={};
+   EU.forEach(function(e){
+    var k=e.empresa+'|'+e.fid;
+    var o=(porPessoa[e.pessoa]=porPessoa[e.pessoa]||{cols:{},tot:0,emp:{}});
+    var v=Number(e.valor||0);
+    o.cols[k]=(o.cols[k]||0)+v;
+    o.tot+=v;
+    o.emp[e.empresa]=(o.emp[e.empresa]||0)+v;
+   });
+   var nomes=Object.keys(porPessoa).sort(function(a,b){return porPessoa[b].tot-porPessoa[a].tot});
+   var topN=nomes.slice(0,25),resto=nomes.slice(25);
+   var linha=function(nome){
+    var o=porPessoa[nome];
+    var emps=Object.keys(o.emp).sort(function(a,b){return o.emp[b]-o.emp[a]});
+    var corP=CORES[emps[0]]||'#A9A3BC';
+    return '<tr><td><span class="dot" style="background:'+corP+'"></span>'+esc(nome)+'</td>'
+     +cols.map(function(k){return '<td class="r">'+(o.cols[k]!=null?brl(o.cols[k]):'—')+'</td>'}).join('')
+     +'<td class="r b">'+brl(o.tot)+'</td></tr>';
+   };
+   var linhas=topN.map(linha);
+   if(resto.length){
+    var somaResto=0,colResto={};
+    resto.forEach(function(nome){
+     var o=porPessoa[nome];somaResto+=o.tot;
+     cols.forEach(function(k){if(o.cols[k]!=null)colResto[k]=(colResto[k]||0)+o.cols[k]});
+    });
+    linhas.push('<tr class="avi"><td>+ '+num(resto.length)+' pessoas menores somando '+brl(somaResto)+'</td>'
+     +cols.map(function(k){return '<td class="r">'+(colResto[k]!=null?brl(colResto[k]):'—')+'</td>'}).join('')
+     +'<td class="r">'+brl(somaResto)+'</td></tr>');
+   }
+   var totCols={},totGeral=0;
+   nomes.forEach(function(nome){
+    var o=porPessoa[nome];totGeral+=o.tot;
+    cols.forEach(function(k){if(o.cols[k]!=null)totCols[k]=(totCols[k]||0)+o.cols[k]});
+   });
+   linhas.push('<tr class="b"><td>Total</td>'
+    +cols.map(function(k){return '<td class="r">'+(totCols[k]!=null?brl(totCols[k]):'—')+'</td>'}).join('')
+    +'<td class="r">'+brl(totGeral)+'</td></tr>');
+   euB.innerHTML=linhas.join('');
+  })();
   // propostas
   (function(){
    var P=d.propostas||{};var st=P.por_status||{};var tot=P.total||{qtd:0,valor:0};
@@ -358,6 +419,33 @@ function carrega(){
     var q=(c?c.qtd:0)+(r?r.qtd:0)+(a?a.qtd:0),v=(c?c.valor:0)+(r?r.valor:0)+(a?a.valor:0);
     return "<tr><td><span class=\"dot\" style=\"background:"+(CORES[un[kk].empresa]||"#A9A3BC")+"\"></span>"+esc(NU[kk]||kk)+"</td><td class=\"r\">"+cel(c)+"</td><td class=\"r\">"+cel(r)+"</td><td class=\"r\">"+cel(a)+"</td><td class=\"r\">"+cel({qtd:q,valor:v})+"</td><td class=\"r b\">"+(q>0?(Math.round(1000*(c?c.qtd:0)/q)/10)+"%":"—")+"</td></tr>";
    }).join("")||"<tr><td colspan=\"6\" class=\"avi\">sem dados</td></tr>";
+   // propostas por vendedor — dedup de pessoa por grafia (acento), soma dos rótulos através das variantes
+   var DIAC=new RegExp(String.fromCharCode(91)+String.fromCharCode(768)+"-"+String.fromCharCode(879)+String.fromCharCode(93),"g");
+   var norm=function(s){return String(s||"").normalize("NFD").replace(DIAC,"").toLowerCase().trim().replace(/\s+/g," ")};
+   var pes={};
+   (P.por_pessoa||[]).forEach(function(e){
+    var key=norm(e.pessoa);
+    var o=(pes[key]=pes[key]||{variantes:{},cv:{qtd:0,valor:0},ab:{qtd:0,valor:0},rj:{qtd:0,valor:0}});
+    var nome=e.pessoa||"—";
+    var vv=(o.variantes[nome]=o.variantes[nome]||{qtd:0,valor:0,team:e.team});
+    vv.qtd+=Number(e.qtd||0);vv.valor+=Number(e.valor||0);
+    var alvo=e.rotulo==="Convertido"?o.cv:(e.rotulo==="Rejeitado"?o.rj:o.ab);
+    alvo.qtd+=Number(e.qtd||0);alvo.valor+=Number(e.valor||0);
+   });
+   var linhasP=Object.keys(pes).map(function(key){
+    var o=pes[key];
+    var nomes=Object.keys(o.variantes);
+    var nome=nomes.sort(function(a,b){return o.variantes[b].valor-o.variantes[a].valor})[0];
+    var totQ=o.cv.qtd+o.ab.qtd+o.rj.qtd;
+    return {team:o.variantes[nome].team,pessoa:nome,totQ:totQ,cv:o.cv,ab:o.ab,rj:o.rj};
+   }).sort(function(a,b){return b.cv.valor-a.cv.valor});
+   var totGeralP={totQ:0,cvQ:0,cvV:0,abQ:0,rjQ:0};
+   linhasP.forEach(function(l){totGeralP.totQ+=l.totQ;totGeralP.cvQ+=l.cv.qtd;totGeralP.cvV+=l.cv.valor;totGeralP.abQ+=l.ab.qtd;totGeralP.rjQ+=l.rj.qtd});
+   var linhaTotP=linhasP.length?("<tr class=\"b\"><td colspan=\"2\">Total geral</td><td class=\"r\">"+num(totGeralP.totQ)+"</td><td class=\"r\">"+num(totGeralP.cvQ)+"</td><td class=\"r\">"+brl(totGeralP.cvV)+"</td><td class=\"r\">"+num(totGeralP.abQ)+"</td><td class=\"r\">"+num(totGeralP.rjQ)+"</td><td class=\"r\">"+(totGeralP.totQ>0?(Math.round(1000*totGeralP.cvQ/totGeralP.totQ)/10)+"%":"—")+"</td></tr>"):"";
+   document.getElementById("prop-pessoa").innerHTML=linhasP.length?(linhasP.map(function(l){
+    var pctC=l.totQ>0?(Math.round(1000*l.cv.qtd/l.totQ)/10)+"%":"—";
+    return "<tr><td>"+esc(ROTE[l.team]||l.team||"(sem equipe mapeada)")+"</td><td>"+esc(l.pessoa)+"</td><td class=\"r\">"+num(l.totQ)+"</td><td class=\"r\">"+num(l.cv.qtd)+"</td><td class=\"r\">"+brl(l.cv.valor)+"</td><td class=\"r\">"+num(l.ab.qtd)+"</td><td class=\"r\">"+num(l.rj.qtd)+"</td><td class=\"r b\">"+pctC+"</td></tr>";
+   }).join("")+linhaTotP):"<tr><td colspan=\"8\" class=\"avi\">sem propostas no período</td></tr>";
   })();
   // mix por categoria de serviço
   (function(){
