@@ -293,6 +293,15 @@ tfoot td{padding:8px 10px;font-weight:700;border-top:2px solid var(--dark)}
 .lado::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px}
 .lado.p::before{background:var(--red)}
 .lado.o::before{background:var(--green)}
+.lado.vg::before{background:var(--blue)}
+.lado.vx::before{background:var(--orange)}
+.lado .selo{display:inline-block;font-size:10.5px;font-weight:700;letter-spacing:.2px;
+  border-radius:var(--r-pill);padding:2px 9px;margin-left:7px;vertical-align:2px;
+  font-family:var(--font-body)}
+.lado .selo.falta{background:var(--alert-bg);color:var(--red)}
+.lado .selo.ok{background:#E8F8F1;color:#0E7A4E}
+.lado .ger{font-size:11.5px;color:var(--gray-text);margin-top:2px}
+#agDuelo .lado h4{text-transform:none;font-size:13.5px;color:var(--dark);font-weight:700}
 .lado h4{margin:0 0 2px;font-size:12px;letter-spacing:.3px;text-transform:uppercase;color:var(--gray-text)}
 .lado .big{font-family:var(--font-display);font-size:26px;font-weight:700;color:var(--dark);
   line-height:1.1;font-variant-numeric:tabular-nums}
@@ -391,6 +400,11 @@ tfoot td{padding:8px 10px;font-weight:700;border-top:2px solid var(--dark)}
 <table id="tCanais"></table>
 <div id="notaCanais" class="nota"></div>
 
+<div class="section-title">Quem trouxe — as duas agências</div>
+<div class="duelo" id="agDuelo"></div>
+<table id="tAgencias"></table>
+<div id="notaAgencias" class="nota"></div>
+
 <div class="section-title">Quadro de vendas por equipe</div>
 <table id="tEquipes"></table>
 <div id="notaEquipes" class="nota"></div>
@@ -424,6 +438,7 @@ var COR = {'Meta Ads':'var(--red)','Meta sem id do anúncio':'#F5136E99','Google
            'Social orgânico':'var(--purple)','Site e busca':'var(--orange)','Base importada':'var(--mute)'};
 
 var CAN = [], MID = [], JOR = [], MARCAS_OK = [], lado = 'pago', marcaSel = 'todas';
+var AG = [], AGREF = [];
 var PROC = [], PROCADS = {}, CONTA = {}, CRI = {}, criPedido = {};
 /* delta pequeno ao lado do valor quando a comparacao esta ligada */
 function dtag(va, vb, invertido){
@@ -467,6 +482,14 @@ function carrega(){
           id:String(r[3]), inv:r[4]||0, imp:r[5]||0, cli:r[6]||0, conv:r[7]||0}); });
         (d.jornada||[]).forEach(function(x){ JOR.push({m:m.id, d:x.d, a:String(x.a),
           r:x.r||0, p:x.p||0, e:x.e||0, v:x.v||0, pg:x.pg||0, ab:x.ab||0, vne:x.vne||0, ne:x.ne||0}); });
+        /* agencias: so a Doctor publica esta chave hoje — a Acesso nao tem o
+           espelho que captura anuncio fora da conta coletada. */
+        ((d.agencias && d.agencias.serie) || []).forEach(function(x){ AG.push({m:m.id, d:x.d,
+          ag:x.ag, r:x.r||0, rev:x.rev||0, k:x.k||0, p:x.p||0, o:x.o||0, e:x.e||0,
+          vexec:x.vexec||0, ne:x.ne||0, vne:x.vne||0, nf:x.nf||0, v:x.v||0, pg:x.pg||0,
+          ab:x.ab||0, inv:x.inv||0, imp:x.imp||0, cli:x.cli||0, conv:x.conv||0}); });
+        ((d.agencias && d.agencias.ref) || []).forEach(function(x){ AGREF.push({m:m.id,
+          ag:x.ag, conta:x.conta||'', ger:x.ger||'', coletada:!!x.coletada, nota:x.nota||''}); });
         (d.crmproc||[]).forEach(function(x){ var aid=String(x.a); PROCADS[aid]=1;
           PROC.push({m:m.id, a:aid, d:x.d, c:x.c, qe:x.qe||0, ve:x.ve||0, vp:x.vp||0, qn:x.qn||0, vn:x.vn||0}); });
         (d.cria||[]).forEach(function(c){ var k=String(c.a);
@@ -774,6 +797,139 @@ function midiaAgrega(){
   return {t:t, nDias:nDias, cob:cob, cr:cr, fora:fora, espec:espec, ads:ads, jorAd:jorAd};
 }
 
+/* ============ quem trouxe: o recorte por agencia de midia ============
+   A agencia sai da CONTA de anuncio (tabela meta_agencia no banco), nunca do
+   nome da campanha: o prefixo [VG] e a Vanguarda, mas ela opera midia de mais
+   de uma marca, e a VX nomeia campanha de outro jeito. Nome nao e chave.
+
+   O telefone conta para a agencia do PRIMEIRO anuncio que o tocou. Quem viu
+   anuncio das duas nao entra duas vezes — vai para quem chegou antes.
+
+   AS DUAS NAO SAO MEDIDAS PELO MESMO CANO, e isso muda a leitura:
+     Vanguarda  utm do WTS, no contato               ~97% dos leads dela
+     VX         referencia do anuncio na mensagem    100% dos leads dela
+   Cobertura diferente nao e desempenho diferente.
+
+   A conta da VX entrou na coleta em 25/08/2026. Para agencia que ainda nao
+   esteja coletada, investimento zero e ausencia de DADO, nao de gasto, e por
+   isso custo e retorno somem em vez de virar zero. `coletada` vem do banco e e
+   observado, nao declarado: e verdade se existe investimento coletado daquela
+   conta na janela. Nao troque por uma flag a mao — flag a mao envelhece. */
+var AG_CLASSE = {'Vanguarda':'vg', 'VX':'vx'};
+
+function agAgrega(d1, d2){
+  var m = {};
+  AG.forEach(function(x){
+    if (x.d < d1 || x.d > d2) return;
+    if (marcaSel !== 'todas' && x.m !== marcaSel) return;
+    var o = m[x.ag] || (m[x.ag] = {ag:x.ag, r:0, rev:0, k:0, p:0, o:0, e:0, vexec:0,
+                                   ne:0, vne:0, nf:0, v:0, pg:0, ab:0, inv:0, conv:0});
+    ['r','rev','k','p','o','e','vexec','ne','vne','nf','v','pg','ab','inv','conv']
+      .forEach(function(c){ o[c] += x[c] || 0; });
+  });
+  return m;
+}
+
+function agRef(nome){
+  for (var i = 0; i < AGREF.length; i++) if (AGREF[i].ag === nome) return AGREF[i];
+  return {ag:nome, conta:'', ger:'', coletada:false, nota:''};
+}
+
+function pintaAgencias(){
+  var duelo = document.getElementById('agDuelo');
+  var tab   = document.getElementById('tAgencias');
+  var nota  = document.getElementById('notaAgencias');
+  if (!duelo || !tab || !nota) return;
+
+  var limpa = function(msg){ duelo.innerHTML = ''; tab.innerHTML = ''; nota.innerHTML = msg; };
+
+  if (!AG.length) {
+    limpa('O recorte por agência ainda não veio no dado desta marca. Ele existe apenas onde ' +
+          'o CRM captura anúncio de conta não coletada — hoje, só na Doctor.');
+    return;
+  }
+  if (marcaSel === 'acesso') {
+    limpa('<b>Não há recorte por agência na Acesso Saúde.</b> Lá o único carimbo de anúncio no ' +
+          'CRM é o da conta que a Vanguarda opera; não existe o espelho que captura anúncio de ' +
+          'conta de fora. Se a VX estiver rodando para a Acesso, o lead dela chega hoje como ' +
+          '“Direto / sem origem” — ausência de carimbo não é prova de origem orgânica.');
+    return;
+  }
+
+  var m = agAgrega(de, ate), mB = (cmpAtivo && de2 && ate2) ? agAgrega(de2, ate2) : null;
+  var linhas = Object.keys(m).map(function(k){ return m[k]; })
+                     .filter(function(o){ return o.r || o.v || o.inv; })
+                     .sort(function(a, b){ return b.pg - a.pg; });
+  if (!linhas.length) { limpa('Nenhum lead de anúncio atribuído a agência neste período.'); return; }
+
+  /* --- os dois cartoes, lado a lado --- */
+  duelo.innerHTML = linhas.slice(0, 2).map(function(o){
+    var ref = agRef(o.ag), b = mB && mB[o.ag];
+    var l = function(r, v){ return '<div class="linha"><span>' + r + '</span><b>' + v + '</b></div>'; };
+    var selo = ref.coletada
+      ? '<span class="selo ok">investimento coletado</span>'
+      : '<span class="selo falta">conta não compartilhada</span>';
+    return '<div class="lado ' + (AG_CLASSE[o.ag] || '') + '">' +
+      '<h4>' + esc(o.ag) + selo + '</h4>' +
+      '<div class="ger">gerenciador ' + esc(ref.ger || '—') + '</div>' +
+      '<div class="big">' + BRL0(o.pg) + dtag(o.pg, b && b.pg, false) + '</div>' +
+      '<div class="ger" style="margin-bottom:4px">recebido em caixa no período</div>' +
+      l('Leads no CRM', N(o.r)) +
+      l('Viraram paciente', N(o.p) + (o.r ? ' · ' + PCT0(100 * o.p / o.r) : '')) +
+      l('Faturado', BRL0(o.v)) +
+      l('Em aberto', BRL0(o.ab)) +
+      l('Parado na mesa', BRL0(o.vne) + (o.ne ? ' · ' + N(o.ne) + ' propostas' : '')) +
+      l('Investimento', ref.coletada ? BRL0(o.inv) : 'não compartilhado') +
+      l('Custo por lead', (ref.coletada && o.r) ? BRL(o.inv / o.r) : '—') +
+      l('Custo por paciente', (ref.coletada && o.p) ? BRL(o.inv / o.p) : '—') +
+      l('Retorno sobre a mídia', (ref.coletada && o.inv)
+          ? (o.v / o.inv).toFixed(1).replace('.', ',') + '× faturado' : '—') +
+      '</div>';
+  }).join('');
+
+  /* --- a mesma coisa em tabela, com o total --- */
+  var td = function(v){ return '<td class="num">' + v + '</td>'; };
+  var T = {r:0, p:0, o:0, v:0, pg:0, ab:0, vne:0, inv:0};
+  linhas.forEach(function(o){ ['r','p','o','v','pg','ab','vne','inv'].forEach(function(c){ T[c] += o[c]; }); });
+  tab.innerHTML =
+    '<thead><tr><th>Agência</th><th>Gerenciador</th><th class="num">Leads</th>' +
+      '<th class="num">Viraram paciente</th><th class="num">Propostas</th>' +
+      '<th class="num">Faturado</th><th class="num">Recebido</th><th class="num">Em aberto</th>' +
+      '<th class="num">Parado na mesa</th><th class="num">Investimento</th>' +
+      '<th class="num">Custo/lead</th><th class="num">Retorno</th></tr></thead><tbody>' +
+    linhas.map(function(o){
+      var ref = agRef(o.ag);
+      return '<tr><td><b>' + esc(o.ag) + '</b></td><td>' + esc(ref.ger || '—') + '</td>' +
+        td(N(o.r)) + td(N(o.p)) + td(N(o.o)) +
+        td(o.v ? BRL0(o.v) : '—') + td(o.pg ? BRL0(o.pg) : '—') + td(o.ab ? BRL0(o.ab) : '—') +
+        td(o.vne ? BRL0(o.vne) : '—') +
+        td(ref.coletada ? BRL0(o.inv) : '<span style="color:var(--red)">não compartilhado</span>') +
+        td((ref.coletada && o.r) ? BRL(o.inv / o.r) : '—') +
+        td((ref.coletada && o.inv) ? (o.v / o.inv).toFixed(1).replace('.', ',') + '×' : '—') +
+        '</tr>';
+    }).join('') + '</tbody>' +
+    '<tfoot><tr><td>Total — ' + N(linhas.length) + ' agências</td><td></td>' +
+      td(N(T.r)) + td(N(T.p)) + td(N(T.o)) + td(BRL0(T.v)) + td(BRL0(T.pg)) + td(BRL0(T.ab)) +
+      td(BRL0(T.vne)) + td(BRL0(T.inv)) + td('—') + td('—') + '</tr></tfoot>';
+
+  var semColeta = linhas.filter(function(o){ return !agRef(o.ag).coletada && o.r; });
+  nota.innerHTML =
+    '<b>A agência sai da conta de anúncio, não do nome da campanha.</b> O prefixo [VG] é da ' +
+    'Vanguarda, mas ela opera mídia de mais de uma marca, e a VX nomeia campanha de outro jeito — ' +
+    'rotular por nome atribui lead à agência errada. Quem tocou anúncio das duas conta uma vez só, ' +
+    'para a que chegou primeiro.' +
+    (semColeta.length
+      ? ' · <b>' + semColeta.map(function(o){ return esc(o.ag); }).join(' e ') +
+        ': investimento em branco é ausência de dado, não de gasto.</b> A conta não é ' +
+        'compartilhada com a gente, então não há investimento, impressão nem conversa da Meta ' +
+        'dela — e sem isso custo por lead e retorno não existem desse lado. Pedir a conta em ' +
+        '“Ver desempenho” fecha essa lacuna.'
+      : '') +
+    ' · <b>Cobertura diferente não é desempenho diferente.</b> A Vanguarda é vista pelo utm do ' +
+    'WTS no contato; a VX, só pela referência do anúncio dentro da mensagem do WhatsApp. São dois ' +
+    'espelhos, com alcances distintos.';
+}
+
 function pintaMidia(tpago){
   var M = midiaAgrega(), MB = null;
   if (cmpAtivo && de2 && ate2) { var sd = de, sa = ate; de = de2; ate = ate2; MB = midiaAgrega(); de = sd; ate = sa; }
@@ -1040,6 +1196,7 @@ function render(){
   pintaKpis(alvo, inv, alvoB);
   pintaBarras(mapa, canais);
   pintaTabela(mapa, canais, alvo, inv, CMPB && CMPB.mapa);
+  pintaAgencias();
   pintaMidia(tp);
   carregaEquipes();
   pintaComparacao();
