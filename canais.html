@@ -307,6 +307,8 @@ tfoot td{padding:8px 10px;font-weight:700;border-top:2px solid var(--dark)}
 #agAdsSel button.on{background:var(--dark);border-color:var(--dark);color:#fff}
 .ad-vazio{background:#fff;border:1px dashed var(--border);border-radius:var(--r-md);
   padding:18px;color:var(--gray-text);font-size:13px}
+.ad-esp{font-size:11px;border-radius:999px;padding:3px 10px;font-weight:700;
+  background:#FDE7EF;color:#C2185B}
 .lado h4{margin:0 0 2px;font-size:12px;letter-spacing:.3px;text-transform:uppercase;color:var(--gray-text)}
 .lado .big{font-family:var(--font-display);font-size:26px;font-weight:700;color:var(--dark);
   line-height:1.1;font-variant-numeric:tabular-nums}
@@ -449,7 +451,7 @@ var COR = {'Meta Ads':'var(--red)','Meta sem id do anúncio':'#F5136E99','Google
 
 var CAN = [], MID = [], JOR = [], MARCAS_OK = [], lado = 'pago', marcaSel = 'todas';
 var AG = [], AGREF = [];
-var AGADS = [], agAdsSel = 'VX';
+var AGADS = [], agAdsSel = 'VX', PROCAG = [], PROCADSAG = {};
 var PROC = [], PROCADS = {}, CONTA = {}, CRI = {}, criPedido = {};
 /* delta pequeno ao lado do valor quando a comparacao esta ligada */
 function dtag(va, vb, invertido){
@@ -507,6 +509,11 @@ function carrega(){
         (d.agencia_ads || []).forEach(function(x){ AGADS.push({m:m.id, d:x.d, a:String(x.a),
           ag:x.ag, r:x.r||0, k:x.k||0, p:x.p||0, o:x.o||0, e:x.e||0,
           v:x.v||0, pg:x.pg||0, ab:x.ab||0, ne:x.ne||0, vne:x.vne||0}); });
+        /* mesmo detalhe de procedimento do `crmproc`, mas pelos dois espelhos —
+           sem isto o botao "detalhado" dos anuncios da VX abre vazio. */
+        (d.agencia_proc || []).forEach(function(x){ var aid = String(x.a); PROCADSAG[aid] = 1;
+          PROCAG.push({m:m.id, a:aid, d:x.d, c:x.c, qe:x.qe||0, ve:x.ve||0,
+            vp:x.vp||0, qn:x.qn||0, vn:x.vn||0}); });
         (d.crmproc||[]).forEach(function(x){ var aid=String(x.a); PROCADS[aid]=1;
           PROC.push({m:m.id, a:aid, d:x.d, c:x.c, qe:x.qe||0, ve:x.ve||0, vp:x.vp||0, qn:x.qn||0, vn:x.vn||0}); });
         (d.cria||[]).forEach(function(c){ var k=String(c.a);
@@ -1014,6 +1021,15 @@ function pintaAgAds(){
     var ag = agDeAnuncio(id);
     (porAg[ag] = porAg[ag] || []).push(per[id]);
   });
+  /* Agencia sem linha em meta_agencia nao vira aba: e sempre resto — um anuncio
+     solto, sem investimento e sem campanha coletada. Aparecer como se fosse uma
+     terceira agencia confunde mais do que informa. O lead dela continua contado
+     nas tabelas de canal e no total do periodo. */
+  Object.keys(porAg).forEach(function(n){
+    var conhecida = false;
+    for (var i = 0; i < AGREF.length; i++) if (AGREF[i].ag === n) conhecida = true;
+    if (!conhecida) delete porAg[n];
+  });
   var nomes = Object.keys(porAg).sort(function(a, b){
     var sa = porAg[a].reduce(function(t, x){ return t + x.inv; }, 0);
     var sb = porAg[b].reduce(function(t, x){ return t + x.inv; }, 0);
@@ -1087,6 +1103,7 @@ function cartaoAdAgencia(a, ref){
   var copia = cr.b ? '<div class="ad-copy" id="cpag' + a.id + '">' + esc(cr.b) + '</div>' +
     '<button class="ad-mais" onclick="maisCopy(\'ag' + a.id + '\', this)">ver texto completo</button>' : '';
   var tags = [
+    '<span class="ad-esp">' + esc(curto(a.camp)) + '</span>',
     a.conv ? '<span class="ad-cob ' + classeCob(cob) + '">rastreio de ' + PCT0(cob) + '</span>' : '',
     '<span class="ad-tag">' + N(nDias) + (nDias === 1 ? ' dia no ar' : ' dias no ar') + '</span>',
     cr.cta ? '<span class="ad-tag">' + esc(String(cr.cta).replace(/_/g, ' ').toLowerCase()) + '</span>' : '',
@@ -1101,6 +1118,10 @@ function cartaoAdAgencia(a, ref){
     copia +
     '<div class="ad-tagrow">' + tags + '</div>' +
     '<div class="ad-mini">' + mini + '</div>' +
+    (PROCADSAG[a.id]
+      ? '<div class="ad-acao"><button class="ad-detbtn" onclick="abreProcAd(\'' + a.id +
+        '\', this, \'prcag\', PROCAG)">detalhado</button></div>' : '') +
+    '<div class="ad-proc" id="prcag' + a.id + '" style="display:none"></div>' +
     '</div></div>';
 }
 
@@ -1270,14 +1291,18 @@ function cartaoAd(a){
 }
 
 /* o que foi vendido, item a item — mesmo bloco do dossie, respeitando o periodo da tela */
-function abreProcAd(adId, btn){
-  var el = document.getElementById('prc' + adId);
+/* `pref` e `lista` entraram em 25/08/2026 para a secao das agencias reusar isto
+   sem duplicar a tabela: la o painel se chama prcag+id e le PROCAG, que enxerga
+   os dois espelhos. Sem argumento, segue exatamente como era. */
+function abreProcAd(adId, btn, pref, lista){
+  pref = pref || 'prc'; lista = lista || PROC;
+  var el = document.getElementById(pref + adId);
   if (!el) return;
   if (el.style.display !== 'none') {
     el.style.display = 'none'; btn.textContent = 'detalhado'; return;
   }
   var acc = {};
-  PROC.forEach(function(r){
+  lista.forEach(function(r){
     if (r.a !== adId || r.d < de || r.d > ate) return;
     var o = acc[r.c] || (acc[r.c] = {n:r.c, qe:0, ve:0, vp:0, qn:0, vn:0});
     o.qe += r.qe; o.ve += r.ve; o.vp += r.vp; o.qn += r.qn; o.vn += r.vn;
