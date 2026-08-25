@@ -868,7 +868,8 @@ function pintaAgencias(){
     var l = function(r, v){ return '<div class="linha"><span>' + r + '</span><b>' + v + '</b></div>'; };
     var selo = ref.coletada
       ? '<span class="selo ok">investimento coletado</span>'
-      : '<span class="selo falta">conta não compartilhada</span>';
+      : '<span class="selo falta">' + (ref.ger ? 'conta não compartilhada'
+                                               : 'conta não identificada') + '</span>';
     return '<div class="lado ' + (AG_CLASSE[o.ag] || '') + '">' +
       '<h4>' + esc(o.ag) + selo + '</h4>' +
       '<div class="ger">gerenciador ' + esc(ref.ger || '—') + '</div>' +
@@ -879,7 +880,8 @@ function pintaAgencias(){
       l('Faturado', BRL0(o.v)) +
       l('Em aberto', BRL0(o.ab)) +
       l('Parado na mesa', BRL0(o.vne) + (o.ne ? ' · ' + N(o.ne) + ' propostas' : '')) +
-      l('Investimento', ref.coletada ? BRL0(o.inv) : 'não compartilhado') +
+      l('Investimento', ref.coletada ? BRL0(o.inv)
+                        : (ref.ger ? 'não compartilhado' : 'conta não identificada')) +
       l('Custo por lead', (ref.coletada && o.r) ? BRL(o.inv / o.r) : '—') +
       l('Custo por paciente', (ref.coletada && o.p) ? BRL(o.inv / o.p) : '—') +
       l('Retorno sobre a mídia', (ref.coletada && o.inv)
@@ -903,7 +905,8 @@ function pintaAgencias(){
         td(N(o.r)) + td(N(o.p)) + td(N(o.o)) +
         td(o.v ? BRL0(o.v) : '—') + td(o.pg ? BRL0(o.pg) : '—') + td(o.ab ? BRL0(o.ab) : '—') +
         td(o.vne ? BRL0(o.vne) : '—') +
-        td(ref.coletada ? BRL0(o.inv) : '<span style="color:var(--red)">não compartilhado</span>') +
+        td(ref.coletada ? BRL0(o.inv) : '<span style="color:var(--red)">' +
+             (ref.ger ? 'não compartilhado' : 'não identificada') + '</span>') +
         td((ref.coletada && o.r) ? BRL(o.inv / o.r) : '—') +
         td((ref.coletada && o.inv) ? (o.v / o.inv).toFixed(1).replace('.', ',') + '×' : '—') +
         '</tr>';
@@ -920,10 +923,11 @@ function pintaAgencias(){
     'para a que chegou primeiro.' +
     (semColeta.length
       ? ' · <b>' + semColeta.map(function(o){ return esc(o.ag); }).join(' e ') +
-        ': investimento em branco é ausência de dado, não de gasto.</b> A conta não é ' +
-        'compartilhada com a gente, então não há investimento, impressão nem conversa da Meta ' +
-        'dela — e sem isso custo por lead e retorno não existem desse lado. Pedir a conta em ' +
-        '“Ver desempenho” fecha essa lacuna.'
+        ': investimento em branco é ausência de dado, não de gasto.</b> Ou a conta não foi ' +
+        'compartilhada com a gente, ou ninguém disse ainda de quem ela é — em qualquer um dos ' +
+        'dois casos não há investimento, impressão nem conversa da Meta dela, e sem isso custo ' +
+        'por lead e retorno não existem desse lado. Identificar a conta e pedir acesso em ' +
+        '“Ver desempenho” fecha a lacuna.'
       : '') +
     ' · <b>Cobertura diferente não é desempenho diferente.</b> A Vanguarda é vista pelo utm do ' +
     'WTS no contato; a VX, só pela referência do anúncio dentro da mensagem do WhatsApp. São dois ' +
