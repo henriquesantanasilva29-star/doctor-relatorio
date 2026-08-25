@@ -802,13 +802,20 @@ function midiaAgrega(){
   /* Mesma regra do dossie: contato de anuncio que nao veiculou no periodo nao entra
      no total -- ele nao tem investimento aqui. Fica declarado como "fora". */
   var cr = {r:0, p:0, v:0, pg:0, ab:0, vne:0, ne:0}, fora = {r:0, p:0, v:0};
-  /* Le AGADS, nao JOR. JOR nasce do carimbo de utm do WTS, que nao alcanca
-     conta de fora: por ele os anuncios da VX apareciam com investimento e
-     retorno em branco, na mesma tela em que a secao das agencias mostrava o
-     retorno real. Duas tabelas se contradizendo e pior que uma faltando.
-     AGADS parte da jornada e enxerga os dois espelhos. Isto muda SO esta
-     pagina — o index.html e o painel.html continuam lendo `jornada`. */
-  AGADS.filter(function(x){
+  /* FONTE POR MARCA, e nao uma so para todas.
+     AGADS (`agencia_ads`) parte da jornada e enxerga os dois espelhos — o utm
+     do WTS e a referencia do anuncio na mensagem. E o que faz os anuncios da VX
+     aparecerem com retorno de verdade em vez de em branco.
+     🔴 So a Doctor publica essa chave: a Acesso nao tem o espelho evolution,
+     entao la ela nem existe. Usar AGADS para todo mundo zerava a tabela inteira
+     da Acesso — investimento e conversa apareciam, faturado e recebido nao.
+     Foi o que quebrou em 25/08/2026, e o conserto e este: cada marca usa a
+     melhor fonte que TEM. Onde AGADS existe, manda; onde nao existe, JOR
+     continua sendo a fonte completa daquela marca, nao um resto. */
+  var temAg = {};
+  AGADS.forEach(function(x){ temAg[x.m] = 1; });
+  var fonteFunil = AGADS.concat(JOR.filter(function(x){ return !temAg[x.m]; }));
+  fonteFunil.filter(function(x){
     return x.d >= de && x.d <= ate && (marcaSel === "todas" || x.m === marcaSel);
   }).forEach(function(x){
     if (!adsPer[x.a]) { fora.r += x.r; fora.p += x.p; fora.v += x.v; return; }
@@ -1072,10 +1079,11 @@ function pintaAgAds(){
     '<b>' + esc(agAdsSel) + ' no período:</b> ' + N(lista.length) + ' anúncios · ' +
     BRL0(T.inv) + ' investidos · ' + N(T.r) + ' leads · ' + N(T.p) + ' pacientes · ' +
     BRL0(T.v) + ' faturados' + (T.inv ? ' · ' + (T.v / T.inv).toFixed(1).replace('.', ',') + '× de retorno' : '') +
-    '. · <b>Esta tela conta o lead pelos dois espelhos</b> — o carimbo de utm que o WTS grava no ' +
-    'contato e a referência do anúncio dentro da mensagem do WhatsApp. Só o segundo alcança conta ' +
-    'de fora, então sem ele os anúncios da VX apareceriam com retorno zero. O relatório da Doctor ' +
-    'e o painel ainda leem só o primeiro, e por isso o número de anúncio lá é menor.' +
+    '. · <b>Na Doctor o lead é contado pelos dois espelhos</b> — o carimbo de utm que o WTS grava ' +
+    'no contato e a referência do anúncio dentro da mensagem do WhatsApp. Só o segundo alcança ' +
+    'conta de fora, então sem ele os anúncios da VX apareceriam com retorno zero. A Acesso tem ' +
+    'só o primeiro espelho, e o relatório da Doctor e o painel também — por isso o número de ' +
+    'anúncio lá é menor.' +
     (ref.coletada ? '' : ' · <b>Sem investimento:</b> a conta desta agência não é coletada, então ' +
       'custo e retorno não existem aqui — e zero seria mentira.');
 }
