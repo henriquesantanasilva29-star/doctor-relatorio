@@ -302,6 +302,11 @@ tfoot td{padding:8px 10px;font-weight:700;border-top:2px solid var(--dark)}
 .lado .selo.ok{background:#E8F8F1;color:#0E7A4E}
 .lado .ger{font-size:11.5px;color:var(--gray-text);margin-top:2px}
 #agDuelo .lado h4{text-transform:none;font-size:13.5px;color:var(--dark);font-weight:700}
+#agAdsSel button.on[data-ag="Vanguarda"]{background:var(--blue);border-color:var(--blue);color:#fff}
+#agAdsSel button.on[data-ag="VX"]{background:var(--orange);border-color:var(--orange);color:#fff}
+#agAdsSel button.on{background:var(--dark);border-color:var(--dark);color:#fff}
+.ad-vazio{background:#fff;border:1px dashed var(--border);border-radius:var(--r-md);
+  padding:18px;color:var(--gray-text);font-size:13px}
 .lado h4{margin:0 0 2px;font-size:12px;letter-spacing:.3px;text-transform:uppercase;color:var(--gray-text)}
 .lado .big{font-family:var(--font-display);font-size:26px;font-weight:700;color:var(--dark);
   line-height:1.1;font-variant-numeric:tabular-nums}
@@ -405,6 +410,11 @@ tfoot td{padding:8px 10px;font-weight:700;border-top:2px solid var(--dark)}
 <table id="tAgencias"></table>
 <div id="notaAgencias" class="nota"></div>
 
+<div class="section-title">Os anúncios de cada agência</div>
+<div class="alt" id="agAdsSel"></div>
+<div class="anuncios" id="agAds"></div>
+<div id="notaAgAds" class="nota"></div>
+
 <div class="section-title">Quadro de vendas por equipe</div>
 <table id="tEquipes"></table>
 <div id="notaEquipes" class="nota"></div>
@@ -439,6 +449,7 @@ var COR = {'Meta Ads':'var(--red)','Meta sem id do anúncio':'#F5136E99','Google
 
 var CAN = [], MID = [], JOR = [], MARCAS_OK = [], lado = 'pago', marcaSel = 'todas';
 var AG = [], AGREF = [];
+var AGADS = [], agAdsSel = 'VX';
 var PROC = [], PROCADS = {}, CONTA = {}, CRI = {}, criPedido = {};
 /* delta pequeno ao lado do valor quando a comparacao esta ligada */
 function dtag(va, vb, invertido){
@@ -489,7 +500,13 @@ function carrega(){
           vexec:x.vexec||0, ne:x.ne||0, vne:x.vne||0, nf:x.nf||0, v:x.v||0, pg:x.pg||0,
           ab:x.ab||0, inv:x.inv||0, imp:x.imp||0, cli:x.cli||0, conv:x.conv||0}); });
         ((d.agencias && d.agencias.ref) || []).forEach(function(x){ AGREF.push({m:m.id,
-          ag:x.ag, conta:x.conta||'', ger:x.ger||'', coletada:!!x.coletada, nota:x.nota||''}); });
+          ag:x.ag, suf:x.suf||'', conta:x.conta||'', ger:x.ger||'', coletada:!!x.coletada,
+          nota:x.nota||''}); });
+        /* funil por anuncio pelos DOIS espelhos — a chave `jornada` acima so
+           enxerga o carimbo de utm do WTS, e por ele o anuncio da VX nao existe. */
+        (d.agencia_ads || []).forEach(function(x){ AGADS.push({m:m.id, d:x.d, a:String(x.a),
+          ag:x.ag, r:x.r||0, k:x.k||0, p:x.p||0, o:x.o||0, e:x.e||0,
+          v:x.v||0, pg:x.pg||0, ab:x.ab||0, ne:x.ne||0, vne:x.vne||0}); });
         (d.crmproc||[]).forEach(function(x){ var aid=String(x.a); PROCADS[aid]=1;
           PROC.push({m:m.id, a:aid, d:x.d, c:x.c, qe:x.qe||0, ve:x.ve||0, vp:x.vp||0, qn:x.qn||0, vn:x.vn||0}); });
         (d.cria||[]).forEach(function(c){ var k=String(c.a);
@@ -778,7 +795,13 @@ function midiaAgrega(){
   /* Mesma regra do dossie: contato de anuncio que nao veiculou no periodo nao entra
      no total -- ele nao tem investimento aqui. Fica declarado como "fora". */
   var cr = {r:0, p:0, v:0, pg:0, ab:0, vne:0, ne:0}, fora = {r:0, p:0, v:0};
-  JOR.filter(function(x){
+  /* Le AGADS, nao JOR. JOR nasce do carimbo de utm do WTS, que nao alcanca
+     conta de fora: por ele os anuncios da VX apareciam com investimento e
+     retorno em branco, na mesma tela em que a secao das agencias mostrava o
+     retorno real. Duas tabelas se contradizendo e pior que uma faltando.
+     AGADS parte da jornada e enxerga os dois espelhos. Isto muda SO esta
+     pagina — o index.html e o painel.html continuam lendo `jornada`. */
+  AGADS.filter(function(x){
     return x.d >= de && x.d <= ate && (marcaSel === "todas" || x.m === marcaSel);
   }).forEach(function(x){
     if (!adsPer[x.a]) { fora.r += x.r; fora.p += x.p; fora.v += x.v; return; }
@@ -932,6 +955,153 @@ function pintaAgencias(){
     ' · <b>Cobertura diferente não é desempenho diferente.</b> A Vanguarda é vista pelo utm do ' +
     'WTS no contato; a VX, só pela referência do anúncio dentro da mensagem do WhatsApp. São dois ' +
     'espelhos, com alcances distintos.';
+}
+
+/* ============ os anuncios de cada agencia ============
+   Existe porque a tabela "Campanhas por especialidade" nao serve para isto: ela
+   agrupa por especialidade lida do NOME da campanha, e mistura as duas agencias
+   na mesma linha. Aqui a agencia vem da conta, e cada anuncio aparece inteiro —
+   criativo, texto, custo e o que devolveu.
+
+   FONTE: `agencia_ads`, que parte da jornada e enxerga os DOIS espelhos — o
+   utm do WTS e a referencia do anuncio na mensagem. A tabela "Campanhas por
+   especialidade" foi passada para a mesma fonte no mesmo dia, senao a mesma
+   tela mostraria retorno zero para os anuncios da VX logo abaixo destes
+   cartoes. Duas tabelas se contradizendo e pior que uma faltando.
+
+   O index.html e o painel.html continuam lendo `jornada`, que so tem o utm.
+   Igualar tudo pede trocar a fonte de `jornada_anuncio` e de
+   `mv_paciente_anuncio` — mexe no numero que aquelas duas paginas publicam,
+   entao nao foi feito de passagem. */
+function agDeAnuncio(id){
+  var suf = String(id || '').slice(-4);
+  for (var i = 0; i < AGREF.length; i++) if (AGREF[i].suf === suf) return AGREF[i].ag;
+  return 'Não identificada';
+}
+
+function agAdsAgrega(){
+  var per = {};
+  var novo = function(id, m){
+    return per[id] || (per[id] = {id:id, m:m, nome:'', camp:'', dias:{},
+      inv:0, imp:0, cli:0, conv:0, r:0, k:0, p:0, o:0, e:0, v:0, pg:0, ab:0, ne:0, vne:0});
+  };
+  MID.forEach(function(x){
+    if (x.d < de || x.d > ate) return;
+    if (marcaSel !== 'todas' && x.m !== marcaSel) return;
+    var a = novo(x.id, x.m);
+    a.inv += x.inv; a.imp += x.imp; a.cli += x.cli; a.conv += x.conv; a.dias[x.d] = 1;
+    if (x.anuncio) a.nome = x.anuncio;
+    if (x.camp) a.camp = x.camp;
+  });
+  AGADS.forEach(function(x){
+    if (x.d < de || x.d > ate) return;
+    if (marcaSel !== 'todas' && x.m !== marcaSel) return;
+    var a = novo(x.a, x.m);
+    ['r','k','p','o','e','v','pg','ab','ne','vne'].forEach(function(c){ a[c] += x[c] || 0; });
+  });
+  return per;
+}
+
+function pintaAgAds(){
+  var sel = document.getElementById('agAdsSel');
+  var caixa = document.getElementById('agAds');
+  var nota = document.getElementById('notaAgAds');
+  if (!sel || !caixa || !nota) return;
+
+  var per = agAdsAgrega();
+  var porAg = {};
+  Object.keys(per).forEach(function(id){
+    var ag = agDeAnuncio(id);
+    (porAg[ag] = porAg[ag] || []).push(per[id]);
+  });
+  var nomes = Object.keys(porAg).sort(function(a, b){
+    var sa = porAg[a].reduce(function(t, x){ return t + x.inv; }, 0);
+    var sb = porAg[b].reduce(function(t, x){ return t + x.inv; }, 0);
+    return sb - sa;
+  });
+  if (!nomes.length) {
+    sel.innerHTML = ''; caixa.innerHTML = '';
+    nota.textContent = 'Nenhum anúncio no período.';
+    return;
+  }
+  if (nomes.indexOf(agAdsSel) < 0) agAdsSel = nomes[0];
+
+  sel.innerHTML = nomes.map(function(n){
+    return '<button data-ag="' + esc(n) + '"' + (n === agAdsSel ? ' class="on"' : '') + '>' +
+           esc(n) + ' · ' + N(porAg[n].length) + (porAg[n].length === 1 ? ' anúncio' : ' anúncios') +
+           '</button>';
+  }).join('');
+  Array.prototype.forEach.call(sel.querySelectorAll('[data-ag]'), function(b){
+    b.addEventListener('click', function(){ agAdsSel = b.dataset.ag; pintaAgAds(); });
+  });
+
+  var ref = agRef(agAdsSel);
+  var lista = porAg[agAdsSel].slice().sort(function(a, b){ return (b.inv - a.inv) || (b.r - a.r); });
+
+  /* Miniatura e texto vivem no criativos.json, que so e buscado quando alguem
+     precisa. Pede agora e repinta quando chegar. */
+  var marcas = {}; lista.forEach(function(a){ marcas[a.m] = 1; });
+  var pendente = Object.keys(marcas).filter(function(mid){ return !criPedido[mid]; });
+  if (pendente.length) {
+    Promise.all(pendente.map(carregaCriativos)).then(function(){ pintaAgAds(); });
+  }
+
+  caixa.innerHTML = lista.length
+    ? lista.map(function(a){ return cartaoAdAgencia(a, ref); }).join('')
+    : '<div class="ad-vazio">Nenhum anúncio desta agência veiculou no período.</div>';
+
+  var T = {inv:0, conv:0, r:0, p:0, v:0, pg:0};
+  lista.forEach(function(a){ ['inv','conv','r','p','v','pg'].forEach(function(c){ T[c] += a[c]; }); });
+  nota.innerHTML =
+    '<b>' + esc(agAdsSel) + ' no período:</b> ' + N(lista.length) + ' anúncios · ' +
+    BRL0(T.inv) + ' investidos · ' + N(T.r) + ' leads · ' + N(T.p) + ' pacientes · ' +
+    BRL0(T.v) + ' faturados' + (T.inv ? ' · ' + (T.v / T.inv).toFixed(1).replace('.', ',') + '× de retorno' : '') +
+    '. · <b>Esta tela conta o lead pelos dois espelhos</b> — o carimbo de utm que o WTS grava no ' +
+    'contato e a referência do anúncio dentro da mensagem do WhatsApp. Só o segundo alcança conta ' +
+    'de fora, então sem ele os anúncios da VX apareceriam com retorno zero. O relatório da Doctor ' +
+    'e o painel ainda leem só o primeiro, e por isso o número de anúncio lá é menor.' +
+    (ref.coletada ? '' : ' · <b>Sem investimento:</b> a conta desta agência não é coletada, então ' +
+      'custo e retorno não existem aqui — e zero seria mentira.');
+}
+
+function cartaoAdAgencia(a, ref){
+  var cr = CRI[a.id] || {};
+  var foto = cr.img ? '<img class="ad-foto" alt="" src="data:image/jpeg;base64,' + cr.img + '">'
+                    : '<div class="ad-semfoto">sem miniatura</div>';
+  var nDias = Object.keys(a.dias).length;
+  var cob = a.conv ? 100 * a.r / a.conv : 0;
+  var mini = [
+    [ref.coletada ? BRL0(a.inv) : '—', 'Investido'],
+    [a.conv ? N(a.conv) : '—', 'Conversas'],
+    [(ref.coletada && a.conv) ? BRL(a.inv / a.conv) : '—', 'Custo/conversa'],
+    [N(a.r), 'Leads no CRM'],
+    [N(a.p), 'Pacientes'],
+    [(ref.coletada && a.p) ? BRL(a.inv / a.p) : '—', 'Custo/paciente'],
+    [a.v ? BRL0(a.v) : '—', 'Faturado'],
+    [a.pg ? BRL0(a.pg) : '—', 'Recebido'],
+    [a.vne ? BRL0(a.vne) : '—', 'Parado na mesa'],
+    [(ref.coletada && a.inv) ? (a.v / a.inv).toFixed(1).replace('.', ',') + '×' : '—', 'Retorno']
+  ].map(function(x){ return '<div><span class="ad-mv">' + x[0] + '</span><span class="ad-ml">' + x[1] + '</span></div>'; }).join('');
+  /* maisCopy prefixa 'cp' no id que recebe, entao o elemento tem que se chamar
+     cp+ag+id e a chamada passa ag+id. Repetir o prefixo aqui procura cpagcp... */
+  var copia = cr.b ? '<div class="ad-copy" id="cpag' + a.id + '">' + esc(cr.b) + '</div>' +
+    '<button class="ad-mais" onclick="maisCopy(\'ag' + a.id + '\', this)">ver texto completo</button>' : '';
+  var tags = [
+    a.conv ? '<span class="ad-cob ' + classeCob(cob) + '">rastreio de ' + PCT0(cob) + '</span>' : '',
+    '<span class="ad-tag">' + N(nDias) + (nDias === 1 ? ' dia no ar' : ' dias no ar') + '</span>',
+    cr.cta ? '<span class="ad-tag">' + esc(String(cr.cta).replace(/_/g, ' ').toLowerCase()) + '</span>' : '',
+    cr.link ? '<span class="ad-tag"><a href="' + esc(cr.link) + '" target="_blank" rel="noopener">ver publicação ↗</a></span>' : '',
+    ref.conta ? '<span class="ad-tag"><a href="https://adsmanager.facebook.com/adsmanager/manage/ads?act=' +
+      esc(String(ref.conta).replace(/^act_/, '')) + '&selected_ad_ids=' + esc(a.id) +
+      '" target="_blank" rel="noopener">gerenciador ↗</a></span>' : ''
+  ].filter(Boolean).join('');
+  return '<div class="ad-cartao">' + foto + '<div>' +
+    '<h5 class="ad-titulo">' + esc(a.nome || cr.t || 'anúncio ' + a.id) + '</h5>' +
+    '<div class="ad-marca">' + esc(a.camp || '(campanha não coletada)') + '</div>' +
+    copia +
+    '<div class="ad-tagrow">' + tags + '</div>' +
+    '<div class="ad-mini">' + mini + '</div>' +
+    '</div></div>';
 }
 
 function pintaMidia(tpago){
@@ -1201,6 +1371,7 @@ function render(){
   pintaBarras(mapa, canais);
   pintaTabela(mapa, canais, alvo, inv, CMPB && CMPB.mapa);
   pintaAgencias();
+  pintaAgAds();
   pintaMidia(tp);
   carregaEquipes();
   pintaComparacao();
