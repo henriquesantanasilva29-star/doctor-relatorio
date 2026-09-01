@@ -1076,15 +1076,38 @@ function pintaAgAdsEsp(lista, ref){
       pintaAgAdsCards(lista, ref);
     });
   });
+  /* os cartoes da especialidade aberta nascem DENTRO da tabela, logo abaixo da
+     linha que os referencia -- e nao empilhados depois do rodape. Enquanto uma
+     especialidade esta aberta a grade de baixo fica vazia, senao cada anuncio
+     apareceria duas vezes na tela. */
+  if (agAdsEspSel) {
+    var alvo = tab.querySelector('.esp-linha.aberta');
+    if (alvo) {
+      var det = document.createElement('tr');
+      det.className = 'esp-det';
+      det.innerHTML = '<td colspan="8"><div class="esp-caixa"></div></td>';
+      alvo.parentNode.insertBefore(det, alvo.nextSibling);
+      det.querySelector('.esp-caixa').innerHTML = cartoesDaEspec(lista, ref);
+    }
+  }
+}
+
+/* cartoes de uma especialidade da agencia, na mesma marcacao da grade de baixo */
+function cartoesDaEspec(lista, ref){
+  var filtrada = lista.filter(function(a){ return curto(a.camp) === agAdsEspSel; });
+  return filtrada.length
+    ? '<div class="anuncios">' + filtrada.map(function(a){ return cartaoAdAgencia(a, ref); }).join('') + '</div>'
+    : '<div class="ad-vazio">Nenhum anúncio desta especialidade veiculou no período.</div>';
 }
 
 function pintaAgAdsCards(lista, ref){
   var caixa = document.getElementById('agAds');
   if (!caixa) return;
-  var filtrada = agAdsEspSel ? lista.filter(function(a){ return curto(a.camp) === agAdsEspSel; }) : lista;
-  caixa.innerHTML = filtrada.length
-    ? filtrada.map(function(a){ return cartaoAdAgencia(a, ref); }).join('')
-    : '<div class="ad-vazio">Nenhum anúncio desta especialidade veiculou no período.</div>';
+  /* especialidade aberta = os cartoes estao dentro da tabela; aqui fica vazio */
+  if (agAdsEspSel) { caixa.innerHTML = ''; return; }
+  caixa.innerHTML = lista.length
+    ? lista.map(function(a){ return cartaoAdAgencia(a, ref); }).join('')
+    : '<div class="ad-vazio">Nenhum anúncio desta agência veiculou no período.</div>';
 }
 
 function pintaAgAds(){
