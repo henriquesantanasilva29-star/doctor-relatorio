@@ -331,6 +331,7 @@ tfoot td{padding:8px 10px;font-weight:700;border-top:2px solid var(--dark)}
 /* cartoes de campanha (portados do dossie) */
 .esp-linha{cursor:pointer}
 .esp-linha:hover td{background:#faf7fb}
+.esp-linha.aberta td{background:var(--alert-bg)}
 .esp-seta{display:inline-block;width:14px;color:#F5136E;font-size:11px}
 .esp-det>td{background:#fbfafc;padding:14px 16px}
 .ad-cartao{display:grid;grid-template-columns:132px 1fr;gap:16px;background:#fff;
@@ -414,6 +415,7 @@ tfoot td{padding:8px 10px;font-weight:700;border-top:2px solid var(--dark)}
 
 <div class="section-title">Os anúncios de cada agência</div>
 <div class="alt" id="agAdsSel"></div>
+<table id="agAdsEsp"></table>
 <div class="anuncios" id="agAds"></div>
 <div id="notaAgAds" class="nota"></div>
 
@@ -451,7 +453,7 @@ var COR = {'Meta Ads':'var(--red)','Meta sem id do anúncio':'#F5136E99','Google
 
 var CAN = [], MID = [], JOR = [], MARCAS_OK = [], lado = 'pago', marcaSel = 'todas';
 var AG = [], AGREF = [];
-var AGADS = [], agAdsSel = 'VX', PROCAG = [], PROCADSAG = {};
+var AGADS = [], agAdsSel = 'VX', agAdsEspSel = null, agAdsEspAg = null, PROCAG = [], PROCADSAG = {};
 var PROC = [], PROCADS = {}, CONTA = {}, CRI = {}, criPedido = {};
 /* delta pequeno ao lado do valor quando a comparacao esta ligada */
 function dtag(va, vb, invertido){
@@ -1016,11 +1018,81 @@ function agAdsAgrega(){
   return per;
 }
 
+/* agrupamento por especialidade dos anuncios de UMA agencia, para a tabela-resumo
+   acima dos cartoes. curto(a.camp) e a mesma leitura de especialidade que a
+   tabela "Campanhas por especialidade" usa — anuncio sem classificacao cai em
+   "Sem classificacao" e nunca some. */
+function agAdsEspAgrega(lista){
+  var m = {};
+  lista.forEach(function(a){
+    var e = curto(a.camp);
+    var o = m[e] || (m[e] = {e:e, n:0, dias:{}, inv:0, conv:0, pg:0, ab:0});
+    o.n++; o.inv += a.inv; o.conv += a.conv; o.pg += a.pg; o.ab += a.ab;
+    Object.keys(a.dias).forEach(function(d){ o.dias[d] = 1; });
+  });
+  return Object.keys(m).map(function(e){ return m[e]; })
+                .sort(function(a, b){ return b.inv - a.inv; });
+}
+
+/* Clicar numa linha filtra os cartoes abaixo para so aquela especialidade
+   (clicar de novo limpa o filtro). Preferido a expandir cartoes dentro da
+   propria linha, como a tabela "Campanhas por especialidade" faz, porque aqui
+   os cartoes ja aparecem inteiros logo abaixo -- expandir tambem ali duplicaria
+   cada anuncio na tela. A seta ▸/▾ e o cursor de linha clicavel sao os mesmos
+   de .esp-linha/.esp-seta, so que apontando para um filtro em vez de um
+   detalhe embutido. */
+function pintaAgAdsEsp(lista, ref){
+  var tab = document.getElementById('agAdsEsp');
+  if (!tab) return;
+  var grupos = agAdsEspAgrega(lista);
+  var td = function(v){ return '<td class="num">' + v + '</td>'; };
+  var diasT = {};
+  lista.forEach(function(a){ Object.keys(a.dias).forEach(function(d){ diasT[d] = 1; }); });
+  var T = {n:0, inv:0, conv:0, pg:0, ab:0};
+  grupos.forEach(function(g){ T.n += g.n; T.inv += g.inv; T.conv += g.conv; T.pg += g.pg; T.ab += g.ab; });
+  tab.innerHTML =
+    '<thead><tr><th>Especialidade</th><th class="num">Anúncios</th><th class="num">Dias no ar</th>' +
+      '<th class="num">Investimento</th><th class="num">Conversas</th><th class="num">Custo/conversa</th>' +
+      '<th class="num">Recebido</th><th class="num">Em aberto</th></tr></thead><tbody>' +
+    grupos.map(function(g, i){
+      var ativa = g.e === agAdsEspSel;
+      return '<tr class="esp-linha' + (ativa ? ' aberta' : '') + '" data-i="' + i + '">' +
+        '<td><span class="esp-seta">' + (ativa ? '▾' : '▸') + '</span> ' + esc(g.e) + '</td>' +
+        td(N(g.n)) + td(N(Object.keys(g.dias).length)) +
+        td(ref.coletada ? BRL(g.inv) : '—') +
+        td(N(g.conv)) + td((ref.coletada && g.conv) ? BRL(g.inv / g.conv) : '—') +
+        td(g.pg ? BRL0(g.pg) : '—') + td(g.ab ? BRL0(g.ab) : '—') + '</tr>';
+    }).join('') + '</tbody>' +
+    '<tfoot><tr><td>Total — ' + N(grupos.length) + ' especialidades</td>' +
+      td(N(T.n)) + td(N(Object.keys(diasT).length)) +
+      td(ref.coletada ? BRL(T.inv) : '—') +
+      td(N(T.conv)) + td((ref.coletada && T.conv) ? BRL(T.inv / T.conv) : '—') +
+      td(BRL0(T.pg)) + td(BRL0(T.ab)) + '</tr></tfoot>';
+  Array.prototype.forEach.call(tab.querySelectorAll('.esp-linha'), function(tr){
+    tr.addEventListener('click', function(){
+      var esp = grupos[Number(tr.getAttribute('data-i'))].e;
+      agAdsEspSel = (agAdsEspSel === esp) ? null : esp;
+      pintaAgAdsEsp(lista, ref);
+      pintaAgAdsCards(lista, ref);
+    });
+  });
+}
+
+function pintaAgAdsCards(lista, ref){
+  var caixa = document.getElementById('agAds');
+  if (!caixa) return;
+  var filtrada = agAdsEspSel ? lista.filter(function(a){ return curto(a.camp) === agAdsEspSel; }) : lista;
+  caixa.innerHTML = filtrada.length
+    ? filtrada.map(function(a){ return cartaoAdAgencia(a, ref); }).join('')
+    : '<div class="ad-vazio">Nenhum anúncio desta especialidade veiculou no período.</div>';
+}
+
 function pintaAgAds(){
   var sel = document.getElementById('agAdsSel');
+  var espTab = document.getElementById('agAdsEsp');
   var caixa = document.getElementById('agAds');
   var nota = document.getElementById('notaAgAds');
-  if (!sel || !caixa || !nota) return;
+  if (!sel || !espTab || !caixa || !nota) return;
 
   var per = agAdsAgrega();
   var porAg = {};
@@ -1043,11 +1115,14 @@ function pintaAgAds(){
     return sb - sa;
   });
   if (!nomes.length) {
-    sel.innerHTML = ''; caixa.innerHTML = '';
+    sel.innerHTML = ''; espTab.innerHTML = ''; caixa.innerHTML = '';
     nota.textContent = 'Nenhum anúncio no período.';
     return;
   }
+  /* troca de agencia limpa o filtro por especialidade -- ele e um recorte
+     de DENTRO da agencia selecionada, nao sobrevive a troca de aba. */
   if (nomes.indexOf(agAdsSel) < 0) agAdsSel = nomes[0];
+  if (agAdsSel !== agAdsEspAg) { agAdsEspSel = null; agAdsEspAg = agAdsSel; }
 
   sel.innerHTML = nomes.map(function(n){
     return '<button data-ag="' + esc(n) + '"' + (n === agAdsSel ? ' class="on"' : '') + '>' +
@@ -1069,9 +1144,8 @@ function pintaAgAds(){
     Promise.all(pendente.map(carregaCriativos)).then(function(){ pintaAgAds(); });
   }
 
-  caixa.innerHTML = lista.length
-    ? lista.map(function(a){ return cartaoAdAgencia(a, ref); }).join('')
-    : '<div class="ad-vazio">Nenhum anúncio desta agência veiculou no período.</div>';
+  pintaAgAdsEsp(lista, ref);
+  pintaAgAdsCards(lista, ref);
 
   var T = {inv:0, conv:0, r:0, p:0, v:0, pg:0};
   lista.forEach(function(a){ ['inv','conv','r','p','v','pg'].forEach(function(c){ T[c] += a[c]; }); });
