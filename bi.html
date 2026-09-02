@@ -85,6 +85,10 @@ footer{color:var(--cinza);font-size:12px;margin-top:40px}
 <h2 id="tit-emp">Período por empresa</h2>
 <div class="cards" id="cards"></div>
 <div class="nota">Empresas são operações distintas e não são somadas. O número grande é o <b>caixa do Feegow</b> (pagamentos pela data em que o dinheiro entrou — régua oficial desde 18/08/2026). A linha "planilha" é a régua do app Modular (Quitado/Parcialmente pago, dedup por conta+item, valor final) — as duas medem coisas diferentes e não têm obrigação de bater. Hapvida não passa pelo caixa e aparece em linha própria.</div>
+<h2>Quem está rodando mídia</h2>
+<div style="overflow-x:auto"><table><thead><tr><th>Conta de anúncio</th><th>Empresa</th><th>Agência</th><th class="r">Investido</th><th class="r">Conversas</th><th class="r">Custo/conversa</th><th class="r">Declarado pela agência</th><th>Confere?</th></tr></thead><tbody id="contas"></tbody></table></div>
+<div class="nota">A conta de anúncio é a unidade real do trabalho de mídia — o nome da campanha não é, porque a mesma agência usa o mesmo nome em contas diferentes. <b>&ldquo;Declarado&rdquo; é o que a agência escreve no relatório que entrega</b>, digitado à mão em <span style="font-family:monospace">bi.midia_declarada</span>; &ldquo;investido&rdquo; é o que o coletor puxou da Meta. São a mesma verba vista por dois lados e <b>não devem ser somados</b>. Onde a agência não mandou relatório do mês, a coluna fica vazia — isso é ausência de prestação de contas, não ausência de gasto.</div>
+<div class="nota" id="contasAvi"></div>
 <h2 id="tit-serie">Recebido por dia</h2>
 <div class="serie" id="serie"></div>
 <h2 id="tit-proj">Por unidade · projeção de fechamento do mês</h2>
@@ -245,6 +249,41 @@ function carrega(){
     +'</div>';
   });
   document.getElementById('cards').innerHTML=cards||'<div class="avi">sem dados no período</div>';
+
+  // ---- contas de anuncio: o que o coletor pegou x o que a agencia declara ----
+  var LC=(d.contas||[]), hc='', alerta=[];
+  LC.forEach(function(c){
+   var inv=Number(c.inv||0), conv=Number(c.conv||0);
+   var temDec=(c.inv_dec!=null);
+   var dec=temDec?(brl(c.inv_dec)+' · '+num(c.conv_dec)+' conv'):'—';
+   var sit,cls;
+   if(!c.coletada){
+    sit='fora da coleta'; cls='ruim';
+    alerta.push('<b>'+esc(c.nome)+'</b> ('+esc(c.agencia)+') roda verba que o BI não coleta — '
+      +brl(c.inv_dec)+' e '+num(c.conv_dec)+' conversas declaradas no período, invisíveis para todo o resto desta página.');
+   } else if(c.presta_contas===false){
+    sit='não consta na prestação'; cls='quase';
+    alerta.push('<b>'+esc(c.nome)+'</b> aparece aqui com '+brl(inv)+' e '+num(conv)
+      +' conversas, mas <b>não consta no relatório que a '+esc(c.agencia)+' entrega</b>. Comparar o BI com o PDF da agência sem descontar esta conta infla o resultado dela.');
+   } else if(!temDec){ sit='sem relatório'; cls='avi';
+   } else if(Math.abs(inv-Number(c.inv_dec))>0.5||conv!==Number(c.conv_dec)){
+    sit='diverge'; cls='ruim';
+    alerta.push('<b>'+esc(c.nome)+'</b>: coletado '+brl(inv)+'/'+num(conv)+' conversas contra '
+      +brl(c.inv_dec)+'/'+num(c.conv_dec)+' declarados.');
+   } else { sit='confere'; cls='ok'; }
+   hc+='<tr><td><b>'+esc(c.nome)+'</b><div class="avi">'+esc(c.conta_id)+'</div></td>'
+    +'<td>'+esc(ROT[c.empresa]||c.empresa)+'</td><td>'+esc(c.agencia)+'</td>'
+    +'<td class="r">'+(c.coletada?brl(inv):'—')+'</td>'
+    +'<td class="r">'+(c.coletada?num(conv):'—')+'</td>'
+    +'<td class="r">'+((c.coletada&&conv>0)?brl(inv/conv):'—')+'</td>'
+    +'<td class="r">'+dec+'</td>'
+    +'<td class="'+cls+'">'+sit+'</td></tr>';
+  });
+  document.getElementById('contas').innerHTML=hc
+   ||'<tr><td colspan="8" class="avi">nenhuma conta de anúncio com investimento no período</td></tr>';
+  document.getElementById('contasAvi').innerHTML=alerta.length
+   ?('<b style="color:#e03131">Atenção:</b> '+alerta.join(' · '))
+   :'';
   // série diária empilhada por empresa — caixa (oficial) no recorte padrão; planilha nos recortes DOC
   var usaCaixa=(d.periodo.doc==='sem_doc')&&(d.caixa_serie||[]).length>0;
   document.getElementById('tit-serie').textContent=usaCaixa?'Recebido por dia (caixa — oficial)':'Recebido por dia (planilha — régua do recorte)';
