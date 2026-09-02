@@ -140,7 +140,7 @@ var ROT={acesso:'Acesso Saúde',doctor:'Doctor+',otica:'Mais Visão (ótica)'};
 var UNINOME={"acesso|20":"I · Djalma","acesso|21":"II · Manoa","acesso|55":"III · Compensa","doctor|0":"IV · Centro","doctor|2":"V · Zona Leste","doctor|4":"VI · Vieiralves"};
 var brl=function(v){return (v==null?'—':Number(v).toLocaleString('pt-BR',{style:'currency',currency:'BRL',maximumFractionDigits:0}))};
 var num=function(v){return Number(v||0).toLocaleString('pt-BR')};
-var brl2=function(v){return (v==null?'—':Number(v).toLocaleString('pt-BR',{style:'currency',currency:'BRL',minimumFractionDigits:2,maximumFractionDigits:2}))};
+var brlCent=function(v){return (v==null?'—':Number(v).toLocaleString('pt-BR',{style:'currency',currency:'BRL',minimumFractionDigits:2,maximumFractionDigits:2}))};
 var esc=function(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})};
 function iso(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
 function br(s){var p=s.split('-');return p[2]+'/'+p[1]+'/'+p[0]}
@@ -256,27 +256,27 @@ function carrega(){
   LC.forEach(function(c){
    var inv=Number(c.inv||0), conv=Number(c.conv||0);
    var temDec=(c.inv_dec!=null);
-   var dec=temDec?(brl2(c.inv_dec)+' · '+num(c.conv_dec)+' conv'):'—';
+   var dec=temDec?(brlCent(c.inv_dec)+' · '+num(c.conv_dec)+' conv'):'—';
    var sit,cls;
    if(!c.coletada){
     sit='fora da coleta'; cls='ruim';
     alerta.push('<b>'+esc(c.nome)+'</b> ('+esc(c.agencia)+') roda verba que o BI não coleta — '
-      +brl2(c.inv_dec)+' e '+num(c.conv_dec)+' conversas declaradas no período, invisíveis para todo o resto desta página.');
+      +brlCent(c.inv_dec)+' e '+num(c.conv_dec)+' conversas declaradas no período, invisíveis para todo o resto desta página.');
    } else if(c.presta_contas===false){
     sit='não consta na prestação'; cls='quase';
-    alerta.push('<b>'+esc(c.nome)+'</b> aparece aqui com '+brl2(inv)+' e '+num(conv)
+    alerta.push('<b>'+esc(c.nome)+'</b> aparece aqui com '+brlCent(inv)+' e '+num(conv)
       +' conversas, mas <b>não consta no relatório que a '+esc(c.agencia)+' entrega</b>. Comparar o BI com o PDF da agência sem descontar esta conta infla o resultado dela.');
    } else if(!temDec){ sit='sem relatório'; cls='avi';
    } else if(Math.abs(inv-Number(c.inv_dec))>0.5||conv!==Number(c.conv_dec)){
     sit='diverge'; cls='ruim';
-    alerta.push('<b>'+esc(c.nome)+'</b>: coletado '+brl2(inv)+'/'+num(conv)+' conversas contra '
-      +brl2(c.inv_dec)+'/'+num(c.conv_dec)+' declarados.');
+    alerta.push('<b>'+esc(c.nome)+'</b>: coletado '+brlCent(inv)+'/'+num(conv)+' conversas contra '
+      +brlCent(c.inv_dec)+'/'+num(c.conv_dec)+' declarados.');
    } else { sit='confere'; cls='ok'; }
    hc+='<tr><td><b>'+esc(c.nome)+'</b><div class="avi">'+esc(c.conta_id)+'</div></td>'
     +'<td>'+esc(ROT[c.empresa]||c.empresa)+'</td><td>'+esc(c.agencia)+'</td>'
     +'<td class="r">'+(c.coletada?brl(inv):'—')+'</td>'
     +'<td class="r">'+(c.coletada?num(conv):'—')+'</td>'
-    +'<td class="r">'+((c.coletada&&conv>0)?brl2(inv/conv):'—')+'</td>'
+    +'<td class="r">'+((c.coletada&&conv>0)?brlCent(inv/conv):'—')+'</td>'
     +'<td class="r">'+dec+'</td>'
     +'<td class="'+cls+'">'+sit+'</td></tr>';
   });
