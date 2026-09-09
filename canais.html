@@ -396,6 +396,7 @@ tfoot td{padding:8px 10px;font-weight:700;border-top:2px solid var(--dark)}
   <table id="tCmp"></table>
 </div>
 <div class="duelo" id="duelo"></div>
+<div class="nota" id="dueloCobre"></div>
 <div id="caixaPeriodo"></div>
 
 <div class="section-title" id="tituloLado"></div>
@@ -1503,6 +1504,23 @@ function render(){
       li('Base importada', bs, gB('Base importada')) +
       li('Sem canal identificável — telefone, balcão e cliente antigo', sr, gB('Sem rastreio (pré-CRM)')) +
       '</div>';
+    /* Os dois cartoes de cima nao somam o caixa do periodo: ficam de fora o call
+       center, a base importada e quem nao tem rastreio. Sem esta linha o leitor
+       compara os dois cartoes com o fechamento e acha que falta dinheiro. */
+    var elc = document.getElementById('dueloCobre');
+    if (elc) {
+      var cobre = pago + org, resto = tot - cobre;
+      elc.innerHTML = resto > 0.5
+        ? ('<b>Os dois cartões acima somam ' + BRL0(cobre) + ' — ' + PCT0(100*cobre/tot) +
+           ' do que entrou em caixa no período (' + BRL0(tot) + ').</b> Os outros ' + BRL0(resto) +
+           ' vieram de quem o rastreio de canal não alcança: ' + BRL0(eq) + ' criados pela equipe ' +
+           '(call center e recepção), ' + BRL0(sr) + ' sem canal identificável (telefone, balcão, ' +
+           'cliente antigo) e ' + BRL0(bs) + ' de base importada. Isso <b>não é dinheiro perdido nem ' +
+           'faltando</b> — é caixa cuja origem ninguém carimbou. O fechamento está no quadro logo abaixo, ' +
+           'que bate com o financeiro. <b>Não compare os dois cartões com o fechamento do mês:</b> ' +
+           'compare o quadro “Caixa do período — todas as origens”.')
+        : '';
+    }
   })();
   var alvo = lado === 'pago' ? tp : (lado === 'organico' ? tn : soma(soma(zero(), tp), tn));
   var canais = lado === 'pago' ? PAGO : (lado === 'organico' ? NPAGO : PAGO.concat(NPAGO));
@@ -1602,7 +1620,7 @@ function pintaDuelo(tp, tn, inv, tpB, tnB){
       linha('Recebido — quem chegou no período', BRL0(tp.pg)+dtag(tp.pg, tpB&&tpB.pg, false)) +
       linha('Em aberto — quem chegou no período', BRL0(tp.ab)+dtag(tp.ab, tpB&&tpB.ab, null)) +
     '</div>' +
-    '<div class="lado o"><h4>Não pago — orgânico e direto</h4><div class="big">'+BRL0(tn.pgd)+dtag(tn.pgd, tnB&&tnB.pgd, false)+'</div>' +
+    '<div class="lado o"><h4>Não pago — só orgânico e direto</h4><div class="big">'+BRL0(tn.pgd)+dtag(tn.pgd, tnB&&tnB.pgd, false)+'</div>' +
       '<div class="nota" style="margin:0 0 8px">entrou em caixa no período</div>' +
       linha('Faturado — quem chegou no período', BRL0(tn.v)+dtag(tn.v, tnB&&tnB.v, false)) +
       linha('Custo de mídia', 'R$ 0') +
