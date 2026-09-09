@@ -972,6 +972,13 @@ function pintaAgencias(){
     ' · <b>Cobertura diferente não é desempenho diferente.</b> A Vanguarda é vista pelo utm do ' +
     'WTS no contato; a VX, só pela referência do anúncio dentro da mensagem do WhatsApp. São dois ' +
     'espelhos, com alcances distintos.' +
+    ' · <b>“Criado pela equipe” e “Base importada” não são canais.</b> São o campo ' +
+    '<span style="font-family:monospace">origin</span> do Life CRM (CREATED_BY_USER e IMPORTED): dizem como o ' +
+    'cadastro nasceu, não de onde o paciente veio. Venda acontece no call center ou na recepção, e nos dois ' +
+    'entram lead pago e lead orgânico — esta tela não separa isso. <b>Para “de onde veio o paciente” com ' +
+    'cobertura total existe a origem declarada na recepção do Feegow</b>, preenchida em 100% dos agendamentos ' +
+    '(indicação, Instagram, fachada, convênio…). <b>Para “quem vendeu” a resposta está no quadro de equipes ' +
+    'do BI do grupo</b>, nome a nome. Nenhuma das duas é o que esta lista mede.' +
     ' · <b>&ldquo;Leads no CRM&rdquo; não é a mesma coisa que &ldquo;conversas&rdquo; do relatório da agência.</b> ' +
     'Aqui contamos telefones distintos que tocaram um anúncio e viraram contato nosso; a Meta conta ' +
     'conversa iniciada, pela atribuição dela. O nosso número costuma ser <i>menor</i>: em julho a Meta ' +
@@ -1500,9 +1507,15 @@ function render(){
       '<div class="big">'+BRL0(tot)+dtag(tot, totB, false)+'</div>' +
       li('Pacientes de anúncio', pago, somaB(PAGO)) +
       li('Orgânico e direto', org, somaB(NPAGO)) +
-      li('Criado pela equipe — call center e recepção', eq, gB('Criado pela equipe')) +
-      li('Base importada', bs, gB('Base importada')) +
-      li('Sem canal identificável — telefone, balcão e cliente antigo', sr, gB('Sem rastreio (pré-CRM)')) +
+      li('Cadastro criado pela equipe — origem não registrada', eq, gB('Criado pela equipe')) +
+      li('Base migrada para o CRM — origem não registrada', bs, gB('Base importada')) +
+      li('Nunca passou pelo CRM — origem não registrada', sr, gB('Sem rastreio (pré-CRM)')) +
+      '<div class="nota" style="margin-top:10px">As três últimas linhas <b>não são origem de paciente</b>. ' +
+      'Elas vêm do campo <span style="font-family:monospace">origin</span> do Life CRM, que diz como o <b>cadastro</b> ' +
+      'entrou — importado de planilha, digitado por alguém da equipe, ou inexistente porque o paciente nunca ' +
+      'passou pelo WhatsApp. Um paciente que viu o anúncio e ligou para o call center cai em “criado pela equipe”, ' +
+      'e a origem paga dele se perde aqui. <b>Onde a pessoa foi atendida e de onde ela veio são duas perguntas ' +
+      'diferentes</b>, e esta tela só sabe responder bem a segunda para quem entrou por conversa.</div>' +
       '</div>';
     /* Os dois cartoes de cima nao somam o caixa do periodo: ficam de fora o call
        center, a base importada e quem nao tem rastreio. Sem esta linha o leitor
