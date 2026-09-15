@@ -305,6 +305,7 @@ tfoot td{padding:8px 10px;font-weight:700;border-top:2px solid var(--dark)}
 #agAdsSel button.on[data-ag="Vanguarda"]{background:var(--blue);border-color:var(--blue);color:#fff}
 #agAdsSel button.on[data-ag="VX"]{background:var(--orange);border-color:var(--orange);color:#fff}
 #agAdsSel button.on{background:var(--dark);border-color:var(--dark);color:#fff}
+.ad-dica{color:var(--cinza);font-size:12.5px;font-style:italic;padding:2px 0}
 .ad-vazio{background:#fff;border:1px dashed var(--border);border-radius:var(--r-md);
   padding:18px;color:var(--gray-text);font-size:13px}
 .ad-esp{font-size:11px;border-radius:999px;padding:3px 10px;font-weight:700;
@@ -1091,13 +1092,12 @@ function pintaAgAdsEsp(lista, ref){
       var esp = grupos[Number(tr.getAttribute('data-i'))].e;
       agAdsEspSel = (agAdsEspSel === esp) ? null : esp;
       pintaAgAdsEsp(lista, ref);
-      pintaAgAdsCards(lista, ref);
+      pintaAgAdsCards(lista.length > 0);
     });
   });
   /* os cartoes da especialidade aberta nascem DENTRO da tabela, logo abaixo da
-     linha que os referencia -- e nao empilhados depois do rodape. Enquanto uma
-     especialidade esta aberta a grade de baixo fica vazia, senao cada anuncio
-     apareceria duas vezes na tela. */
+     linha que os referencia -- e nao empilhados depois do rodape. A caixa de
+     baixo nunca mostra cartao: ela so guarda a dica de clicar. */
   if (agAdsEspSel) {
     var alvo = tab.querySelector('.esp-linha.aberta');
     if (alvo) {
@@ -1118,13 +1118,16 @@ function cartoesDaEspec(lista, ref){
     : '<div class="ad-vazio">Nenhum anúncio desta especialidade veiculou no período.</div>';
 }
 
-function pintaAgAdsCards(lista, ref){
+function pintaAgAdsCards(temAnuncio){
   var caixa = document.getElementById('agAds');
   if (!caixa) return;
-  /* especialidade aberta = os cartoes estao dentro da tabela; aqui fica vazio */
+  /* Os cartoes abrem DENTRO da tabela, sob a especialidade clicada (.esp-det).
+     Esta caixa NUNCA lista tudo: ate 15/09/2026 ela despejava todos os anuncios
+     da agencia aqui embaixo sem ninguem ter clicado, e a tela ficava com dois
+     lugares mostrando a mesma coisa — um deles sem pedido de ninguem. */
   if (agAdsEspSel) { caixa.innerHTML = ''; return; }
-  caixa.innerHTML = lista.length
-    ? lista.map(function(a){ return cartaoAdAgencia(a, ref); }).join('')
+  caixa.innerHTML = temAnuncio
+    ? '<div class="ad-dica">Clique numa especialidade da tabela acima para ver os anúncios dela.</div>'
     : '<div class="ad-vazio">Nenhum anúncio desta agência veiculou no período.</div>';
 }
 
@@ -1186,7 +1189,7 @@ function pintaAgAds(){
   }
 
   pintaAgAdsEsp(lista, ref);
-  pintaAgAdsCards(lista, ref);
+  pintaAgAdsCards(lista.length > 0);
 
   var T = {inv:0, conv:0, r:0, p:0, v:0, pg:0};
   lista.forEach(function(a){ ['inv','conv','r','p','v','pg'].forEach(function(c){ T[c] += a[c]; }); });
