@@ -456,6 +456,8 @@ var COR = {'Meta Ads':'var(--red)','Meta sem id do anúncio':'#F5136E99','Google
 var CAN = [], MID = [], JOR = [], MARCAS_OK = [], lado = 'pago', marcaSel = 'todas';
 var AG = [], AGREF = [];
 var AGADS = [], agAdsSel = 'VX', agAdsEspSel = null, agAdsEspAg = null, PROCAG = [], PROCADSAG = {};
+/* caixa do periodo por agencia, na mesma populacao do cartao de trafego pago */
+var AGCX = [];
 var PROC = [], PROCADS = {}, CONTA = {}, CRI = {}, criPedido = {};
 /* delta pequeno ao lado do valor quando a comparacao esta ligada */
 function dtag(va, vb, invertido){
@@ -510,6 +512,8 @@ function carrega(){
           nota:x.nota||''}); });
         /* funil por anuncio pelos DOIS espelhos — a chave `jornada` acima so
            enxerga o carimbo de utm do WTS, e por ele o anuncio da VX nao existe. */
+        (d.agencia_caixa || []).forEach(function(x){
+          AGCX.push({m:m.id, d:x.d, ag:x.ag, pgd:x.pgd||0, fora:x.fora||0}); });
         (d.agencia_ads || []).forEach(function(x){ AGADS.push({m:m.id, d:x.d, a:String(x.a),
           ag:x.ag, r:x.r||0, k:x.k||0, p:x.p||0, o:x.o||0, e:x.e||0,
           v:x.v||0, pg:x.pg||0, ab:x.ab||0, ne:x.ne||0, vne:x.vne||0}); });
@@ -871,6 +875,21 @@ function agAgrega(d1, d2){
   return m;
 }
 
+/* caixa do periodo por agencia -- a MESMA regua e a MESMA populacao do cartao
+   "Trafego pago" la de cima. Somado com "Anuncio nao identificado" da o total
+   do cartao ao centavo; e por isso que este quadro pode ser lido como
+   decomposicao dele, e nao como uma segunda contagem que briga com a primeira. */
+function agCaixa(d1, d2){
+  var m = {}, foraT = 0;
+  AGCX.forEach(function(x){
+    if (x.d < d1 || x.d > d2) return;
+    if (marcaSel !== 'todas' && x.m !== marcaSel) return;
+    m[x.ag] = (m[x.ag] || 0) + x.pgd;
+    foraT += x.fora;
+  });
+  return {porAg: m, fora: foraT};
+}
+
 function agRef(nome){
   for (var i = 0; i < AGREF.length; i++) if (AGREF[i].ag === nome) return AGREF[i];
   return {ag:nome, conta:'', ger:'', coletada:false, nota:''};
@@ -898,9 +917,12 @@ function pintaAgencias(){
   }
 
   var m = agAgrega(de, ate), mB = (cmpAtivo && de2 && ate2) ? agAgrega(de2, ate2) : null;
+  var CX = agCaixa(de, ate), CXB = (cmpAtivo && de2 && ate2) ? agCaixa(de2, ate2) : null;
+  var cxDe = function(ag){ return CX.porAg[ag] || 0; };
+  var cxDeB = function(ag){ return CXB ? (CXB.porAg[ag] || 0) : null; };
   var linhas = Object.keys(m).map(function(k){ return m[k]; })
                      .filter(function(o){ return o.r || o.v || o.inv; })
-                     .sort(function(a, b){ return b.pg - a.pg; });
+                     .sort(function(a, b){ return (CX.porAg[b.ag]||0) - (CX.porAg[a.ag]||0) || b.pg - a.pg; });
   if (!linhas.length) { limpa('Nenhum lead de anúncio atribuído a agência neste período.'); return; }
 
   /* --- os dois cartoes, lado a lado --- */
@@ -914,8 +936,9 @@ function pintaAgencias(){
     return '<div class="lado ' + (AG_CLASSE[o.ag] || '') + '">' +
       '<h4>' + esc(o.ag) + selo + '</h4>' +
       '<div class="ger">gerenciador ' + esc(ref.ger || '—') + '</div>' +
-      '<div class="big">' + BRL0(o.pg) + dtag(o.pg, b && b.pg, false) + '</div>' +
-      '<div class="ger" style="margin-bottom:4px">recebido de quem chegou no período</div>' +
+      '<div class="big">' + BRL0(cxDe(o.ag)) + dtag(cxDe(o.ag), cxDeB(o.ag), false) + '</div>' +
+      '<div class="ger" style="margin-bottom:4px">recebido em caixa no período</div>' +
+      l('Recebido — quem chegou no período', BRL0(o.pg)) +
       l('Leads no CRM — quem chegou no período', N(o.r)) +
       l('Viraram paciente', N(o.p) + (o.r ? ' · ' + PCT0(100 * o.p / o.r) : '')) +
       l('Faturado — quem chegou no período', BRL0(o.v)) +
@@ -932,11 +955,14 @@ function pintaAgencias(){
 
   /* --- a mesma coisa em tabela, com o total --- */
   var td = function(v){ return '<td class="num">' + v + '</td>'; };
+  var cxNaoId = CX.porAg['Anúncio não identificado'] || 0;
+  var cxTotal = Object.keys(CX.porAg).reduce(function(s, k){ return s + CX.porAg[k]; }, 0);
   var T = {r:0, p:0, o:0, v:0, pg:0, ab:0, vne:0, inv:0};
   linhas.forEach(function(o){ ['r','p','o','v','pg','ab','vne','inv'].forEach(function(c){ T[c] += o[c]; }); });
   tab.innerHTML =
     '<thead><tr><th>Agência</th><th>Gerenciador</th><th class="num">Leads</th>' +
       '<th class="num">Viraram paciente</th><th class="num">Propostas</th>' +
+      '<th class="num">Caixa do período</th>' +
       '<th class="num">Faturado</th><th class="num">Recebido</th><th class="num">Em aberto</th>' +
       /* as tres colunas acima sao COORTE: dinheiro de quem chegou no periodo, nao
          caixa do periodo. O cabecalho diz isso na nota abaixo da tabela. */
@@ -946,6 +972,7 @@ function pintaAgencias(){
       var ref = agRef(o.ag);
       return '<tr><td><b>' + esc(o.ag) + '</b></td><td>' + esc(ref.ger || '—') + '</td>' +
         td(N(o.r)) + td(N(o.p)) + td(N(o.o)) +
+        td(cxDe(o.ag) ? '<b>' + BRL0(cxDe(o.ag)) + '</b>' : '—') +
         td(o.v ? BRL0(o.v) : '—') + td(o.pg ? BRL0(o.pg) : '—') + td(o.ab ? BRL0(o.ab) : '—') +
         td(o.vne ? BRL0(o.vne) : '—') +
         td(ref.coletada ? BRL0(o.inv) : '<span style="color:var(--red)">' +
@@ -954,8 +981,15 @@ function pintaAgencias(){
         td((ref.coletada && o.inv) ? (o.v / o.inv).toFixed(1).replace('.', ',') + '×' : '—') +
         '</tr>';
     }).join('') + '</tbody>' +
+    /* o caixa que o canal chama de pago mas cujo anuncio os espelhos nao
+       identificam entra como linha propria: sem ela a soma nao fecharia com o
+       cartao de trafego pago, e a tabela voltaria a parecer quebrada. */
+    (cxNaoId ? '<tr><td><b>Anúncio não identificado</b></td><td>—</td>' +
+       td('—') + td('—') + td('—') + td('<b>' + BRL0(cxNaoId) + '</b>') +
+       td('—') + td('—') + td('—') + td('—') + td('—') + td('—') + td('—') + '</tr>' : '') +
     '<tfoot><tr><td>Total — ' + N(linhas.length) + ' agências</td><td></td>' +
-      td(N(T.r)) + td(N(T.p)) + td(N(T.o)) + td(BRL0(T.v)) + td(BRL0(T.pg)) + td(BRL0(T.ab)) +
+      td(N(T.r)) + td(N(T.p)) + td(N(T.o)) + td('<b>' + BRL0(cxTotal) + '</b>') +
+      td(BRL0(T.v)) + td(BRL0(T.pg)) + td(BRL0(T.ab)) +
       td(BRL0(T.vne)) + td(BRL0(T.inv)) + td('—') + td('—') + '</tr></tfoot>';
 
   var semColeta = linhas.filter(function(o){ return !agRef(o.ag).coletada && o.r; });
@@ -972,14 +1006,17 @@ function pintaAgencias(){
         'por lead e retorno não existem desse lado. Identificar a conta e pedir acesso em ' +
         '“Ver desempenho” fecha a lacuna.'
       : '') +
-    ' · <b>Este quadro é de coorte, não de caixa.</b> Todo dinheiro aqui é de <i>quem chegou ' +
-    'no período</i>, contado do dia da chegada em diante — inclusive o número grande de cada ' +
-    'agência. O cartão &ldquo;Tráfego pago&rdquo; lá em cima é outra régua: caixa que entrou no ' +
-    'período, venha de quem chegou quando for. Os dois estão certos e <b>não têm obrigação de bater</b>.' +
-    ' · <b>E a atribuição também é outra.</b> Lá o paciente é creditado ao <i>canal</i> do primeiro ' +
-    'contato dele; aqui, ao <i>anúncio</i> que tocou o telefone primeiro, pelos dois espelhos. ' +
-    'São recortes diferentes do mesmo mês, e por isso um pode ter mais paciente e menos faturado ' +
-    'que o outro ao mesmo tempo. Somar os dois, ou cobrar que fechem, dá número errado.' +
+    ' · <b>O caixa deste quadro fecha com o cartão &ldquo;Tráfego pago&rdquo;.</b> ' +
+    'As agências mais o &ldquo;anúncio não identificado&rdquo; somam <b>' + BRL0(cxTotal) + '</b>, ' +
+    'que é exatamente o número grande daquele cartão: este quadro é a <i>decomposição</i> dele, ' +
+    'não uma segunda contagem. As colunas Faturado, Recebido e Em aberto seguem sendo de coorte — ' +
+    'dinheiro de <i>quem chegou no período</i> — e por isso não somam o caixa.' +
+    (CX.fora > 0.5
+      ? ' · <b>Os espelhos enxergam ' + BRL0(CX.fora) + ' a mais que o canal classifica como pago.</b> ' +
+        'É caixa de paciente cujo anúncio nós conhecemos, mas que o canal do primeiro contato dele ' +
+        'não marcou como Meta Ads — cai em &ldquo;Direto&rdquo; ou fica sem canal. Fora deste quadro ' +
+        'por coerência com o cartão, mas é atribuição paga que a tela ainda perde.'
+      : '') +
     ' · <b>Cobertura diferente não é desempenho diferente.</b> A Vanguarda é vista pelo utm do ' +
     'WTS no contato; a VX, só pela referência do anúncio dentro da mensagem do WhatsApp. São dois ' +
     'espelhos, com alcances distintos.' +
