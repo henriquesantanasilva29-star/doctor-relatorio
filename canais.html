@@ -903,31 +903,44 @@ function pintaAgencias(){
 
   var limpa = function(msg){ duelo.innerHTML = ''; tab.innerHTML = ''; nota.innerHTML = msg; };
 
-  if (!AG.length) {
-    limpa('O recorte por agência ainda não veio no dado desta marca. Ele existe apenas onde ' +
-          'o CRM captura anúncio de conta não coletada — hoje, só na Doctor.');
-    return;
-  }
-  if (marcaSel === 'acesso') {
-    limpa('<b>Não há recorte por agência na Acesso Saúde.</b> Lá o único carimbo de anúncio no ' +
-          'CRM é o da conta que a Vanguarda opera; não existe o espelho que captura anúncio de ' +
-          'conta de fora. Se a VX estiver rodando para a Acesso, o lead dela chega hoje como ' +
-          '“Direto / sem origem” — ausência de carimbo não é prova de origem orgânica.');
-    return;
-  }
-
   var m = agAgrega(de, ate), mB = (cmpAtivo && de2 && ate2) ? agAgrega(de2, ate2) : null;
   var CX = agCaixa(de, ate), CXB = (cmpAtivo && de2 && ate2) ? agCaixa(de2, ate2) : null;
   var cxDe = function(ag){ return CX.porAg[ag] || 0; };
   var cxDeB = function(ag){ return CXB ? (CXB.porAg[ag] || 0) : null; };
-  var linhas = Object.keys(m).map(function(k){ return m[k]; })
-                     .filter(function(o){ return o.r || o.v || o.inv; })
+
+  /* a Acesso tem caixa por agencia mas nao tem a jornada por anuncio: la o quadro
+     vive so da coluna de caixa. Por isso o criterio de existir e "ha caixa OU ha
+     jornada", e nao mais "ha jornada". */
+  var temCaixa = Object.keys(CX.porAg).length > 0;
+  if (!AG.length && !temCaixa) {
+    limpa('O recorte por agência ainda não veio no dado desta marca.');
+    return;
+  }
+
+  /* as linhas saem da UNIAO das duas fontes. Se uma agencia aparecesse so no
+     caixa, montar a tabela pela jornada a deixaria de fora e a soma voltaria a
+     nao fechar com o cartao -- que foi exatamente o defeito relatado. */
+  var vazia = function(ag){ return {ag:ag, r:0, rev:0, k:0, p:0, o:0, e:0, vexec:0,
+                                    ne:0, vne:0, nf:0, v:0, pg:0, ab:0, inv:0, conv:0}; };
+  var nomes = {};
+  Object.keys(m).forEach(function(k){ if (m[k].r || m[k].v || m[k].inv) nomes[k] = 1; });
+  Object.keys(CX.porAg).forEach(function(k){
+    if (k !== 'Anúncio não identificado' && CX.porAg[k]) nomes[k] = 1; });
+  var linhas = Object.keys(nomes).map(function(k){ return m[k] || vazia(k); })
                      .sort(function(a, b){ return (CX.porAg[b.ag]||0) - (CX.porAg[a.ag]||0) || b.pg - a.pg; });
   if (!linhas.length) { limpa('Nenhum lead de anúncio atribuído a agência neste período.'); return; }
+
+  /* a jornada por anuncio so existe na Doctor; quando a tela mistura as marcas, o
+     caixa e do grupo e as colunas de coorte nao sao. Dizer isso e obrigatorio. */
+  var soDoctor = temCaixa && (marcaSel === 'todas') &&
+                 AGCX.some(function(x){ return x.m !== 'doctor' && x.d >= de && x.d <= ate && x.pgd; });
 
   /* --- os dois cartoes, lado a lado --- */
   duelo.innerHTML = linhas.slice(0, 2).map(function(o){
     var ref = agRef(o.ag), b = mB && mB[o.ag];
+    /* so caixa: nao ha jornada por anuncio nesta marca, entao nada de coorte e
+       nada de investimento pode ser afirmado para esta linha. */
+    var soCx = !o.r && !o.v && !o.inv;
     var l = function(r, v){ return '<div class="linha"><span>' + r + '</span><b>' + v + '</b></div>'; };
     var selo = ref.coletada
       ? '<span class="selo ok">investimento coletado</span>'
@@ -944,8 +957,9 @@ function pintaAgencias(){
       l('Faturado — quem chegou no período', BRL0(o.v)) +
       l('Em aberto — quem chegou no período', BRL0(o.ab)) +
       l('Parado na mesa', BRL0(o.vne) + (o.ne ? ' · ' + N(o.ne) + ' propostas' : '')) +
-      l('Investimento', ref.coletada ? BRL0(o.inv)
-                        : (ref.ger ? 'não compartilhado' : 'conta não identificada')) +
+      l('Investimento', soCx ? 'sem jornada por anúncio nesta marca'
+                        : (ref.coletada ? BRL0(o.inv)
+                        : (ref.ger ? 'não compartilhado' : 'conta não identificada'))) +
       l('Custo por lead', (ref.coletada && o.r) ? BRL(o.inv / o.r) : '—') +
       l('Custo por paciente', (ref.coletada && o.p) ? BRL(o.inv / o.p) : '—') +
       l('Retorno sobre a mídia', (ref.coletada && o.inv)
@@ -970,13 +984,14 @@ function pintaAgencias(){
       '<th class="num">Custo/lead</th><th class="num">Retorno</th></tr></thead><tbody>' +
     linhas.map(function(o){
       var ref = agRef(o.ag);
+      var soCx = !o.r && !o.v && !o.inv;
       return '<tr><td><b>' + esc(o.ag) + '</b></td><td>' + esc(ref.ger || '—') + '</td>' +
         td(N(o.r)) + td(N(o.p)) + td(N(o.o)) +
         td(cxDe(o.ag) ? '<b>' + BRL0(cxDe(o.ag)) + '</b>' : '—') +
         td(o.v ? BRL0(o.v) : '—') + td(o.pg ? BRL0(o.pg) : '—') + td(o.ab ? BRL0(o.ab) : '—') +
         td(o.vne ? BRL0(o.vne) : '—') +
-        td(ref.coletada ? BRL0(o.inv) : '<span style="color:var(--red)">' +
-             (ref.ger ? 'não compartilhado' : 'não identificada') + '</span>') +
+        td(soCx ? '—' : (ref.coletada ? BRL0(o.inv) : '<span style="color:var(--red)">' +
+             (ref.ger ? 'não compartilhado' : 'não identificada') + '</span>')) +
         td((ref.coletada && o.r) ? BRL(o.inv / o.r) : '—') +
         td((ref.coletada && o.inv) ? (o.v / o.inv).toFixed(1).replace('.', ',') + '×' : '—') +
         '</tr>';
@@ -1011,6 +1026,13 @@ function pintaAgencias(){
     'que é exatamente o número grande daquele cartão: este quadro é a <i>decomposição</i> dele, ' +
     'não uma segunda contagem. As colunas Faturado, Recebido e Em aberto seguem sendo de coorte — ' +
     'dinheiro de <i>quem chegou no período</i> — e por isso não somam o caixa.' +
+    (soDoctor
+      ? ' · <b>Atenção ao recorte: o caixa é do grupo, o resto é só da Doctor+.</b> ' +
+        'A Acesso Saúde entra na coluna &ldquo;Caixa do período&rdquo; — é por isso que a soma ' +
+        'fecha com o cartão — mas ela não tem a jornada por anúncio que alimenta Leads, ' +
+        'Viraram paciente, Faturado, Em aberto e Investimento. Essas colunas contam só a ' +
+        'Doctor+. Para ler as duas marcas com o mesmo recorte, filtre uma marca por vez.'
+      : '') +
     (CX.fora > 0.5
       ? ' · <b>Os espelhos enxergam ' + BRL0(CX.fora) + ' a mais que o canal classifica como pago.</b> ' +
         'É caixa de paciente cujo anúncio nós conhecemos, mas que o canal do primeiro contato dele ' +
