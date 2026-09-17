@@ -915,11 +915,11 @@ function pintaAgencias(){
       '<h4>' + esc(o.ag) + selo + '</h4>' +
       '<div class="ger">gerenciador ' + esc(ref.ger || '—') + '</div>' +
       '<div class="big">' + BRL0(o.pg) + dtag(o.pg, b && b.pg, false) + '</div>' +
-      '<div class="ger" style="margin-bottom:4px">recebido em caixa no período</div>' +
-      l('Leads no CRM', N(o.r)) +
+      '<div class="ger" style="margin-bottom:4px">recebido de quem chegou no período</div>' +
+      l('Leads no CRM — quem chegou no período', N(o.r)) +
       l('Viraram paciente', N(o.p) + (o.r ? ' · ' + PCT0(100 * o.p / o.r) : '')) +
-      l('Faturado', BRL0(o.v)) +
-      l('Em aberto', BRL0(o.ab)) +
+      l('Faturado — quem chegou no período', BRL0(o.v)) +
+      l('Em aberto — quem chegou no período', BRL0(o.ab)) +
       l('Parado na mesa', BRL0(o.vne) + (o.ne ? ' · ' + N(o.ne) + ' propostas' : '')) +
       l('Investimento', ref.coletada ? BRL0(o.inv)
                         : (ref.ger ? 'não compartilhado' : 'conta não identificada')) +
@@ -938,6 +938,8 @@ function pintaAgencias(){
     '<thead><tr><th>Agência</th><th>Gerenciador</th><th class="num">Leads</th>' +
       '<th class="num">Viraram paciente</th><th class="num">Propostas</th>' +
       '<th class="num">Faturado</th><th class="num">Recebido</th><th class="num">Em aberto</th>' +
+      /* as tres colunas acima sao COORTE: dinheiro de quem chegou no periodo, nao
+         caixa do periodo. O cabecalho diz isso na nota abaixo da tabela. */
       '<th class="num">Parado na mesa</th><th class="num">Investimento</th>' +
       '<th class="num">Custo/lead</th><th class="num">Retorno</th></tr></thead><tbody>' +
     linhas.map(function(o){
@@ -970,6 +972,14 @@ function pintaAgencias(){
         'por lead e retorno não existem desse lado. Identificar a conta e pedir acesso em ' +
         '“Ver desempenho” fecha a lacuna.'
       : '') +
+    ' · <b>Este quadro é de coorte, não de caixa.</b> Todo dinheiro aqui é de <i>quem chegou ' +
+    'no período</i>, contado do dia da chegada em diante — inclusive o número grande de cada ' +
+    'agência. O cartão &ldquo;Tráfego pago&rdquo; lá em cima é outra régua: caixa que entrou no ' +
+    'período, venha de quem chegou quando for. Os dois estão certos e <b>não têm obrigação de bater</b>.' +
+    ' · <b>E a atribuição também é outra.</b> Lá o paciente é creditado ao <i>canal</i> do primeiro ' +
+    'contato dele; aqui, ao <i>anúncio</i> que tocou o telefone primeiro, pelos dois espelhos. ' +
+    'São recortes diferentes do mesmo mês, e por isso um pode ter mais paciente e menos faturado ' +
+    'que o outro ao mesmo tempo. Somar os dois, ou cobrar que fechem, dá número errado.' +
     ' · <b>Cobertura diferente não é desempenho diferente.</b> A Vanguarda é vista pelo utm do ' +
     'WTS no contato; a VX, só pela referência do anúncio dentro da mensagem do WhatsApp. São dois ' +
     'espelhos, com alcances distintos.' +
