@@ -25,6 +25,7 @@ iframe{border:0;width:100%;flex:1;background:#faf9fc}
 <header>
  <h1>Grupo JOB · <span>painéis</span></h1>
  <nav>
+  <button class="aba" id="ab-mensal">Relatório mensal</button>
   <button class="aba" id="ab-bi">BI do grupo</button>
   <button class="aba" id="ab-doctor">Doctor+</button>
   <button class="aba" id="ab-acesso">Acesso Saúde</button>
@@ -38,7 +39,7 @@ iframe{border:0;width:100%;flex:1;background:#faf9fc}
 <script>
 var h=new URLSearchParams(location.hash.replace(/^#/,''));
 var K={bi:h.get('kb')||'',doctor:h.get('kd')||'',acesso:h.get('ka')||''};
-var ABAS=['bi','doctor','acesso','canais'];
+var ABAS=['mensal','bi','doctor','acesso','canais'];
 /* Canais junta as duas clínicas numa tela só, então aceita qualquer uma das
    duas chaves e usa as que existirem. */
 /* carimbo de hora na URL: fura o cache de 10 min do GitHub Pages — atualizacao
@@ -52,9 +53,11 @@ function endereco(id){
     if(K.bi) q.push('kb='+K.bi); /* o quadro de equipes vem do hub */
     return 'canais.html'+fresco()+'#'+q.join('&');
   }
+  /* o relatório mensal usa a mesma chave do BI (bi-painel, bloco=mensal) */
+  if(id==='mensal') return 'mensal.html'+fresco()+'#k='+K.bi;
   return {bi:'bi.html',doctor:'index.html',acesso:'acesso.html'}[id]+fresco()+'#k='+K[id];
 }
-function temChave(id){ return id==='canais' ? !!(K.doctor||K.acesso) : !!K[id]; }
+function temChave(id){ return id==='canais' ? !!(K.doctor||K.acesso) : id==='mensal' ? !!K.bi : !!K[id]; }
 function abre(id){
   if(!temChave(id))return;
   var url=endereco(id);
