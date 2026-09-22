@@ -1,0 +1,519 @@
+<!doctype html>
+<html lang="pt-BR"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Grupo JOB · Relatório mensal</title>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700&family=DM+Sans:wght@400;500;700&family=DM+Mono&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="comum.css?v=5">
+<style>
+/* só o que o comum.css não tem: matriz densa, barra de meta e impressão */
+.unis{display:flex;flex-wrap:wrap;gap:7px;align-items:center;margin-top:10px}
+select.mes{font-family:var(--display);font-size:12px;font-weight:600;border:1px solid var(--rule-2);border-radius:999px;
+  padding:6px 12px;background:var(--surface);color:var(--ink);height:31px}
+.capa{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 14px;margin:4px 0 18px}
+.capa h1{font-size:26px}
+.capa .onde{color:var(--ink-3);font-size:13px}
+.matriz td,.matriz th{white-space:nowrap;padding:8px 10px;font-variant-numeric:tabular-nums}
+.matriz td.r,.matriz th.r{text-align:right}
+.matriz th.sem{background:var(--surface-3)}
+.matriz td.sem{background:color-mix(in srgb,var(--surface-2) 55%,transparent)}
+.matriz td.tot,.matriz th.tot{border-left:2px solid var(--rule-2)}
+.matriz tr.soma td{font-weight:700;color:var(--ink);background:var(--surface-2)}
+.matriz tr.grupo td{font-family:var(--display);font-size:11px;letter-spacing:.09em;text-transform:uppercase;
+  color:var(--ink-3);background:var(--surface);font-weight:600;padding-top:14px}
+.matriz td.nome{white-space:normal;min-width:11em}
+.matriz .vazio{color:var(--rule-2)}
+.pos{color:var(--ok)} .neg{color:var(--bad)}
+.meta-bar{height:12px;border-radius:999px;background:var(--surface-3);overflow:hidden;margin:10px 0 6px;position:relative}
+.meta-bar i{display:block;height:100%;background:var(--grad-brand);border-radius:999px}
+.meta-bar b{position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--ink)}
+.duas{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:14px}
+.cartao{background:var(--surface);border:1px solid var(--rule);border-radius:14px;padding:16px 18px;box-shadow:var(--shadow-xs)}
+.cartao .nome{font-family:var(--display);font-size:12px;font-weight:600;color:var(--ink-3);letter-spacing:.06em;text-transform:uppercase}
+.cartao .grande{font-family:var(--display);font-size:26px;font-weight:700;color:var(--ink);letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.cartao .linha{font-size:13px;color:var(--ink-2);font-variant-numeric:tabular-nums;margin-top:2px}
+details.mais{margin-top:10px}
+details.mais summary{cursor:pointer;font-size:12.5px;color:var(--accent);font-weight:600}
+.acoes{margin-left:auto;display:flex;gap:7px}
+.sec{break-inside:avoid;page-break-inside:avoid}
+.lado{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 10px}
+@media(max-width:719px){.acoes{margin-left:0}.capa h1{font-size:21px}
+  /* matriz de meses não vira cartão: rola de lado, com a primeira coluna presa */
+  .tabela-wrap:has(.matriz){overflow-x:auto;border:1px solid var(--rule);background:var(--surface);border-radius:14px;box-shadow:var(--shadow-xs)}
+  table.matriz{display:table;width:100%} .matriz thead{display:table-header-group} .matriz tbody{display:table-row-group;width:auto}
+  .matriz tbody tr{display:table-row;background:none;border:0;border-radius:0;padding:0;margin:0;box-shadow:none}
+  .matriz tbody td{display:table-cell;width:auto;border-bottom:1px solid var(--rule);padding:6px 8px}
+  .matriz tbody td::before{content:none}
+  .matriz thead tr{display:table-row} .matriz thead th{display:table-cell}
+  .matriz td.r,.matriz th.r{text-align:right}
+  .matriz td:first-child,.matriz th:first-child{position:sticky;left:0;background:var(--surface);z-index:1;width:9.5em;min-width:9.5em;max-width:9.5em;white-space:normal}
+  .matriz{table-layout:auto;width:max-content;min-width:100%}
+  .matriz tr.soma td:first-child{background:var(--surface-2)}
+}
+@media print{
+  @page{size:A4 landscape;margin:10mm}
+  body{background:#fff;font-size:11px}
+  .topo .filtros,.unis,.acoes,details.mais summary,#aviso-frescor .so-tela{display:none!important}
+  .topo{border:0;padding:0 0 6px}
+  main{padding:0;max-width:none}
+  h2{margin-top:18px}
+  .sec{break-inside:avoid}
+  .pagina{break-before:page}
+  .tabela-wrap{box-shadow:none;overflow:visible}
+  .matriz td,.matriz th{padding:4px 6px;font-size:10px}
+  details.mais{display:block} details.mais>*{display:block}
+}
+</style></head><body>
+<div class="topo"><div class="topo-in">
+ <div class="marca">Grupo JOB · <em>relatório mensal</em></div>
+ <div class="rastro"><a href="#" data-para="inicio.html">início</a><span class="sep">/</span><span>unidades, mês a mês</span></div>
+ <div class="filtros">
+  <select class="mes" id="f-mes" aria-label="Mês do relatório"></select>
+  <span class="divisor"></span>
+  <button class="pill" data-cols="deck" title="Janeiro e os três últimos meses, como no deck">Jan + 3 meses</button>
+  <button class="pill" data-cols="todos">Todos os meses</button>
+  <div class="acoes"><button class="pill" id="imprimir" title="Salvar como PDF pelo navegador">Imprimir / PDF</button></div>
+ </div>
+ <div class="unis" id="f-uni"></div>
+ <div class="estado-barra" id="carimbo">carregando…</div>
+</div></div>
+<div id="estado">Buscando o relatório…</div>
+<main id="conteudo" style="display:none"></main>
+<div class="rodape" id="rodape"></div>
+<script src="comum.js?v=5"></script>
+<script>
+(function(){
+'use strict';
+var J = window.JOB, esc = J.esc, num = J.num;
+var brl0 = function(v){ return v==null ? '—' : J.brl(v,0); };
+var brl2 = function(v){ return v==null ? '—' : Number(v).toLocaleString('pt-BR',{style:'currency',currency:'BRL',minimumFractionDigits:2,maximumFractionDigits:2}); };
+var pct1 = function(v){ return v==null||!isFinite(v) ? '—' : J.pct(v,1); };
+var MESES = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+var MESES_L = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+function rotMes(b){ var p=b.split('-'); return MESES[+p[1]-1]+'/'+p[0].slice(2); }
+function rotMesL(b){ var p=b.split('-'); return MESES_L[+p[1]-1]+' '+p[0]; }
+function menosMeses(b,n){ var p=b.split('-'), d=new Date(+p[0], +p[1]-1-n, 1); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); }
+function ddmm(s){ var p=String(s).slice(0,10).split('-'); return p[2]+'/'+p[1]; }
+
+/* ---------- estado no fragmento ---------- */
+var hojeM = J.iso(J.hojeManaus()).slice(0,7);
+var h = new URLSearchParams(location.hash.replace(/^#/,''));
+var E = { k: h.get('k')||'', mes: h.get('mes')||'', u: h.get('u')||'grupo', cols: h.get('cols')||'deck' };
+if(!/^\d{4}-\d{2}$/.test(E.mes)){ // padrão: mês fechado anterior; nos 5 primeiros dias o anterior ainda está fechando
+  E.mes = menosMeses(hojeM, 1);
+}
+function grava(){ var q=new URLSearchParams(); Object.keys(E).forEach(function(c){ if(E[c]) q.set(c,E[c]); }); history.replaceState(null,'','#'+q.toString()); }
+document.addEventListener('click', function(ev){
+  var a = ev.target.closest && ev.target.closest('a[data-para]'); if(!a) return;
+  a.setAttribute('href', a.dataset.para + '#k=' + encodeURIComponent(E.k));
+}, true);
+
+/* ---------- filtros ---------- */
+var sel = document.getElementById('f-mes');
+for(var b = hojeM; b >= '2026-01'; b = menosMeses(b,1)){
+  var o = document.createElement('option'); o.value=b; o.textContent = rotMesL(b) + (b===hojeM?' (em curso)':''); sel.appendChild(o);
+}
+sel.value = E.mes;
+sel.addEventListener('change', function(){ E.mes = sel.value; grava(); carrega(); });
+document.querySelectorAll('[data-cols]').forEach(function(bt){
+  bt.classList.toggle('on', bt.dataset.cols===E.cols);
+  bt.addEventListener('click', function(){ E.cols = bt.dataset.cols; grava();
+    document.querySelectorAll('[data-cols]').forEach(function(x){ x.classList.toggle('on', x.dataset.cols===E.cols); }); pinta(); });
+});
+document.getElementById('imprimir').addEventListener('click', function(){ window.print(); });
+
+var D = null;   // payload do mês
+var UNIS = [];  // [{id:'acesso|20', ...}]
+function pintaUnis(){
+  var el = document.getElementById('f-uni');
+  var itens = [['grupo','Grupo (consolidado)']].concat(UNIS.map(function(u){ return [u.id, u.nome.replace('Unidade ','') + ' · ' + u.deck.replace(/ \(.*\)/,'')]; }))
+    .concat([['comercial','Comercial · call centers']]);
+  el.innerHTML = itens.map(function(i){ return '<button class="pill'+(E.u===i[0]?' on':'')+'" data-u="'+esc(i[0])+'">'+esc(i[1])+'</button>'; }).join('');
+  el.querySelectorAll('[data-u]').forEach(function(bt){ bt.addEventListener('click', function(){ E.u = bt.dataset.u; grava(); pintaUnis(); pinta(); window.scrollTo(0,0); }); });
+}
+
+/* ---------- busca ---------- */
+var ciclo = null;
+function carrega(){
+  var est = document.getElementById('estado');
+  if(!E.k){ est.style.display='block'; est.innerHTML = 'Este relatório precisa da chave do BI no endereço, depois do <b>#</b> (k=…). Abra pelo portal <a href="grupo.html">grupo.html</a> com o link completo.'; return; }
+  est.style.display='block'; est.textContent = 'Buscando ' + rotMesL(E.mes) + '…';
+  var ctl = new AbortController(), corta = setTimeout(function(){ ctl.abort(); }, 60000);
+  fetch(J.API + '?k=' + encodeURIComponent(E.k) + '&bloco=mensal&mes=' + E.mes, { signal: ctl.signal })
+    .then(function(r){ if(!r.ok) throw new Error(r.status); return r.json(); })
+    .then(function(d){ clearTimeout(corta); D = d; indexa(); est.style.display='none'; pintaUnis(); pinta(); })
+    .catch(function(e){ clearTimeout(corta); est.style.display='block'; est.innerHTML = J.explicaFalha(e, E.k); setTimeout(carrega, 60000); });
+  if(ciclo) clearInterval(ciclo);
+  if(E.mes === hojeM) ciclo = setInterval(carrega, 10*60*1000); // mês em curso: acompanha o cron
+}
+
+/* ---------- índices ---------- */
+var IDX = {};
+function chaveU(r){ return r.empresa + '|' + r.fid; }
+function indexa(){
+  UNIS = (D.unidades||[]).map(function(u){ return { id: u.empresa+'|'+u.fid, empresa:u.empresa, fid:u.fid, nome:u.nome, deck:u.deck }; });
+  IDX = {};
+}
+function filtra(arr, u){ // u: 'grupo' | 'acesso|20' | lista de ids
+  if(!arr) return [];
+  if(u === 'grupo' || u === 'comercial') return arr;
+  return arr.filter(function(r){ return chaveU(r) === u; });
+}
+function soma(arr, pred, campo){ var t=0, achou=false; arr.forEach(function(r){ if(!pred || pred(r)){ var v=Number(r[campo]||0); t+=v; achou=true; } }); return achou ? t : null; }
+
+/* colunas: meses de comparação + semanas do mês + total do mês */
+function colunas(){
+  var mes = D.periodo.mes, ini = D.periodo.historico_desde.slice(0,7), meses = [];
+  for(var b = mes; b >= ini; b = menosMeses(b,1)) meses.unshift(b);
+  var anteriores = meses.slice(0,-1);
+  if(E.cols === 'deck'){
+    var jan = mes.slice(0,4) + '-01', ult = anteriores.slice(-3);
+    if(jan < mes && ult.indexOf(jan) < 0) ult.unshift(jan);
+    anteriores = ult;
+  }
+  return { meses: anteriores, semanas: D.semanas || [], mes: mes };
+}
+function rotSemana(s){ return (+s.ini.slice(8)) + '–' + (+s.fim.slice(8)); }
+
+/* matriz genérica: linhas = [{rot, pred, grupo?, soma?}], valor(arr,b) devolve número */
+function matriz(opts){
+  var C = colunas(), linhas = opts.linhas, v = opts.valor, fmt = opts.fmt || num;
+  var th = '<th>' + esc(opts.canto||'') + '</th>' +
+    C.meses.map(function(b){ return '<th class="r">' + rotMes(b) + '</th>'; }).join('') +
+    (opts.semanas === false ? '' : C.semanas.map(function(s){ return '<th class="r sem" title="' + ddmm(s.ini) + ' a ' + ddmm(s.fim) + '">' + rotSemana(s) + '</th>'; }).join('')) +
+    '<th class="r tot">' + rotMes(C.mes) + '</th>' +
+    (opts.extras||[]).map(function(x){ return '<th class="r">' + esc(x.rot) + '</th>'; }).join('');
+  var ncol = 2 + C.meses.length + (opts.semanas===false?0:C.semanas.length) + (opts.extras||[]).length;
+  var bs = C.meses.concat(opts.semanas===false ? [] : C.semanas.map(function(s){ return s.b; })).concat([C.mes]);
+  linhas = linhas.filter(function(l){ // linha toda vazia nas colunas visíveis não entra
+    if(l.grupo || l.soma) return true;
+    return bs.some(function(b){ var x = v(l,b); return x != null && x !== 0; });
+  });
+  var tb = linhas.map(function(l){
+    if(l.grupo) return '<tr class="grupo"><td colspan="' + ncol + '">' + esc(l.grupo) + '</td></tr>';
+    var cel = function(b, cls, rot){ var x = v(l, b); return '<td class="r ' + (cls||'') + '" data-rot="' + esc(rot) + '">' + (x==null||x===0 ? '<span class="vazio">·</span>' : fmt(x)) + '</td>'; };
+    return '<tr class="' + (l.soma?'soma':'') + '"><td class="nome" data-rot="' + esc(opts.canto||'') + '">' + esc(l.rot) + '</td>' +
+      C.meses.map(function(b){ return cel(b,'',rotMes(b)); }).join('') +
+      (opts.semanas === false ? '' : C.semanas.map(function(s){ return cel(s.b,'sem',rotSemana(s)); }).join('')) +
+      cel(C.mes,'tot',rotMes(C.mes)) +
+      (opts.extras||[]).map(function(x){ var y = x.f(l); return '<td class="r" data-rot="' + esc(x.rot) + '">' + (y==null?'—':y) + '</td>'; }).join('') +
+      '</tr>';
+  }).join('');
+  return '<div class="tabela-wrap"><table class="matriz"><thead><tr>' + th + '</tr></thead><tbody>' + tb + '</tbody></table></div>';
+}
+function secao(titulo, sub, corpo, cls){ return '<section class="sec ' + (cls||'') + '"><h2>' + esc(titulo) + '</h2>' + (sub?'<p class="sub">' + sub + '</p>':'') + corpo + '</section>'; }
+
+/* ---------- blocos ---------- */
+var EXAMES = [
+  ['Laboratório e ultrassom', [['laboratorio','Laboratório'],['usg','Ultrassonografia (inclui Doppler)']]],
+  ['Cardiológicos', [['ecg','ECG'],['eco','Ecocardiograma'],['holter','Holter'],['mapa','MAPA'],['ergometrico','Teste ergométrico']]],
+  ['Externos', [['tc','Tomografia'],['rm','Ressonância'],['mamografia','Mamografia'],['espirometria','Espirometria'],['densitometria','Densitometria'],['rx','Raio-X'],['eeg','Eletroencefalograma']]],
+  ['Internos', [['endoscopia','Endoscopia'],['colonoscopia','Colonoscopia'],['reto','Retossigmoidoscopia'],['diu','DIU'],['implanon','Implanon'],['colposcopia','Colposcopia']]],
+  ['Outros serviços', [['hiperbarica','Medicina hiperbárica'],['odonto','Odontologia'],['ocupacional','Ocupacional'],['outros','Outros procedimentos']]]
+];
+var TIMES = { call_acesso:'Call Acesso', call_doctor:'Call Doctor', recepcao_i:'Recepção I · Djalma', recepcao_ii:'Recepção II · Manoa',
+  recepcao_iii:'Recepção III · Compensa', recepcao_iv:'Recepção IV · Centro', recepcao_v:'Recepção V · Zona Leste', recepcao_vi:'Recepção VI · Vieiralves', sem_equipe:'Sem equipe no Feegow' };
+var RECEP_DA = { 'acesso|20':'recepcao_i','acesso|21':'recepcao_ii','acesso|55':'recepcao_iii','doctor|0':'recepcao_iv','doctor|2':'recepcao_v','doctor|4':'recepcao_vi' };
+
+function blocoResumo(u){
+  var M = D.periodo.mes, fat = filtra(D.faturamento,u), metas = filtra(D.metas,u);
+  var part = soma(fat, function(r){ return r.b===M && r.metrica==='recebido_sem_doc'; }, 'valor');
+  var doc = soma(fat, function(r){ return r.b===M && r.metrica==='recebido_com_doc'; }, 'valor');
+  var tot = soma(fat, function(r){ return r.b===M && r.metrica==='faturamento'; }, 'valor');
+  var meta = soma(metas, function(r){ return r.b===M && r.tipo==='particular'; }, 'valor');
+  var ant = soma(fat, function(r){ return r.b===menosMeses(M,1) && r.metrica==='recebido_sem_doc'; }, 'valor');
+  var ag = filtra(D.agenda,u).filter(function(r){ return r.b===M && (r.classe==='consulta'||r.classe==='sessao') && !r.doc && !r.retorno; });
+  var at = soma(ag,null,'atendidos'), fa = soma(ag,null,'faltas');
+  var pr = filtra(D.prop_unidade,u).filter(function(r){ return r.b===M; });
+  var pConv = soma(pr, function(r){ return r.rotulo==='Convertido'; }, 'qtd'), pTot = soma(pr,null,'qtd');
+  var pctMeta = meta ? part/meta*100 : null, dif = meta ? part - meta : null;
+  var fechado = D.periodo.fim < J.iso(J.hojeManaus());
+  var c = '<div class="duas">' +
+    '<div class="cartao"><div class="nome">Faturamento particular · meta</div><div class="grande">' + brl0(part) + '</div>' +
+      (meta ? '<div class="meta-bar"><i style="width:' + Math.min(100, pctMeta).toFixed(1) + '%"></i></div>' +
+        '<div class="linha">Meta ' + brl0(meta) + ' · <b class="' + (pctMeta>=100?'pos':'neg') + '">' + pct1(pctMeta) + '</b> · ' +
+        (dif>=0 ? '<span class="pos">excedente ' + brl0(dif) + '</span>' : '<span class="neg">faltam ' + brl0(-dif) + '</span>') + (fechado?'':' até agora') + '</div>'
+        : '<div class="linha">' + (u==='grupo'?'Meta do grupo = soma das metas cadastradas.':'Sem meta cadastrada para o mês.') + '</div>') +
+      (ant ? '<div class="linha">Mês anterior ' + brl0(ant) + ' · <span class="' + (part>=ant?'pos':'neg') + '">' + (part>=ant?'+':'') + pct1((part-ant)/ant*100) + '</span></div>' : '') +
+    '</div>' +
+    '<div class="cartao"><div class="nome">Faturamento total</div><div class="grande">' + brl0(tot) + '</div>' +
+      '<div class="linha">Particular ' + brl0(part) + ' · convênio/doc ' + brl0(doc) + '</div></div>' +
+    '<div class="cartao"><div class="nome">Consultas e sessões</div><div class="grande">' + num(at) + ' atendidas</div>' +
+      '<div class="linha">' + num(fa) + ' faltas · comparecimento ' + pct1(at+fa ? at/(at+fa)*100 : null) + '</div></div>' +
+    '<div class="cartao"><div class="nome">Propostas criadas</div><div class="grande">' + num(pTot) + '</div>' +
+      '<div class="linha">' + num(pConv) + ' convertidas no mês · ' + pct1(pTot ? pConv/pTot*100 : null) + '</div></div>' +
+    '</div>';
+  return secao('Resumo de ' + rotMesL(M), null, c);
+}
+
+function blocoConsultas(u){
+  var ag = filtra(D.agenda,u).filter(function(r){ return (r.classe==='consulta'||r.classe==='sessao') && !r.doc && !r.retorno; });
+  var ex = filtra(D.exames,u).filter(function(r){ return r.grupo==='consulta'; });
+  var M = D.periodo.mes;
+  var L = [
+    { rot:'Agendados', f:function(b){ return soma(ag,function(r){return r.b===b;},'atendidos') + soma(ag,function(r){return r.b===b;},'faltas'); } },
+    { rot:'Atendidos', f:function(b){ return soma(ag,function(r){return r.b===b;},'atendidos'); } },
+    { rot:'Não compareceu', f:function(b){ return soma(ag,function(r){return r.b===b;},'faltas'); } },
+    { rot:'Cancelado / remarcado', f:function(b){ return soma(ag,function(r){return r.b===b;},'cancelados'); } },
+    { rot:'Vendidas (pagas)', soma:true, f:function(b){ return soma(ex,function(r){return r.b===b;},'qtd'); } }
+  ];
+  var valor = { 'Agendados': function(){ return soma(ag,function(r){return r.b===M;},'v_atendido') + soma(ag,function(r){return r.b===M;},'v_falta'); },
+    'Atendidos': function(){ return soma(ag,function(r){return r.b===M;},'v_atendido'); },
+    'Não compareceu': function(){ return soma(ag,function(r){return r.b===M;},'v_falta'); },
+    'Vendidas (pagas)': function(){ return soma(ex,function(r){return r.b===M;},'valor'); } };
+  var html = matriz({ canto:'Consultas + sessões', linhas:L, valor:function(l,b){ return l.f(b); },
+    extras:[ { rot:'Valor ' + rotMes(M), f:function(l){ return valor[l.rot] ? brl0(valor[l.rot]()) : null; } },
+             { rot:'Média', f:function(l){ var q=l.f(M); return valor[l.rot] && q ? brl2(valor[l.rot]()/q) : null; } } ] });
+  return secao('Comparativo de consultas',
+    'Agenda do Feegow por data do agendamento, particular (sem Hapvida) e sem retornos. <b>Agendados = atendidos + não compareceu</b>, como no deck; cancelado e remarcado ficam à parte. Valor de agenda é o preço de tabela do agendamento; <b>Vendidas</b> é consulta paga no caixa (data de pagamento), a mesma régua do faturamento.', html);
+}
+
+function blocoEspecialidades(u){
+  var es = filtra(D.especialidade,u), C = colunas();
+  var nomes = {}; es.forEach(function(r){ var k=r.classe+'|'+r.especialidade; nomes[k]=(nomes[k]||0)+(r.b===C.mes?r.atendidos:0)+0.0001*r.atendidos; });
+  var ordem = Object.keys(nomes).sort(function(a,b){ return nomes[b]-nomes[a]; });
+  var L = [];
+  ['consulta','sessao'].forEach(function(cl){
+    var ks = ordem.filter(function(k){ return k.indexOf(cl+'|')===0; }); if(!ks.length) return;
+    L.push({ grupo: cl==='consulta' ? 'Consultas' : 'Sessões e terapias' });
+    ks.forEach(function(k){ var nm=k.split('|')[1]; L.push({ rot:nm, f:function(b){ return soma(es,function(r){ return r.b===b && r.classe===cl && r.especialidade===nm; },'atendidos'); } }); });
+    L.push({ rot:'Total ' + (cl==='consulta'?'consultas':'sessões'), soma:true, f:function(b){ return soma(es,function(r){ return r.b===b && r.classe===cl; },'atendidos'); } });
+  });
+  L.push({ rot:'Total geral', soma:true, f:function(b){ return soma(es,function(r){ return r.b===b; },'atendidos'); } });
+  var html = matriz({ canto:'Especialidade', linhas:L, semanas:false, valor:function(l,b){ return l.f(b); } });
+  return secao('Consultas atendidas por especialidade', 'Atendidos na agenda, particular, sem retornos. Especialidade como está cadastrada no Feegow.', html);
+}
+
+function blocoExames(u){
+  var ex = filtra(D.exames,u), M = D.periodo.mes, out = '';
+  EXAMES.forEach(function(g){
+    var L = g[1].map(function(p){ return { rot:p[1], k:p[0] }; }).filter(function(l){ return soma(ex,function(r){ return r.grupo===l.k; },'qtd'); });
+    if(!L.length) return;
+    var html = matriz({ canto:'Procedimento', linhas:L,
+      valor:function(l,b){ return soma(ex,function(r){ return r.b===b && r.grupo===l.k; },'qtd'); },
+      extras:[ { rot:'Valor ' + rotMes(M), f:function(l){ return brl0(soma(ex,function(r){ return r.b===M && r.grupo===l.k; },'valor')); } },
+               { rot:'Média', f:function(l){ var q=soma(ex,function(r){ return r.b===M && r.grupo===l.k; },'qtd'), v=soma(ex,function(r){ return r.b===M && r.grupo===l.k; },'valor'); return q ? brl2(v/q) : null; } } ] });
+    out += '<h3 style="margin:18px 0 8px;font-size:14px">' + esc(g[0]) + '</h3>' + html;
+  });
+  return secao('Venda de exames e procedimentos', 'Itens pagos no caixa (data de pagamento), particular, deduplicados por conta + item. Quantidade = itens; <b>o deck antigo contava linhas de pagamento</b>, por isso lá a quantidade às vezes é maior com o mesmo valor.', out);
+}
+
+function blocoFaturamento(u){
+  var fat = filtra(D.faturamento,u), metas = filtra(D.metas,u), C = colunas(), M = D.periodo.mes;
+  var L = [
+    { rot:'Particular (sem doc)', soma:true, m:'recebido_sem_doc' },
+    { rot:'Convênio / doc', m:'recebido_com_doc' },
+    { rot:'Total', m:'faturamento' },
+    { rot:'Meta particular', meta:true }
+  ];
+  var html = matriz({ canto:'Faturamento', linhas:L, fmt:brl0, semanas:false,
+    valor:function(l,b){ if(l.meta) return /^S/.test(b) ? null : soma(metas,function(r){ return r.b===b && r.tipo==='particular'; },'valor');
+      return soma(fat,function(r){ return r.b===b && r.metrica===l.m; },'valor'); },
+    extras:[ { rot:'vs mês anterior', f:function(l){ if(l.meta) return null; var a=soma(fat,function(r){ return r.b===menosMeses(M,1) && r.metrica===l.m; },'valor'), b=soma(fat,function(r){ return r.b===M && r.metrica===l.m; },'valor');
+      if(!a) return null; var v=(b-a)/a*100; return '<span class="'+(v>=0?'pos':'neg')+'">'+(v>=0?'+':'')+pct1(v)+'</span>'; } } ] });
+  // ano contra ano: única série com 2025 é o caixa do coletor
+  var ano = +M.slice(0,4), ms = +M.slice(5), linhas = '', t1=0, t0=0, ok0=true;
+  for(var i=1;i<=ms;i++){
+    var b1 = ano+'-'+String(i).padStart(2,'0'), b0 = (ano-1)+'-'+String(i).padStart(2,'0');
+    var v1 = soma(fat,function(r){ return r.b===b1 && r.metrica==='recebido_caixa'; },'valor'), v0 = soma(fat,function(r){ return r.b===b0 && r.metrica==='recebido_caixa'; },'valor');
+    if(v0==null) ok0=false; t1+=v1||0; t0+=v0||0;
+    linhas += '<tr><td data-rot="Mês">' + MESES_L[i-1] + '</td><td class="r" data-rot="' + (ano-1) + '">' + brl0(v0) + '</td><td class="r" data-rot="' + ano + '">' + brl0(v1) + '</td><td class="r" data-rot="Δ">' +
+      (v0 && v1 ? '<span class="' + (v1>=v0?'pos':'neg') + '">' + (v1>=v0?'+':'') + pct1((v1-v0)/v0*100) + '</span>' : '—') + '</td></tr>';
+  }
+  linhas += '<tr class="soma"><td>Acumulado</td><td class="r">' + brl0(t0) + (ok0?'':' <span title="faltam meses de ' + (ano-1) + ' no coletor">*</span>') + '</td><td class="r">' + brl0(t1) + '</td><td class="r">' + (t0 ? pct1((t1-t0)/t0*100) : '—') + '</td></tr>';
+  var tem0 = false;
+  for(var j=1;j<=ms;j++){ var bj=(ano-1)+'-'+String(j).padStart(2,'0'); if(soma(fat,function(r){ return r.b===bj && r.metrica==='recebido_caixa'; },'valor')) tem0 = true; }
+  var yoy = !tem0 ? '<div class="aviso calmo"><span class="ttl">Sem base de ' + (ano-1) + '</span><p>O Briefing do Feegow só está no banco a partir de jan/26, e o caixa do coletor não tem ' + (ano-1) + ' para ' + (u==='grupo'?'o grupo inteiro':'esta unidade') + '. ' +
+      'O comparativo ano contra ano do deck era montado à mão. Para voltar a ser automático, é preciso carregar uma vez o histórico de ' + (ano-1) + ' (exportação do Feegow). Até lá, a página prefere não mostrar número a mostrar número inventado.</p></div>'
+    : '<div class="tabela-wrap"><table class="matriz"><thead><tr><th>Mês</th><th class="r">' + (ano-1) + '</th><th class="r">' + ano + '</th><th class="r">Δ</th></tr></thead><tbody>' + linhas + '</tbody></table></div>';
+  var dt = filtra(D.doc_tabela,u).reduce(function(acc,r){ var k=r.tabela; acc[k]=acc[k]||{q:0,v:0,p:0}; acc[k].q+=r.qtd; acc[k].v+=Number(r.valor); acc[k].p+=Number(r.valor_pago); return acc; },{});
+  var dk = Object.keys(dt).sort(function(a,b){ return dt[b].v-dt[a].v; });
+  var doc = dk.length ? '<div class="tabela-wrap"><table class="matriz"><thead><tr><th>Tabela</th><th class="r">Itens</th><th class="r">Valor reconhecido</th><th class="r">Valor pago no caixa</th></tr></thead><tbody>' +
+    dk.map(function(k){ return '<tr><td class="nome" data-rot="Tabela">' + esc(k) + '</td><td class="r" data-rot="Itens">' + num(dt[k].q) + '</td><td class="r" data-rot="Valor reconhecido">' + brl2(dt[k].v) + '</td><td class="r" data-rot="Valor pago">' + brl2(dt[k].p) + '</td></tr>'; }).join('') +
+    '</tbody></table></div>' : '<p class="nota">Nenhum recebível com doc no mês.</p>';
+  return secao('Faturamento', 'Mesma régua do hub (v_bi_faturamento_oficial): recebido por data de pagamento, deduplicado. Particular = sem doc; o valor de Hapvida entra pelo valor ajustado, não pelo R$ 0,01 pago.', html) +
+    '<div class="duas" style="margin-top:14px"><div class="sec"><h2 style="margin-top:8px">' + (ano-1) + ' × ' + ano + '</h2><p class="sub">Caixa do coletor (única série que existe antes de 2026). Não é a mesma régua da tabela acima — serve para comparar ano contra ano, não para somar.</p>' + yoy + '</div>' +
+    '<div class="sec"><h2 style="margin-top:8px">Contas a receber com doc · ' + rotMes(M) + '</h2><p class="sub">Por tabela de preço. <b>Reconhecido</b> usa o valor ajustado (Hapvida pelo contrato); <b>pago</b> é o que o Feegow marca como pago — o deck antigo mostrava só esta coluna.</p>' + doc + '</div></div>';
+}
+
+function blocoContribuicao(u){
+  var tt = filtra(D.tipo_time,u), M = D.periodo.mes;
+  var totB = function(b){ return soma(tt,function(r){ return r.b===b; },'valor'); };
+  var L1 = [
+    { rot:'Consulta', t:'Consulta' }, { rot:'Exame e procedimento', t:'Exame' }, { rot:'Total', soma:true }
+  ];
+  var h1 = matriz({ canto:'Tipo', linhas:L1, fmt:brl0,
+    valor:function(l,b){ return l.soma ? totB(b) : soma(tt,function(r){ return r.b===b && r.tipo===l.t; },'valor'); },
+    extras:[ { rot:'% ' + rotMes(M), f:function(l){ var t=totB(M); if(!t||l.soma) return l.soma?'100%':null; return pct1(soma(tt,function(r){ return r.b===M && r.tipo===l.t; },'valor')/t*100); } } ] });
+  var times = {}; tt.forEach(function(r){ times[r.team]=(times[r.team]||0)+(r.b===M?Number(r.valor):0); });
+  var tk = Object.keys(times).sort(function(a,b){ return times[b]-times[a]; });
+  var L2 = [];
+  ['Consulta','Exame'].forEach(function(t){
+    L2.push({ grupo: t==='Consulta'?'Consulta':'Exame e procedimento' });
+    tk.forEach(function(k){ if(soma(tt,function(r){ return r.team===k && r.tipo===t; },'valor')) L2.push({ rot:TIMES[k]||k, k:k, t:t }); });
+    L2.push({ rot:'Total ' + (t==='Consulta'?'consulta':'exame'), soma:true, t:t, tot:true });
+  });
+  var h2 = matriz({ canto:'Time', linhas:L2, fmt:brl0, semanas:false,
+    valor:function(l,b){ return soma(tt,function(r){ return r.b===b && r.tipo===l.t && (l.tot || r.team===l.k); },'valor'); },
+    extras:[ { rot:'% ' + rotMes(M), f:function(l){ var t=soma(tt,function(r){ return r.b===M && r.tipo===l.t; },'valor'); if(!t) return null; return pct1(soma(tt,function(r){ return r.b===M && r.tipo===l.t && (l.tot||r.team===l.k); },'valor')/t*100); } } ] });
+  return secao('Contribuição por procedimento', 'Venda particular paga no mês, por tipo e semana.', h1) +
+    secao('Contribuição por time', 'Time é o que o Feegow grava no recebível. Quando vem vazio, usa o time mais frequente da mesma pessoa e, por último, o mapa de equipes do Life CRM. O que sobra aparece como <b>Sem equipe no Feegow</b>.', h2);
+}
+
+function blocoPessoas(u, soTimes, titulo, sub){
+  var ps = filtra(D.pessoa,u).filter(function(r){ return !soTimes || soTimes.indexOf(r.team) >= 0; }), M = D.periodo.mes;
+  var quem = {}; ps.forEach(function(r){ quem[r.pessoa]=(quem[r.pessoa]||0)+(r.b===M?Number(r.valor):0)+0.0001*Number(r.valor); });
+  var pk = Object.keys(quem).sort(function(a,b){ return quem[b]-quem[a]; }).filter(function(p){ return quem[p] > 1; });
+  if(!pk.length) return '';
+  var L = [];
+  ['Consulta','Exame'].forEach(function(t){
+    var ks = pk.filter(function(p){ return soma(ps,function(r){ return r.pessoa===p && r.tipo===t; },'valor'); });
+    if(!ks.length) return;
+    L.push({ grupo: t==='Consulta'?'Consulta':'Exame e procedimento' });
+    ks.forEach(function(p){ L.push({ rot:p, p:p, t:t }); });
+    L.push({ rot:'Total', soma:true, t:t, tot:true });
+  });
+  var html = matriz({ canto:'Pessoa', linhas:L, fmt:brl0, semanas:false,
+    valor:function(l,b){ return soma(ps,function(r){ return r.b===b && r.tipo===l.t && (l.tot||r.pessoa===l.p); },'valor'); },
+    extras:[ { rot:'% ' + rotMes(M), f:function(l){ var t=soma(ps,function(r){ return r.b===M && r.tipo===l.t; },'valor'); if(!t) return null; return pct1(soma(ps,function(r){ return r.b===M && r.tipo===l.t && (l.tot||r.pessoa===l.p); },'valor')/t*100); } } ] });
+  return secao(titulo, sub, html);
+}
+
+function blocoPropostas(u, soTimes){
+  var pu = filtra(D.prop_unidade,u), pp = filtra(D.prop_pessoa,u).filter(function(r){ return !soTimes || soTimes.indexOf(r.team)>=0; }), C = colunas(), M = D.periodo.mes;
+  var ROT = ['Convertido','Em aberto','Rejeitado'];
+  var h1 = soTimes ? '' : matriz({ canto:'Propostas criadas', linhas:[{rot:'Total',soma:true}].concat(ROT.map(function(r){ return {rot:r,r:r}; })),
+    valor:function(l,b){ return soma(pu,function(x){ return x.b===b && (!l.r || x.rotulo===l.r); },'qtd'); },
+    extras:[ { rot:'% ' + rotMes(M), f:function(l){ var t=soma(pu,function(x){ return x.b===M; },'qtd'); return t ? pct1(soma(pu,function(x){ return x.b===M && (!l.r||x.rotulo===l.r); },'qtd')/t*100) : null; } },
+             { rot:'Soma ' + rotMes(M), f:function(l){ return brl0(soma(pu,function(x){ return x.b===M && (!l.r||x.rotulo===l.r); },'valor')); } },
+             { rot:'Média', f:function(l){ var q=soma(pu,function(x){ return x.b===M && (!l.r||x.rotulo===l.r); },'qtd'); return q ? brl2(soma(pu,function(x){ return x.b===M && (!l.r||x.rotulo===l.r); },'valor')/q) : null; } } ] });
+  var quem = {}; pp.filter(function(r){ return r.b===M; }).forEach(function(r){ var q=quem[r.pessoa]=quem[r.pessoa]||{t:0,v:0,c:0,cv:0,rj:0,team:r.team}; q.t+=r.qtd; q.v+=Number(r.valor); if(r.rotulo==='Convertido'){ q.c+=r.qtd; q.cv+=Number(r.valor); } if(r.rotulo==='Rejeitado') q.rj+=r.qtd; });
+  var pk = Object.keys(quem).sort(function(a,b){ return quem[b].t-quem[a].t; });
+  var h2 = pk.length ? '<div class="tabela-wrap"><table class="matriz"><thead><tr><th>Pessoa</th><th>Time</th><th class="r">Propostas</th><th class="r">Convertidas</th><th class="r">Conversão</th><th class="r">Rejeitadas</th><th class="r">Soma</th><th class="r">Convertido R$</th><th class="r">Ticket médio</th></tr></thead><tbody>' +
+    pk.map(function(p){ var q=quem[p]; return '<tr><td class="nome" data-rot="Pessoa">' + esc(p) + '</td><td data-rot="Time">' + esc(TIMES[q.team]||q.team) + '</td><td class="r" data-rot="Propostas">' + num(q.t) + '</td><td class="r" data-rot="Convertidas">' + num(q.c) + '</td><td class="r" data-rot="Conversão">' + pct1(q.t?q.c/q.t*100:null) + '</td><td class="r" data-rot="Rejeitadas">' + num(q.rj) + '</td><td class="r" data-rot="Soma">' + brl0(q.v) + '</td><td class="r" data-rot="Convertido R$">' + brl0(q.cv) + '</td><td class="r" data-rot="Ticket">' + (q.t?brl2(q.v/q.t):'—') + '</td></tr>'; }).join('') +
+    '</tbody></table></div>' : '';
+  return secao('Propostas', 'Proposta por data de criação, uma linha por número de proposta. <b>Convertido</b> = executada com pagamento particular identificado no mesmo mês (a régua do hub; não é o “Pago” do relatório do Feegow). Rejeitado = rejeitada pelo cliente ou cancelada.', h1 +
+    (h2 ? '<h3 style="margin:18px 0 8px;font-size:14px">Conversão por pessoa · ' + rotMesL(M) + '</h3>' + h2 : ''));
+}
+
+function blocoCategorias(u){
+  var ca = filtra(D.categorias,u), C = colunas();
+  var ks = {}; ca.forEach(function(r){ ks[r.categoria]=(ks[r.categoria]||0)+(r.b===C.mes?Number(r.valor):0)+0.0001*Number(r.valor); });
+  var L = Object.keys(ks).sort(function(a,b){ return ks[b]-ks[a]; }).map(function(k){ return {rot:k,k:k}; });
+  L.push({ rot:'Total', soma:true, tot:true });
+  var html = matriz({ canto:'Categoria no Feegow', linhas:L, fmt:brl0, semanas:false,
+    valor:function(l,b){ return soma(ca,function(r){ return r.b===b && (l.tot||r.categoria===l.k); },'valor'); } });
+  return '<details class="mais"><summary>Ver venda por categoria do Feegow (sem agrupamento)</summary>' + html + '</details>';
+}
+
+/* ---------- visão do grupo ---------- */
+function blocoGrupo(){
+  var M = D.periodo.mes, fat = D.faturamento, linhas = '', T = {m:0,p:0,d:0,t:0,at:0,fa:0,pc:0,pt:0};
+  UNIS.forEach(function(un){
+    var f = function(met){ return soma(fat,function(r){ return chaveU(r)===un.id && r.b===M && r.metrica===met; },'valor'); };
+    var meta = soma(D.metas,function(r){ return chaveU(r)===un.id && r.b===M && r.tipo==='particular'; },'valor');
+    var p = f('recebido_sem_doc'), d = f('recebido_com_doc'), t = f('faturamento');
+    var ag = D.agenda.filter(function(r){ return chaveU(r)===un.id && r.b===M && (r.classe==='consulta'||r.classe==='sessao') && !r.doc && !r.retorno; });
+    var at = soma(ag,null,'atendidos')||0, fa = soma(ag,null,'faltas')||0;
+    var pr = D.prop_unidade.filter(function(r){ return chaveU(r)===un.id && r.b===M; });
+    var pc = soma(pr,function(r){ return r.rotulo==='Convertido'; },'qtd')||0, pt = soma(pr,null,'qtd')||0;
+    T.m+=meta||0; T.p+=p||0; T.d+=d||0; T.t+=t||0; T.at+=at; T.fa+=fa; T.pc+=pc; T.pt+=pt;
+    var pm = meta ? p/meta*100 : null;
+    linhas += '<tr><td class="nome" data-rot="Unidade"><a href="#" data-u="' + esc(un.id) + '">' + esc(un.nome + ' · ' + un.deck) + '</a></td>' +
+      '<td class="r" data-rot="Meta">' + brl0(meta) + '</td><td class="r" data-rot="Particular">' + brl0(p) + '</td>' +
+      '<td class="r" data-rot="% meta"><b class="' + (pm>=100?'pos':'neg') + '">' + pct1(pm) + '</b></td>' +
+      '<td class="r" data-rot="Doc">' + brl0(d) + '</td><td class="r" data-rot="Total">' + brl0(t) + '</td>' +
+      '<td class="r" data-rot="Atendidos">' + num(at) + '</td><td class="r" data-rot="Comparecimento">' + pct1(at+fa?at/(at+fa)*100:null) + '</td>' +
+      '<td class="r" data-rot="Conversão">' + pct1(pt?pc/pt*100:null) + '</td></tr>';
+  });
+  linhas += '<tr class="soma"><td>Grupo</td><td class="r">' + brl0(T.m) + '</td><td class="r">' + brl0(T.p) + '</td><td class="r">' + pct1(T.m?T.p/T.m*100:null) + '</td><td class="r">' + brl0(T.d) + '</td><td class="r">' + brl0(T.t) + '</td><td class="r">' + num(T.at) + '</td><td class="r">' + pct1(T.at+T.fa?T.at/(T.at+T.fa)*100:null) + '</td><td class="r">' + pct1(T.pt?T.pc/T.pt*100:null) + '</td></tr>';
+  var tab = '<div class="tabela-wrap"><table class="matriz"><thead><tr><th>Unidade</th><th class="r">Meta</th><th class="r">Particular</th><th class="r">% meta</th><th class="r">Doc</th><th class="r">Total</th><th class="r">Consultas atendidas</th><th class="r">Comparecimento</th><th class="r">Conversão de propostas</th></tr></thead><tbody>' + linhas + '</tbody></table></div>';
+  var L = UNIS.map(function(un){ return { rot: un.nome + ' · ' + un.deck, id: un.id }; }); L.push({ rot:'Grupo', soma:true });
+  var mat = matriz({ canto:'Particular por unidade', linhas:L, fmt:brl0,
+    valor:function(l,b){ return soma(fat,function(r){ return (l.soma || chaveU(r)===l.id) && r.b===b && r.metrica==='recebido_sem_doc'; },'valor'); } });
+  return secao('Unidades em ' + rotMesL(M), 'Clique numa unidade para abrir o relatório dela.', tab) + secao('Faturamento particular por unidade', null, mat);
+}
+
+/* ---------- visão comercial (call centers) ---------- */
+function blocoComercial(){
+  var M = D.periodo.mes, out = '';
+  ['call_acesso','call_doctor'].forEach(function(team){
+    var ps = D.pessoa.filter(function(r){ return r.team===team && r.b===M; });
+    if(!ps.length) return;
+    var pessoas = {}, colsU = {}; ps.forEach(function(r){ var id=chaveU(r); pessoas[r.pessoa]=pessoas[r.pessoa]||{}; pessoas[r.pessoa][id]=(pessoas[r.pessoa][id]||0)+Number(r.valor); colsU[id]=1; });
+    var us = UNIS.filter(function(u){ return colsU[u.id]; });
+    var tot = function(p){ return us.reduce(function(a,u){ return a+(pessoas[p][u.id]||0); },0); };
+    var pk = Object.keys(pessoas).sort(function(a,b){ return tot(b)-tot(a); });
+    var th = '<th>Pessoa</th>' + us.map(function(u){ return '<th class="r">' + esc(u.deck.replace(/ \(.*\)/,'')) + '</th>'; }).join('') + '<th class="r tot">Total</th>';
+    var tb = pk.map(function(p){ return '<tr><td class="nome" data-rot="Pessoa">' + esc(p) + '</td>' + us.map(function(u){ return '<td class="r" data-rot="' + esc(u.deck) + '">' + (pessoas[p][u.id] ? brl0(pessoas[p][u.id]) : '<span class="vazio">·</span>') + '</td>'; }).join('') + '<td class="r tot" data-rot="Total"><b>' + brl0(tot(p)) + '</b></td></tr>'; }).join('');
+    var tu = us.map(function(u){ return pk.reduce(function(a,p){ return a+(pessoas[p][u.id]||0); },0); });
+    tb += '<tr class="soma"><td>Total</td>' + tu.map(function(v){ return '<td class="r">' + brl0(v) + '</td>'; }).join('') + '<td class="r tot">' + brl0(tu.reduce(function(a,b){return a+b;},0)) + '</td></tr>';
+    out += secao(TIMES[team] + ' · venda por unidade de destino', 'Recebido particular em ' + rotMesL(M) + ', creditado a quem vendeu, pela unidade onde o paciente foi atendido.', '<div class="tabela-wrap"><table class="matriz"><thead><tr>' + th + '</tr></thead><tbody>' + tb + '</tbody></table></div>');
+    out += blocoPessoas('grupo', [team], TIMES[team] + ' · evolução por pessoa', 'Mesma régua, mês a mês.');
+  });
+  // agendamento x atendimento, todas as unidades
+  var ag = D.agenda.filter(function(r){ return (r.classe==='consulta'||r.classe==='sessao') && !r.doc && !r.retorno; });
+  var L = UNIS.map(function(u){ return { rot:u.nome + ' · ' + u.deck, id:u.id }; }); L.push({ rot:'Grupo', soma:true });
+  var mat = matriz({ canto:'Comparecimento', linhas:L, fmt:function(v){ return pct1(v); },
+    valor:function(l,b){ var at=soma(ag,function(r){ return r.b===b && (l.soma||chaveU(r)===l.id); },'atendidos'), fa=soma(ag,function(r){ return r.b===b && (l.soma||chaveU(r)===l.id); },'faltas'); return at+fa ? at/(at+fa)*100 : null; } });
+  out += secao('Agendados × atendidos', 'Atendidos ÷ (atendidos + não compareceu), consultas e sessões particulares.', mat);
+  out += blocoPropostas('grupo', ['call_acesso','call_doctor']);
+  return out;
+}
+
+/* ---------- pintura ---------- */
+function pinta(){
+  if(!D) return;
+  var M = D.periodo.mes, u = E.u, html = '';
+  var un = UNIS.filter(function(x){ return x.id===u; })[0];
+  var titulo = u==='grupo' ? 'Grupo JOB' : u==='comercial' ? 'Comercial · central de vendas' : (un ? un.nome : u);
+  var onde = u==='grupo' ? 'seis unidades' : u==='comercial' ? 'Call Acesso e Call Doctor' : (un ? un.deck + ' · ' + (un.empresa==='acesso'?'Acesso Saúde':'Doctor Mais Saúde') : '');
+  html += '<div class="capa"><h1>' + esc(titulo) + '</h1><span class="onde">' + esc(onde) + ' · ' + rotMesL(M) + '</span></div>';
+  html += avisoFrescor();
+  if(u === 'comercial'){ html += blocoComercial(); }
+  else {
+    html += blocoResumo(u);
+    if(u === 'grupo') html += blocoGrupo();
+    html += blocoConsultas(u) + blocoEspecialidades(u) + blocoExames(u) + blocoFaturamento(u) + blocoContribuicao(u);
+    if(u !== 'grupo') html += blocoPessoas(u, [RECEP_DA[u]], 'Contribuição da recepção', 'Pessoas do time de recepção desta unidade, venda particular paga.') +
+                             blocoPessoas(u, null, 'Quem vendeu para esta unidade', 'Todas as pessoas com venda paga atendida aqui, de qualquer time.');
+    html += blocoPropostas(u) + blocoCategorias(u);
+  }
+  html += reguas();
+  var c = document.getElementById('conteudo'); c.innerHTML = html; c.style.display = 'block';
+  c.querySelectorAll('a[data-u]').forEach(function(a){ a.addEventListener('click', function(ev){ ev.preventDefault(); E.u = a.dataset.u; grava(); pintaUnis(); pinta(); window.scrollTo(0,0); }); });
+  var cx = D.cache || {};
+  document.getElementById('carimbo').innerHTML = 'Mês <b>' + rotMesL(M) + '</b> · calculado em <b>' + new Date(cx.gerado_em||D.gerado_em).toLocaleString('pt-BR',{timeZone:'America/Manaus'}) + '</b> (Manaus)' +
+    ' · atualiza sozinho a cada 30 min pelo Briefing do Feegow';
+  document.getElementById('rodape').textContent = 'Fonte: Briefing do Feegow no hub de BI (Controle de Metas) · bi.relatorio_mensal · nenhum número desta página é digitado.';
+}
+function avisoFrescor(){
+  var f = D.frescor || {}, M = D.periodo, hoje = J.iso(J.hojeManaus()), itens = [];
+  var alvo = M.fim < hoje ? M.fim : J.iso(new Date(J.hojeManaus().getTime() - 86400000));
+  [['recebiveis_ate','recebíveis (caixa)'],['agenda_ate','agenda'],['propostas_ate','propostas']].forEach(function(p){
+    var d = f[p[0]]; if(!d) { itens.push('<li><b>' + p[1] + '</b>: nenhum dado no período.</li>'); return; }
+    var atraso = J.diasEntre(String(d).slice(0,10), alvo);
+    if(atraso > 1) itens.push('<li><b>' + p[1] + '</b> vai só até ' + J.br(d) + ' — ' + atraso + ' dias antes do fim do recorte.</li>');
+  });
+  (f.fontes||[]).forEach(function(x){ if(x.atrasada) itens.push('<li>Fonte <b>' + esc(x.fonte) + '</b> sem carga há ' + Math.round(x.minutos_desde_carga/60) + ' h.</li>'); });
+  var aberto = M.fim >= hoje;
+  if(!itens.length && !aberto) return '';
+  return '<div class="aviso ' + (itens.length?'':'calmo') + '" id="aviso-frescor"><span class="ttl">' + (itens.length ? 'Dado incompleto' : 'Mês em curso') + '</span>' +
+    (aberto ? '<p>' + rotMesL(M.mes) + ' ainda não fechou: os números vão até ontem e a meta mostra o parcial.</p>' : '') +
+    (itens.length ? '<ul>' + itens.join('') + '</ul>' : '') + '</div>';
+}
+function reguas(){
+  return '<section class="sec"><h2>Réguas desta página</h2><div class="nota"><ul style="padding-left:18px;margin:6px 0">' +
+    '<li><b>Faturamento</b> — recebido por data de pagamento, deduplicado por conta+item (mesma régua do BI do grupo). Particular = sem doc; doc = Hapvida e pagamento com doc.</li>' +
+    '<li><b>Exames e procedimentos</b> — itens pagos, particular, agrupados pelo nome do procedimento (ECG, Holter, MAPA…) e, quando o nome não diz, pela categoria do Feegow. A soma de todos os grupos fecha no centavo com o faturamento particular da unidade (conferido em jan, mai, jun e jul/26).</li>' +
+    '<li><b>Agenda</b> — por data do agendamento, particular, sem retorno. Agendados = atendidos + não compareceu.</li>' +
+    '<li><b>Propostas</b> — por data de criação; convertida = executada e paga no mesmo mês.</li>' +
+    '<li><b>Semanas</b> — sábado a sexta dentro do mês, o recorte do deck (1–3, 4–10, 11–17…).</li>' +
+    '<li><b>Metas</b> — cadastro de metas mensais do Controle de Metas (particular por unidade). Metas de recepção e de call center ainda não estão cadastradas no banco.</li>' +
+    '<li><b>Ano contra ano</b> — caixa do coletor, a única série com 2025.</li>' +
+    '</ul></div></section>';
+}
+
+carrega();
+})();
+</script></body></html>
