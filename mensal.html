@@ -484,22 +484,26 @@ function pinta(){
   c.querySelectorAll('a[data-u]').forEach(function(a){ a.addEventListener('click', function(ev){ ev.preventDefault(); E.u = a.dataset.u; grava(); pintaUnis(); pinta(); window.scrollTo(0,0); }); });
   var cx = D.cache || {};
   document.getElementById('carimbo').innerHTML = 'Mês <b>' + rotMesL(M) + '</b> · calculado em <b>' + new Date(cx.gerado_em||D.gerado_em).toLocaleString('pt-BR',{timeZone:'America/Manaus'}) + '</b> (Manaus)' +
-    ' · atualiza sozinho a cada 30 min pelo Briefing do Feegow';
+    ' · recalcula sozinho a cada 30 min a partir do último envio do Briefing' + (D.frescor && D.frescor.briefing_ate ? ' (dados até <b>' + J.br(D.frescor.briefing_ate) + '</b>)' : '');
   document.getElementById('rodape').textContent = 'Fonte: Briefing do Feegow no hub de BI (Controle de Metas) · bi.relatorio_mensal · nenhum número desta página é digitado.';
 }
 function avisoFrescor(){
+  /* O que decide se o número está completo é até que dia o Briefing do Feegow foi carregado,
+     não há quanto tempo o transformador rodou: o Briefing entra por envio, não de minuto em minuto. */
   var f = D.frescor || {}, M = D.periodo, hoje = J.iso(J.hojeManaus()), itens = [];
-  var alvo = M.fim < hoje ? M.fim : J.iso(new Date(J.hojeManaus().getTime() - 86400000));
-  [['recebiveis_ate','recebíveis (caixa)'],['agenda_ate','agenda'],['propostas_ate','propostas']].forEach(function(p){
-    var d = f[p[0]]; if(!d) { itens.push('<li><b>' + p[1] + '</b>: nenhum dado no período.</li>'); return; }
-    var atraso = J.diasEntre(String(d).slice(0,10), alvo);
-    if(atraso > 1) itens.push('<li><b>' + p[1] + '</b> vai só até ' + J.br(d) + ' — ' + atraso + ' dias antes do fim do recorte.</li>');
-  });
-  (f.fontes||[]).forEach(function(x){ if(x.atrasada) itens.push('<li>Fonte <b>' + esc(x.fonte) + '</b> sem carga há ' + Math.round(x.minutos_desde_carga/60) + ' h.</li>'); });
   var aberto = M.fim >= hoje;
+  var alvo = aberto ? J.iso(new Date(J.hojeManaus().getTime() - 86400000)) : M.fim;
+  var bAte = f.briefing_ate ? String(f.briefing_ate).slice(0,10) : null;
+  var envio = f.briefing_enviado_em ? new Date(f.briefing_enviado_em).toLocaleString('pt-BR',{timeZone:'America/Manaus',day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : null;
+  if(!bAte) itens.push('<li>Nenhum envio do Briefing encontrado.</li>');
+  else if(bAte < alvo){
+    var falta = J.diasEntre(bAte, alvo);
+    itens.push('<li>O Briefing do Feegow foi carregado até <b>' + J.br(bAte) + '</b>' + (envio ? ' (último envio em ' + envio + ')' : '') +
+      '. Faltam <b>' + falta + ' dia' + (falta>1?'s':'') + '</b> de ' + rotMesL(M.mes) + ' — os números deste mês estão parciais até o próximo envio.</li>');
+  }
   if(!itens.length && !aberto) return '';
   return '<div class="aviso ' + (itens.length?'':'calmo') + '" id="aviso-frescor"><span class="ttl">' + (itens.length ? 'Dado incompleto' : 'Mês em curso') + '</span>' +
-    (aberto ? '<p>' + rotMesL(M.mes) + ' ainda não fechou: os números vão até ontem e a meta mostra o parcial.</p>' : '') +
+    (aberto && !itens.length ? '<p>' + rotMesL(M.mes) + ' ainda não fechou: o Briefing está carregado até ' + J.br(bAte) + (envio?' (envio de '+envio+')':'') + ' e a meta mostra o parcial.</p>' : '') +
     (itens.length ? '<ul>' + itens.join('') + '</ul>' : '') + '</div>';
 }
 function reguas(){
