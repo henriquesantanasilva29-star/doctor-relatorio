@@ -118,6 +118,29 @@ A aba também mostra quantas respostas combinam nota baixa com subnotas altas �
 o padrão de quem leu a régua ao contrário. Elas continuam contando no número
 oficial; o que a página faz é dizer quanto o índice mudaria sem elas.
 
+## Relatório mensal de unidades (`mensal.html`)
+
+O deck mensal por unidade (o "Unidades – Julho Final 2026" que era montado à mão)
+agora se monta sozinho, com o mês escolhido na tela. Abre pela aba **Relatório
+mensal** do `grupo.html`, com a mesma chave do BI (`kb`).
+
+```
+Feegow (Briefing) ─► briefing_* ─► bi.relatorio_mensal(mes) ─► bi.relatorio_mensal_cache
+                                         (cron :07 e :37, mês corrente e anterior)
+                                                   │
+                         bi-painel?bloco=mensal&mes=YYYY-MM ─► mensal.html
+```
+
+Por unidade (I a VI), consolidado do grupo e visão comercial (Call Acesso / Call Doctor):
+consultas (agendados, atendidos, faltas, vendidas) por mês e por semana, especialidades,
+exames por procedimento (laboratório, USG, cardiológicos, externos, internos, hiperbárica,
+odonto), faturamento particular/doc/total contra a meta, contas a receber com doc por tabela,
+contribuição por procedimento, por time e por pessoa, e propostas com conversão por pessoa.
+
+A soma dos grupos de exame fecha no centavo com o faturamento particular do hub.
+Cada tabela declara a régua no próprio texto; o que o banco não tem (2025, metas de
+recepção e de call center) aparece como ausente, não como zero.
+
 ## O que não sai daqui
 
 Fora do NPS, nenhum dado é pessoal: só agregados por dia, campanha, anúncio e
