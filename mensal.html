@@ -76,6 +76,7 @@ details.mais summary{cursor:pointer;font-size:12.5px;color:var(--accent);font-we
  </div>
  <div class="unis" id="f-uni"></div>
  <div class="estado-barra" id="carimbo">carregando…</div>
+ <div class="unis" id="atualizacao"></div>
 </div></div>
 <div id="estado">Buscando o relatório…</div>
 <main id="conteudo" style="display:none"></main>
@@ -98,19 +99,19 @@ function ddmm(s){ var p=String(s).slice(0,10).split('-'); return p[2]+'/'+p[1]; 
 /* ---------- estado no fragmento ---------- */
 var hojeM = J.iso(J.hojeManaus()).slice(0,7);
 var h = new URLSearchParams(location.hash.replace(/^#/,''));
-var E = { k: h.get('k')||'', mes: h.get('mes')||'', u: h.get('u')||'grupo', cols: h.get('cols')||'deck' };
+var E = { k: h.get('k')||'', kd: h.get('kd')||'', ka: h.get('ka')||'', mes: h.get('mes')||'', u: h.get('u')||'grupo', cols: h.get('cols')||'deck' };
 if(!/^\d{4}-\d{2}$/.test(E.mes)){ // padrão: mês fechado anterior; nos 5 primeiros dias o anterior ainda está fechando
   E.mes = menosMeses(hojeM, 1);
 }
 function grava(){ var q=new URLSearchParams(); Object.keys(E).forEach(function(c){ if(E[c]) q.set(c,E[c]); }); history.replaceState(null,'','#'+q.toString()); }
 document.addEventListener('click', function(ev){
   var a = ev.target.closest && ev.target.closest('a[data-para]'); if(!a) return;
-  a.setAttribute('href', a.dataset.para + '#k=' + encodeURIComponent(E.k));
+  a.setAttribute('href', a.dataset.para + '#k=' + encodeURIComponent(E.k));  /* início e régua usam só a chave do BI */
 }, true);
 
 /* ---------- filtros ---------- */
 var sel = document.getElementById('f-mes');
-for(var b = hojeM; b >= '2026-01'; b = menosMeses(b,1)){
+for(var b = hojeM; b >= '2025-10'; b = menosMeses(b,1)){
   var o = document.createElement('option'); o.value=b; o.textContent = rotMesL(b) + (b===hojeM?' (em curso)':''); sel.appendChild(o);
 }
 sel.value = E.mes;
@@ -132,27 +133,91 @@ function pintaUnis(){
   el.querySelectorAll('[data-u]').forEach(function(bt){ bt.addEventListener('click', function(){ E.u = bt.dataset.u; grava(); pintaUnis(); pinta(); window.scrollTo(0,0); }); });
 }
 
-/* ---------- busca ---------- */
-var ciclo = null;
+/* ---------- busca: cada CRM responde pelas próprias unidades, direto do espelho da API ---------- */
+var FONTES = {
+  acesso: { url: 'https://dfvmuqxjdcvwskrrdbfm.supabase.co/functions/v1/relatorio-mensal', chave: function(){ return E.ka; }, nome: 'Acesso Saúde' },
+  doctor: { url: 'https://myiqdeonxuznvhtsvfxg.supabase.co/functions/v1/relatorio-mensal', chave: function(){ return E.kd; }, nome: 'Doctor Mais Saúde' }
+};
+var UNIS_FIXAS = [
+  { empresa:'acesso', fid:'20', nome:'Unidade I', deck:'Djalma Batista' },
+  { empresa:'acesso', fid:'21', nome:'Unidade II', deck:'Manoa' },
+  { empresa:'acesso', fid:'55', nome:'Unidade III', deck:'Compensa' },
+  { empresa:'doctor', fid:'0', nome:'Unidade IV', deck:'Centro' },
+  { empresa:'doctor', fid:'2', nome:'Unidade V', deck:'Zona Leste' },
+  { empresa:'doctor', fid:'4', nome:'Unidade VI', deck:'Vieiralves' }
+];
+var PARTES = {}, METAS = [], FALHAS = {}, ATU = {}, geracao = 0;
+function pega(url, ms){
+  var ctl = new AbortController(), corta = setTimeout(function(){ ctl.abort(); }, ms || 90000);
+  return fetch(url, { signal: ctl.signal, cache: 'no-store' })
+    .then(function(r){ clearTimeout(corta); if(!r.ok) throw new Error(r.status); return r.json(); })
+    .catch(function(e){ clearTimeout(corta); throw e; });
+}
+function urlDe(emp, extra){ var f = FONTES[emp]; return f.url + '?k=' + encodeURIComponent(f.chave()) + '&mes=' + E.mes + (extra||''); }
+function monta(){
+  var base = PARTES.acesso || PARTES.doctor; if(!base) return false;
+  var CAMPOS = ['faturamento','exames','tipo_time','pessoa','categorias','doc_tabela','agenda','especialidade','prop_unidade','prop_pessoa'];
+  D = { periodo: base.periodo, semanas: base.semanas, unidades: UNIS_FIXAS.filter(function(u){ return PARTES[u.empresa]; }),
+        metas: METAS, frescor: {}, cache: {}, gerado_em: base.gerado_em };
+  CAMPOS.forEach(function(c){ D[c] = [].concat((PARTES.acesso||{})[c]||[], (PARTES.doctor||{})[c]||[]); });
+  ['acesso','doctor'].forEach(function(e){ if(PARTES[e]){ D.frescor[e] = PARTES[e].frescor || {}; D.cache[e] = PARTES[e].cache || {}; } });
+  return true;
+}
 function carrega(){
-  var est = document.getElementById('estado');
-  if(!E.k){ est.style.display='block'; est.innerHTML = 'Este relatório precisa da chave do BI no endereço, depois do <b>#</b> (k=…). Abra pelo portal <a href="grupo.html">grupo.html</a> com o link completo.'; return; }
-  est.style.display='block'; est.textContent = 'Buscando ' + rotMesL(E.mes) + '…';
-  var ctl = new AbortController(), corta = setTimeout(function(){ ctl.abort(); }, 60000);
-  fetch(J.API + '?k=' + encodeURIComponent(E.k) + '&bloco=mensal&mes=' + E.mes, { signal: ctl.signal })
-    .then(function(r){ if(!r.ok) throw new Error(r.status); return r.json(); })
-    .then(function(d){ clearTimeout(corta); D = d; indexa(); est.style.display='none'; pintaUnis(); pinta(); })
-    .catch(function(e){ clearTimeout(corta); est.style.display='block'; est.innerHTML = J.explicaFalha(e, E.k); setTimeout(carrega, 60000); });
-  if(ciclo) clearInterval(ciclo);
-  if(E.mes === hojeM) ciclo = setInterval(carrega, 10*60*1000); // mês em curso: acompanha o cron
+  var est = document.getElementById('estado'), minha = ++geracao;
+  if(!E.kd && !E.ka){ est.style.display='block'; est.innerHTML = 'Este relatório precisa das chaves da Doctor (kd) e/ou da Acesso (ka) no endereço, depois do <b>#</b>. Abra pela aba <b>Relatório mensal</b> do portal <a href="grupo.html">grupo.html</a> com o link completo.'; return; }
+  est.style.display='block'; est.textContent = 'Buscando ' + rotMesL(E.mes) + ' na API do Feegow…';
+  PARTES = {}; FALHAS = {}; ATU = {};
+  var emps = ['acesso','doctor'].filter(function(e){ return FONTES[e].chave(); });
+  var pedidos = emps.map(function(e){
+    return pega(urlDe(e)).then(function(d){ if(minha!==geracao) return; PARTES[e] = d; })
+      .catch(function(err){ FALHAS[e] = String(err); });
+  });
+  var ano = +E.mes.slice(0,4), ini = (ano-2) + E.mes.slice(4) + '-01';
+  pedidos.push(E.k ? pega(J.API + '?k=' + encodeURIComponent(E.k) + '&bloco=metas&ini=' + ini + '&fim=' + E.mes + '-28', 30000)
+      .then(function(d){ METAS = d.metas || []; }).catch(function(){ METAS = []; FALHAS.metas = 'sem metas'; }) : Promise.resolve());
+  Promise.all(pedidos).then(function(){
+    if(minha!==geracao) return;
+    if(!monta()){ est.style.display='block'; est.innerHTML = 'Não consegui buscar nenhuma das duas bases (' + esc(JSON.stringify(FALHAS)) + '). Tentando de novo em 1 minuto…'; setTimeout(carrega, 60000); return; }
+    est.style.display='none'; indexa(); pintaUnis(); pinta();
+    emps.forEach(function(e){ if(PARTES[e]) atualiza(e, minha); });
+  });
+}
+/* ao abrir: pede coleta dos últimos 2 dias na API e redesenha quando o recálculo termina */
+function atualiza(emp, minha){
+  var antes = (PARTES[emp].cache||{}).gerado_em || '';
+  ATU[emp] = { estado: 'pedindo' }; pintaStatus();
+  pega(urlDe(emp, '&atualizar=1'), 20000).then(function(r){
+    if(minha!==geracao) return;
+    ATU[emp] = { estado: r.atualizando ? 'coletando' : 'recente', desde: Date.now() }; pintaStatus();
+    var tentativas = 0;
+    (function espera(){
+      if(minha!==geracao) return;
+      if(++tentativas > 24){ ATU[emp].estado = 'demorou'; pintaStatus(); return; }
+      setTimeout(function(){
+        pega(urlDe(emp, '&status=1'), 15000).then(function(s){
+          if(minha!==geracao) return;
+          if(s.gerado_em && s.gerado_em > antes){
+            return pega(urlDe(emp)).then(function(d){ if(minha!==geracao) return; PARTES[emp] = d; ATU[emp].estado = 'ok'; monta(); indexa(); pinta(); pintaStatus(); });
+          }
+          if(ATU[emp].estado === 'recente' && tentativas > 1){ ATU[emp].estado = 'ok'; pintaStatus(); return; }
+          espera();
+        }).catch(espera);
+      }, 8000);
+    })();
+  }).catch(function(){ ATU[emp] = { estado: 'falhou' }; pintaStatus(); });
+}
+function pintaStatus(){
+  var el = document.getElementById('atualizacao'); if(!el) return;
+  var rot = { pedindo:'pedindo coleta…', coletando:'coletando no Feegow…', recente:'coletado há pouco, conferindo…', ok:'atualizado', demorou:'coleta demorou; mostrando o último cálculo', falhou:'não consegui disparar a coleta' };
+  el.innerHTML = Object.keys(ATU).map(function(e){ var a = ATU[e]; var ok = a.estado==='ok';
+    return '<span class="selo ' + (ok?'ok':(a.estado==='falhou'||a.estado==='demorou'?'atraso':'')) + '">' + esc(FONTES[e].nome) + ' · ' + esc(rot[a.estado]||a.estado) + '</span>'; }).join(' ');
 }
 
 /* ---------- índices ---------- */
-var IDX = {};
 function chaveU(r){ return r.empresa + '|' + r.fid; }
 function indexa(){
   UNIS = (D.unidades||[]).map(function(u){ return { id: u.empresa+'|'+u.fid, empresa:u.empresa, fid:u.fid, nome:u.nome, deck:u.deck }; });
-  IDX = {};
 }
 function filtra(arr, u){ // u: 'grupo' | 'acesso|20' | lista de ids
   if(!arr) return [];
@@ -212,7 +277,7 @@ var EXAMES = [
   ['Outros serviços', [['hiperbarica','Medicina hiperbárica'],['odonto','Odontologia'],['ocupacional','Ocupacional'],['outros','Outros procedimentos']]]
 ];
 var TIMES = { call_acesso:'Call Acesso', call_doctor:'Call Doctor', recepcao_i:'Recepção I · Djalma', recepcao_ii:'Recepção II · Manoa',
-  recepcao_iii:'Recepção III · Compensa', recepcao_iv:'Recepção IV · Centro', recepcao_v:'Recepção V · Zona Leste', recepcao_vi:'Recepção VI · Vieiralves', sem_equipe:'Sem equipe no Feegow' };
+  recepcao_iii:'Recepção III · Compensa', recepcao_iv:'Recepção IV · Centro', recepcao_v:'Recepção V · Zona Leste', recepcao_vi:'Recepção VI · Vieiralves', sem_equipe:'Pessoa sem time no cadastro', sem_atribuicao:'Sem atribuição (sem agendamento nem proposta)' };
 var RECEP_DA = { 'acesso|20':'recepcao_i','acesso|21':'recepcao_ii','acesso|55':'recepcao_iii','doctor|0':'recepcao_iv','doctor|2':'recepcao_v','doctor|4':'recepcao_vi' };
 
 function blocoResumo(u){
@@ -295,7 +360,7 @@ function blocoExames(u){
                { rot:'Média', f:function(l){ var q=soma(ex,function(r){ return r.b===M && r.grupo===l.k; },'qtd'), v=soma(ex,function(r){ return r.b===M && r.grupo===l.k; },'valor'); return q ? brl2(v/q) : null; } } ] });
     out += '<h3 style="margin:18px 0 8px;font-size:14px">' + esc(g[0]) + '</h3>' + html;
   });
-  return secao('Venda de exames e procedimentos', 'Itens pagos no caixa (data de pagamento), particular, deduplicados por conta + item. Quantidade = itens; <b>o deck antigo contava linhas de pagamento</b>, por isso lá a quantidade às vezes é maior com o mesmo valor.', out);
+  return secao('Venda de exames e procedimentos', 'Pagamentos da API do Feegow por data de pagamento, particular (sem DOC). Cada pagamento é rateado entre os itens da conta pelo valor líquido de cada um; a quantidade conta o item uma vez, no primeiro pagamento. <b>O deck antigo contava linhas de pagamento</b>, por isso lá a quantidade às vezes é maior com o mesmo valor.', out);
 }
 
 function blocoFaturamento(u){
@@ -311,7 +376,7 @@ function blocoFaturamento(u){
       return soma(fat,function(r){ return r.b===b && r.metrica===l.m; },'valor'); },
     extras:[ { rot:'vs mês anterior', f:function(l){ if(l.meta) return null; var a=soma(fat,function(r){ return r.b===menosMeses(M,1) && r.metrica===l.m; },'valor'), b=soma(fat,function(r){ return r.b===M && r.metrica===l.m; },'valor');
       if(!a) return null; var v=(b-a)/a*100; return '<span class="'+(v>=0?'pos':'neg')+'">'+(v>=0?'+':'')+pct1(v)+'</span>'; } } ] });
-  // ano contra ano: única série com 2025 é o caixa do coletor
+  // ano contra ano: caixa da API (Acesso desde set/24, Doctor desde mar/25)
   var ano = +M.slice(0,4), ms = +M.slice(5), linhas = '', t1=0, t0=0, ok0=true;
   for(var i=1;i<=ms;i++){
     var b1 = ano+'-'+String(i).padStart(2,'0'), b0 = (ano-1)+'-'+String(i).padStart(2,'0');
@@ -320,20 +385,19 @@ function blocoFaturamento(u){
     linhas += '<tr><td data-rot="Mês">' + MESES_L[i-1] + '</td><td class="r" data-rot="' + (ano-1) + '">' + brl0(v0) + '</td><td class="r" data-rot="' + ano + '">' + brl0(v1) + '</td><td class="r" data-rot="Δ">' +
       (v0 && v1 ? '<span class="' + (v1>=v0?'pos':'neg') + '">' + (v1>=v0?'+':'') + pct1((v1-v0)/v0*100) + '</span>' : '—') + '</td></tr>';
   }
-  linhas += '<tr class="soma"><td>Acumulado</td><td class="r">' + brl0(t0) + (ok0?'':' <span title="faltam meses de ' + (ano-1) + ' no coletor">*</span>') + '</td><td class="r">' + brl0(t1) + '</td><td class="r">' + (t0 ? pct1((t1-t0)/t0*100) : '—') + '</td></tr>';
+  linhas += '<tr class="soma"><td>Acumulado</td><td class="r">' + brl0(t0) + (ok0?'':' <span title="faltam meses de ' + (ano-1) + ' na API">*</span>') + '</td><td class="r">' + brl0(t1) + '</td><td class="r">' + (t0 ? pct1((t1-t0)/t0*100) : '—') + '</td></tr>';
   var tem0 = false;
   for(var j=1;j<=ms;j++){ var bj=(ano-1)+'-'+String(j).padStart(2,'0'); if(soma(fat,function(r){ return r.b===bj && r.metrica==='recebido_caixa'; },'valor')) tem0 = true; }
-  var yoy = !tem0 ? '<div class="aviso calmo"><span class="ttl">Sem base de ' + (ano-1) + '</span><p>O Briefing do Feegow só está no banco a partir de jan/26, e o caixa do coletor não tem ' + (ano-1) + ' para ' + (u==='grupo'?'o grupo inteiro':'esta unidade') + '. ' +
-      'O comparativo ano contra ano do deck era montado à mão. Para voltar a ser automático, é preciso carregar uma vez o histórico de ' + (ano-1) + ' (exportação do Feegow). Até lá, a página prefere não mostrar número a mostrar número inventado.</p></div>'
+  var yoy = !tem0 ? '<div class="aviso calmo"><span class="ttl">Sem base de ' + (ano-1) + '</span><p>O espelho da API ainda não tem ' + (ano-1) + ' para ' + (u==='grupo'?'todas as unidades':'esta unidade') + '. Onde tem, o comparativo aparece sozinho.</p></div>'
     : '<div class="tabela-wrap"><table class="matriz"><thead><tr><th>Mês</th><th class="r">' + (ano-1) + '</th><th class="r">' + ano + '</th><th class="r">Δ</th></tr></thead><tbody>' + linhas + '</tbody></table></div>';
   var dt = filtra(D.doc_tabela,u).reduce(function(acc,r){ var k=r.tabela; acc[k]=acc[k]||{q:0,v:0,p:0}; acc[k].q+=r.qtd; acc[k].v+=Number(r.valor); acc[k].p+=Number(r.valor_pago); return acc; },{});
   var dk = Object.keys(dt).sort(function(a,b){ return dt[b].v-dt[a].v; });
-  var doc = dk.length ? '<div class="tabela-wrap"><table class="matriz"><thead><tr><th>Tabela</th><th class="r">Itens</th><th class="r">Valor reconhecido</th><th class="r">Valor pago no caixa</th></tr></thead><tbody>' +
+  var doc = dk.length ? '<div class="tabela-wrap"><table class="matriz"><thead><tr><th>Tabela</th><th class="r">Itens</th><th class="r">Valor</th><th class="r">Pago</th></tr></thead><tbody>' +
     dk.map(function(k){ return '<tr><td class="nome" data-rot="Tabela">' + esc(k) + '</td><td class="r" data-rot="Itens">' + num(dt[k].q) + '</td><td class="r" data-rot="Valor reconhecido">' + brl2(dt[k].v) + '</td><td class="r" data-rot="Valor pago">' + brl2(dt[k].p) + '</td></tr>'; }).join('') +
     '</tbody></table></div>' : '<p class="nota">Nenhum recebível com doc no mês.</p>';
-  return secao('Faturamento', 'Mesma régua do hub (v_bi_faturamento_oficial): recebido por data de pagamento, deduplicado. Particular = sem doc; o valor de Hapvida entra pelo valor ajustado, não pelo R$ 0,01 pago.', html) +
-    '<div class="duas" style="margin-top:14px"><div class="sec"><h2 style="margin-top:8px">' + (ano-1) + ' × ' + ano + '</h2><p class="sub">Caixa do coletor (única série que existe antes de 2026). Não é a mesma régua da tabela acima — serve para comparar ano contra ano, não para somar.</p>' + yoy + '</div>' +
-    '<div class="sec"><h2 style="margin-top:8px">Contas a receber com doc · ' + rotMes(M) + '</h2><p class="sub">Por tabela de preço. <b>Reconhecido</b> usa o valor ajustado (Hapvida pelo contrato); <b>pago</b> é o que o Feegow marca como pago — o deck antigo mostrava só esta coluna.</p>' + doc + '</div></div>';
+  return secao('Faturamento', 'Pagamentos lidos da API do Feegow, por data de pagamento. <b>Doc</b> = pagamento na forma DOC (Hapvida e demais convênios que pagam por documento); <b>particular</b> = todo o resto. É dinheiro que entrou, não valor de tabela.', html) +
+    '<div class="duas" style="margin-top:14px"><div class="sec"><h2 style="margin-top:8px">' + (ano-1) + ' × ' + ano + '</h2><p class="sub">Todo o caixa (particular + doc), mês a mês, pela mesma API.</p>' + yoy + '</div>' +
+    '<div class="sec"><h2 style="margin-top:8px">Recebido com doc · ' + rotMes(M) + '</h2><p class="sub">Por categoria do procedimento. A API não devolve a tabela de preço da conta (Hapvida, Acesso Saúde…), então o recorte por tabela do deck antigo não existe aqui.</p>' + doc + '</div></div>';
 }
 
 function blocoContribuicao(u){
@@ -483,38 +547,40 @@ function pinta(){
   var c = document.getElementById('conteudo'); c.innerHTML = html; c.style.display = 'block';
   c.querySelectorAll('a[data-u]').forEach(function(a){ a.addEventListener('click', function(ev){ ev.preventDefault(); E.u = a.dataset.u; grava(); pintaUnis(); pinta(); window.scrollTo(0,0); }); });
   var cx = D.cache || {};
-  document.getElementById('carimbo').innerHTML = 'Mês <b>' + rotMesL(M) + '</b> · calculado em <b>' + new Date(cx.gerado_em||D.gerado_em).toLocaleString('pt-BR',{timeZone:'America/Manaus'}) + '</b> (Manaus)' +
-    ' · recalcula sozinho a cada 30 min a partir do último envio do Briefing' + (D.frescor && D.frescor.briefing_ate ? ' (dados até <b>' + J.br(D.frescor.briefing_ate) + '</b>)' : '');
-  document.getElementById('rodape').textContent = 'Fonte: Briefing do Feegow no hub de BI (Controle de Metas) · bi.relatorio_mensal · nenhum número desta página é digitado.';
+  var hora = function(t){ return t ? new Date(t).toLocaleString('pt-BR',{timeZone:'America/Manaus',day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : '—'; };
+  document.getElementById('carimbo').innerHTML = 'Mês <b>' + rotMesL(M) + '</b> · ' + ['acesso','doctor'].filter(function(e){ return D.cache[e]; }).map(function(e){
+      return esc(FONTES[e].nome) + ' calculado em <b>' + hora(D.cache[e].gerado_em) + '</b>'; }).join(' · ') +
+    (Object.keys(FALHAS).filter(function(k){ return k!=='metas'; }).length ? ' · <b class="neg">sem resposta: ' + esc(Object.keys(FALHAS).filter(function(k){ return k!=='metas'; }).map(function(k){ return FONTES[k].nome; }).join(', ')) + '</b>' : '');
+  document.getElementById('rodape').textContent = 'Fonte: API do Feegow, espelhada nos CRMs da Doctor e da Acesso (contas, pagamentos, agenda e propostas) · metas: cadastro de metas mensais · nenhum número desta página é digitado.';
 }
 function avisoFrescor(){
-  /* O que decide se o número está completo é até que dia o Briefing do Feegow foi carregado,
-     não há quanto tempo o transformador rodou: o Briefing entra por envio, não de minuto em minuto. */
-  var f = D.frescor || {}, M = D.periodo, hoje = J.iso(J.hojeManaus()), itens = [];
-  var aberto = M.fim >= hoje;
-  var alvo = aberto ? J.iso(new Date(J.hojeManaus().getTime() - 86400000)) : M.fim;
-  var bAte = f.briefing_ate ? String(f.briefing_ate).slice(0,10) : null;
-  var envio = f.briefing_enviado_em ? new Date(f.briefing_enviado_em).toLocaleString('pt-BR',{timeZone:'America/Manaus',day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : null;
-  if(!bAte) itens.push('<li>Nenhum envio do Briefing encontrado.</li>');
-  else if(bAte < alvo){
-    var falta = J.diasEntre(bAte, alvo);
-    itens.push('<li>O Briefing do Feegow foi carregado até <b>' + J.br(bAte) + '</b>' + (envio ? ' (último envio em ' + envio + ')' : '') +
-      '. Faltam <b>' + falta + ' dia' + (falta>1?'s':'') + '</b> de ' + rotMesL(M.mes) + ' — os números deste mês estão parciais até o próximo envio.</li>');
-  }
-  if(!itens.length && !aberto) return '';
-  return '<div class="aviso ' + (itens.length?'':'calmo') + '" id="aviso-frescor"><span class="ttl">' + (itens.length ? 'Dado incompleto' : 'Mês em curso') + '</span>' +
-    (aberto && !itens.length ? '<p>' + rotMesL(M.mes) + ' ainda não fechou: o Briefing está carregado até ' + J.br(bAte) + (envio?' (envio de '+envio+')':'') + ' e a meta mostra o parcial.</p>' : '') +
-    (itens.length ? '<ul>' + itens.join('') + '</ul>' : '') + '</div>';
+  var M = D.periodo, hoje = J.iso(J.hojeManaus()), itens = [], aberto = M.fim >= hoje;
+  var hora = function(t){ return t ? new Date(t).toLocaleString('pt-BR',{timeZone:'America/Manaus',day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : '—'; };
+  var linhas = ['acesso','doctor'].filter(function(e){ return D.frescor[e]; }).map(function(e){
+    var f = D.frescor[e];
+    var atraso = f.contas_sincronizadas_em ? (Date.now() - new Date(f.contas_sincronizadas_em).getTime())/3600000 : 99;
+    if(aberto && atraso > 6) itens.push('<li><b>' + esc(FONTES[e].nome) + '</b>: contas e pagamentos sincronizados pela última vez em ' + hora(f.contas_sincronizadas_em) + '.</li>');
+    var obs = (f.agenda_desde && f.agenda_desde > M.historico_desde) ? ' · agenda no espelho só a partir de ' + J.br(f.agenda_desde) : '';
+    return '<b>' + esc(FONTES[e].nome) + '</b>' + obs + ': pagamentos até ' + (f.pagamentos_ate ? J.br(f.pagamentos_ate) : '—') + ' · contas ' + hora(f.contas_sincronizadas_em) + ' · propostas ' + hora(f.propostas_sincronizadas_em) + ' · agenda a cada 5 min';
+  });
+  var falhas = Object.keys(FALHAS).filter(function(k){ return k!=='metas'; });
+  falhas.forEach(function(k){ itens.push('<li><b>' + esc(FONTES[k].nome) + '</b> não respondeu (' + esc(FALHAS[k]) + '): as unidades dela ficam de fora desta página.</li>'); });
+  if(FALHAS.metas) itens.push('<li>As metas cadastradas não vieram; a página mostra os números sem a comparação com a meta.</li>');
+  return '<div class="aviso ' + (itens.length ? '' : 'calmo') + '" id="aviso-frescor"><span class="ttl">' + (itens.length ? 'Atenção' : (aberto ? 'Mês em curso' : 'Origem dos números')) + '</span>' +
+    (aberto ? '<p>' + rotMesL(M.mes) + ' ainda não fechou: os números vão até a última sincronização e a meta mostra o parcial.</p>' : '') +
+    (itens.length ? '<ul>' + itens.join('') + '</ul>' : '') +
+    '<p style="margin-top:6px;font-size:12px">' + linhas.join('<br>') + '</p></div>';
 }
 function reguas(){
   return '<section class="sec"><h2>Réguas desta página</h2><div class="nota"><ul style="padding-left:18px;margin:6px 0">' +
-    '<li><b>Faturamento</b> — recebido por data de pagamento, deduplicado por conta+item (mesma régua do BI do grupo). Particular = sem doc; doc = Hapvida e pagamento com doc.</li>' +
-    '<li><b>Exames e procedimentos</b> — itens pagos, particular, agrupados pelo nome do procedimento (ECG, Holter, MAPA…) e, quando o nome não diz, pela categoria do Feegow. A soma de todos os grupos fecha no centavo com o faturamento particular da unidade (conferido em jan, mai, jun e jul/26).</li>' +
-    '<li><b>Agenda</b> — por data do agendamento, particular, sem retorno. Agendados = atendidos + não compareceu.</li>' +
-    '<li><b>Propostas</b> — por data de criação; convertida = executada e paga no mesmo mês.</li>' +
+    '<li><b>Fonte</b> — API do Feegow, espelhada nos CRMs da Doctor e da Acesso: agenda (a cada 5 min), propostas (a cada 15 min), contas e pagamentos (de hora em hora na Doctor, diária na Acesso). Ao abrir a página, ela pede uma coleta dos últimos 2 dias e se redesenha quando o recálculo termina (cerca de 1 min).</li>' +
+    '<li><b>Faturamento</b> — pagamentos por data de pagamento. Doc = forma de pagamento DOC; particular = o resto.</li>' +
+    '<li><b>Exames e procedimentos</b> — cada pagamento é rateado entre os itens da conta pelo valor líquido. Agrupamento pelo nome do procedimento (ECG, Holter, MAPA…) e, quando o nome não diz, pelo grupo do procedimento no Feegow. A soma dos grupos fecha com o faturamento particular.</li>' +
+    '<li><b>Quem vendeu</b> — a API não informa o vendedor da conta. Item com agendamento vai para quem agendou; sem agendamento, para quem fez a proposta executada do mesmo paciente nos 45 dias anteriores; o resto fica em <b>Sem atribuição</b>. O time sai do cadastro <code>relatorio_equipe_pessoa</code> (editável).</li>' +
+    '<li><b>Agenda</b> — último estado de cada agendamento, por data do agendamento; particular (sem tabela Hapvida nem convênio), sem retorno. Agendados = atendidos + não compareceu.</li>' +
+    '<li><b>Propostas</b> — por data da proposta; Executada = convertida, Rejeitada = rejeitada, o resto em aberto.</li>' +
     '<li><b>Semanas</b> — sábado a sexta dentro do mês, o recorte do deck (1–3, 4–10, 11–17…).</li>' +
-    '<li><b>Metas</b> — cadastro de metas mensais do Controle de Metas (particular por unidade). Metas de recepção e de call center ainda não estão cadastradas no banco.</li>' +
-    '<li><b>Ano contra ano</b> — caixa do coletor, a única série com 2025.</li>' +
+    '<li><b>Metas</b> — cadastro de metas mensais por unidade. Metas de recepção e de call center ainda não existem em cadastro.</li>' +
     '</ul></div></section>';
 }
 
