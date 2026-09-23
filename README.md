@@ -121,25 +121,27 @@ oficial; o que a página faz é dizer quanto o índice mudaria sem elas.
 ## Relatório mensal de unidades (`mensal.html`)
 
 O deck mensal por unidade (o "Unidades – Julho Final 2026" que era montado à mão)
-agora se monta sozinho, com o mês escolhido na tela. Abre pela aba **Relatório
-mensal** do `grupo.html`, com a mesma chave do BI (`kb`).
+se monta sozinho, com o mês escolhido na tela. Abre pela aba **Relatório mensal** do
+`grupo.html`, com as chaves da Doctor (`kd`) e da Acesso (`ka`); a do BI (`kb`) só traz as metas.
+
+Os números vêm **da API do Feegow**, espelhada em cada CRM — nada do Briefing nem do
+Controle de Metas:
 
 ```
-Feegow (Briefing) ─► briefing_* ─► bi.relatorio_mensal(mes) ─► bi.relatorio_mensal_cache
-                                         (cron :07 e :37, mês corrente e anterior)
-                                                   │
-                         bi-painel?bloco=mensal&mes=YYYY-MM ─► mensal.html
+API Feegow ─► CRM Doctor / CRM Acesso ─► relatorio_mensal_api(mes) ─► relatorio_mensal_cache
+  agenda 5 min · propostas 15 min            (cron :12/:42 e :14/:44, mês corrente e anterior)
+  contas/pagamentos 1 h                                 │
+                                   relatorio-mensal?k=…&mes=YYYY-MM ─► mensal.html
 ```
 
-Por unidade (I a VI), consolidado do grupo e visão comercial (Call Acesso / Call Doctor):
-consultas (agendados, atendidos, faltas, vendidas) por mês e por semana, especialidades,
-exames por procedimento (laboratório, USG, cardiológicos, externos, internos, hiperbárica,
-odonto), faturamento particular/doc/total contra a meta, contas a receber com doc por tabela,
-contribuição por procedimento, por time e por pessoa, e propostas com conversão por pessoa.
+Ao abrir, a página mostra o último cálculo na hora e chama `&atualizar=1`: o CRM coleta os
+últimos 2 dias na API (contas, pagamentos e propostas) e recalcula; a página se redesenha
+sozinha quando termina (~1 min). A coleta tem trava de 5 min.
 
-A soma dos grupos de exame fecha no centavo com o faturamento particular do hub.
-Cada tabela declara a régua no próprio texto; o que o banco não tem (2025, metas de
-recepção e de call center) aparece como ausente, não como zero.
+Quem vendeu: a API não traz o vendedor da conta. Item com agendamento → quem agendou; sem
+agendamento → quem fez a proposta executada do mesmo paciente nos 45 dias anteriores; o resto
+fica em "Sem atribuição". O time de cada pessoa está em `relatorio_equipe_pessoa` (editável,
+nos dois CRMs).
 
 ## O que não sai daqui
 
