@@ -53,11 +53,15 @@ function endereco(id){
     if(K.bi) q.push('kb='+K.bi); /* o quadro de equipes vem do hub */
     return 'canais.html'+fresco()+'#'+q.join('&');
   }
-  /* o relatório mensal usa a mesma chave do BI (bi-painel, bloco=mensal) */
-  if(id==='mensal') return 'mensal.html'+fresco()+'#k='+K.bi;
+  /* o relatório mensal lê cada clínica no próprio CRM (API do Feegow) com a chave dela;
+     a chave do BI só traz as metas cadastradas */
+  if(id==='mensal'){
+    var m=[]; if(K.bi) m.push('k='+K.bi); if(K.doctor) m.push('kd='+K.doctor); if(K.acesso) m.push('ka='+K.acesso);
+    return 'mensal.html'+fresco()+'#'+m.join('&');
+  }
   return {bi:'bi.html',doctor:'index.html',acesso:'acesso.html'}[id]+fresco()+'#k='+K[id];
 }
-function temChave(id){ return id==='canais' ? !!(K.doctor||K.acesso) : id==='mensal' ? !!K.bi : !!K[id]; }
+function temChave(id){ return id==='canais' ? !!(K.doctor||K.acesso) : id==='mensal' ? !!(K.doctor||K.acesso) : !!K[id]; }
 function abre(id){
   if(!temChave(id))return;
   var url=endereco(id);
