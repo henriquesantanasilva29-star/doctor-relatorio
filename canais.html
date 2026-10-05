@@ -212,6 +212,8 @@ tfoot td{padding:8px 10px;font-weight:700;border-top:2px solid var(--dark)}
 .nota.neutra{background:var(--gray-bg);border-left-color:var(--purple)}
 .nota.aviso{background:#FFF6E9;border-left-color:var(--orange)}
 .nota > b:first-child{display:block;margin-bottom:6px;color:var(--dark)}
+.nota.frescor{background:var(--gray-bg);border-left-color:var(--mute);padding:9px 14px;margin:0 0 16px;
+  font-size:11.5px;color:var(--gray-text)}
 .nota ul{margin:6px 0 0;padding-left:18px} .nota li{margin:4px 0}
 .ok{color:var(--green);font-weight:700}
 .vazio{padding:40px;text-align:center;color:var(--gray-text);font-size:13px;
@@ -388,7 +390,9 @@ tfoot td{padding:8px 10px;font-weight:700;border-top:2px solid var(--dark)}
 </div>
 
 <div id="carregando" class="nota">Carregando os dois painéis…</div>
+<div id="avisoBase" class="nota aviso" style="display:none"></div>
 <div id="conteudo" style="display:none">
+<div id="frescor" class="nota frescor" style="display:none"></div>
 
 <div class="alt" id="alternador"></div>
 <div id="cobertura" class="nota" style="display:none"></div>
@@ -437,14 +441,48 @@ tfoot td{padding:8px 10px;font-weight:700;border-top:2px solid var(--dark)}
 
 </div></div>
 <script>
-/* ============ chaves e fontes ============ */
-var H = new URLSearchParams(location.hash.replace(/^#/,''));
+/* ============ sessão e fontes ============
+   Desde 05/10/2026 esta página mora no portal de relatórios
+   (relatorio.arasys.software, aba Canais) e usa o LOGIN DELE. O portal guarda
+   um token por base no sessionStorage da aba (rel_tok_doctor, rel_tok_acesso);
+   aberta na mesma origem, dentro do portal, esta página lê o mesmo token.
+   Acabou a chave no link (#kd/#ka/#kb) e acabou o Controle de metas:
+     · o dado de marketing vem da `painel-canais` de cada Life CRM (o mesmo
+       dados.json que a publica-relatorio grava às 05:30, só os blocos de
+       marketing, só para admin);
+     · o quadro de vendas por equipe vem da `feegow-relatorios`
+       (caixa_equipes), a mesma leitura "Quem vendeu" do Resumo faturamento. */
+var PORTAL = 'https://relatorio.arasys.software/';
+var FN = { doctor: 'https://myiqdeonxuznvhtsvfxg.supabase.co/functions/v1/',
+           acesso: 'https://dfvmuqxjdcvwskrrdbfm.supabase.co/functions/v1/' };
+function tokenDe(b){ try { return sessionStorage.getItem('rel_tok_' + b) || ''; } catch (e) { return ''; } }
 var MARCAS = [
-  {id:'doctor', nome:'Doctor Mais Saúde', api:'https://myiqdeonxuznvhtsvfxg.supabase.co/functions/v1/relatorio', k:H.get('kd')||''},
-  {id:'acesso', nome:'Acesso Saúde Manaus', api:'https://dfvmuqxjdcvwskrrdbfm.supabase.co/functions/v1/relatorio', k:H.get('ka')||''},
+  {id:'doctor', nome:'Doctor Mais Saúde', api:FN.doctor + 'painel-canais', fee:FN.doctor + 'feegow-relatorios', k:tokenDe('doctor')},
+  {id:'acesso', nome:'Acesso Saúde Manaus', api:FN.acesso + 'painel-canais', fee:FN.acesso + 'feegow-relatorios', k:tokenDe('acesso')},
 ];
-var KB = H.get('kb') || ''; /* chave do hub, para o quadro de equipes */
-if (location.hash) history.replaceState(null,'',location.pathname+location.search);
+/* POST com o token da base. Erro vira exceção com o status e as marcas que o
+   servidor manda (relogar = sessão vencida; sem_acesso = não é admin). */
+function pede(url, corpo){
+  return fetch(url, {method:'POST', headers:{'content-type':'application/json'},
+                     body:JSON.stringify(corpo), cache:'no-store'})
+    .then(function(r){
+      return r.json().catch(function(){ return {}; }).then(function(j){
+        if (!r.ok || j.error) {
+          var e = new Error(j.error || ('erro ' + r.status));
+          e.status = r.status; e.relogar = !!j.relogar; e.sem_acesso = !!j.sem_acesso; throw e;
+        }
+        return j;
+      });
+    });
+}
+var linkPortal = '<a href="' + PORTAL + '#canais" target="_top">abrir no portal de relatórios</a>';
+/* Dentro do portal (iframe da mesma origem), sessão vencida não fica presa
+   aqui: o portal recebe o aviso e volta para a tela de login dele. */
+var NO_PORTAL = (function(){ try { return window.parent !== window && window.parent.location.origin === location.origin; }
+                             catch (e) { return false; } })();
+function avisaPortalRelogar(msg){
+  if (NO_PORTAL) try { window.parent.postMessage({tipo: 'canais-relogar', msg: msg || ''}, location.origin); } catch (e) {}
+}
 
 var PAGO = ['Meta Ads','Meta sem id do anúncio','Google Ads'];
 var NPAGO = ['Direto / sem origem','Social orgânico','Site e busca'];
@@ -483,19 +521,25 @@ var esc = function(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){
 var fmtBR = function(s){var p=String(s).split('-');return p[2]+'/'+p[1]+'/'+p[0];};
 
 /* ============ carga ============ */
+var GERADO = {}; /* quando a publicação das 05:30 gerou o dado, por marca */
 function carrega(){
   var pend = MARCAS.filter(function(m){return m.k;});
   if(!pend.length){
     document.getElementById('carregando').innerHTML =
-      '<b>Nenhuma chave no link.</b> Abra este endereço com as chaves depois do # — ' +
-      'canais.html#kd=CHAVE_DOCTOR&amp;ka=CHAVE_ACESSO. As chaves nunca saem do seu navegador.';
+      '<b>Esta aba agora mora no portal de relatórios, com o login dele.</b> ' +
+      'Não existe mais chave no link: entre no portal e abra a aba Canais — ' + linkPortal + '.';
     return;
   }
+  /* Uma marca que falha não derruba a outra. Antes, a chave revogada da Doctor
+     (404) apagava a tela inteira, inclusive a parte da Acesso que estava boa. */
+  var falhas = [];
   Promise.all(pend.map(function(m){
-    return fetch(m.api+'?k='+encodeURIComponent(m.k)+'&f=dados.json',{cache:'no-cache'})
-      .then(function(r){ if(!r.ok) throw new Error(m.nome+': '+r.status); return r.json(); })
+    return pede(m.api, {token: m.k, action: 'dados'})
+      .catch(function(e){ falhas.push({m: m, e: e}); return null; })
       .then(function(d){
+        if (!d) return;
         MARCAS_OK.push(m);
+        GERADO[m.id] = d.gerado_em || d.atualizado_em || '';
         (d.canais||[]).forEach(function(x){ x.m = m.id; CAN.push(x); });
         (d.midia||[]).forEach(function(r){ MID.push({m:m.id, d:r[0], camp:r[1], anuncio:r[2],
           id:String(r[3]), inv:r[4]||0, imp:r[5]||0, cli:r[6]||0, conv:r[7]||0}); });
@@ -528,11 +572,49 @@ function carrega(){
           CRI[k] = {b:c.b||'', t:c.t||'', cta:c.cta||'', link:c.link||'', img:(CRI[k]&&CRI[k].img)||''}; });
         CONTA[m.id] = d.conta || '';
       });
-  })).then(inicia).catch(function(e){
-    document.getElementById('carregando').innerHTML =
-      '<b>Não consegui carregar.</b> ' + esc(e.message) +
-      '<br>Confira se as chaves do link ainda são válidas.';
+  })).then(function(){
+    /* a ordem das marcas é a da lista, não a de quem respondeu primeiro */
+    MARCAS_OK.sort(function(a, b){ return MARCAS.indexOf(a) - MARCAS.indexOf(b); });
+    if (!MARCAS_OK.length) {
+      var venceu = falhas.some(function(f){ return f.e.relogar; });
+      var semAcesso = falhas.length && falhas.every(function(f){ return f.e.sem_acesso; });
+      if (venceu) avisaPortalRelogar('Sua sessão expirou. Entre de novo.');
+      document.getElementById('carregando').innerHTML = venceu
+        ? '<b>Sua sessão do portal venceu.</b> Entre de novo — ' + linkPortal + '.'
+        : semAcesso
+          ? '<b>A aba Canais é número da operação inteira, e só administrador vê.</b> ' +
+            'Se você precisa dela, peça ao administrador do portal.'
+          : '<b>Não consegui carregar.</b> ' + falhas.map(function(f){
+              return esc(f.m.nome) + ': ' + esc(f.e.message); }).join(' · ');
+      return;
+    }
+    var aviso = falhas.map(function(f){
+      return '<b>' + esc(f.m.nome) + ' ficou de fora desta leitura</b> — ' +
+        (f.e.sem_acesso ? 'seu acesso nessa base não é de administrador.'
+          : f.e.relogar ? 'a sessão nessa base venceu; entre de novo no portal.'
+          : esc(f.e.message) + '.');
+    }).join('<br>');
+    var el = document.getElementById('avisoBase');
+    if (aviso) { el.innerHTML = aviso; el.style.display = ''; }
+    inicia();
   });
+}
+
+/* de quando é o dado: a publicação roda sozinha todo dia às 05:30 em cada
+   base. Quem olha precisa saber a idade do número. */
+function pintaFrescor(){
+  var el = document.getElementById('frescor');
+  if (!el) return;
+  var hoje = new Date(Date.now() - 4 * 3600e3).toISOString().slice(0, 10);
+  var partes = MARCAS_OK.map(function(m){
+    var g = String(GERADO[m.id] || '');
+    if (!g) return esc(m.nome.split(' ')[0]) + ': sem data';
+    var dia = g.slice(0, 10), hora = g.slice(11, 16);
+    return esc(m.nome.split(' ')[0]) + ' ' + (dia === hoje ? 'hoje' : fmtBR(dia)) + (hora ? ' às ' + hora : '');
+  });
+  el.innerHTML = 'Dado publicado ' + partes.join(' · ') +
+    '. Atualiza sozinho todo dia de manhã; o quadro de equipes acompanha a carga do Feegow.';
+  el.style.display = '';
 }
 
 function inicia(){
@@ -551,6 +633,7 @@ function inicia(){
   montaAlternador();
   document.getElementById('carregando').style.display='none';
   document.getElementById('conteudo').style.display='';
+  pintaFrescor();
   render();
 }
 
@@ -1431,10 +1514,9 @@ function carregaCriativos(mid){
   var m = null;
   MARCAS.forEach(function(x){ if (x.id === mid) m = x; });
   if (!m || !m.k) return Promise.resolve();
-  criPedido[mid] = fetch(m.api + '?k=' + encodeURIComponent(m.k) + '&f=criativos.json', {cache:'no-cache'})
-    .then(function(r){ return r.ok ? r.json() : {}; })
-    .then(function(j){ Object.keys(j || {}).forEach(function(k){
-      (CRI[k] = CRI[k] || {}).img = j[k] || ''; }); })
+  criPedido[mid] = pede(m.api, {token: m.k, action: 'criativos'})
+    .then(function(r){ var j = (r && r.criativos) || {};
+      Object.keys(j).forEach(function(k){ (CRI[k] = CRI[k] || {}).img = j[k] || ''; }); })
     .catch(function(){});
   return criPedido[mid];
 }
@@ -1620,76 +1702,100 @@ function render(){
   pintaComparacao();
 }
 
-/* Quadro de vendas por equipe — vem do hub (bi-painel), regua da planilha.
-   Responde "quem vendeu"; os cartoes acima respondem "por onde o paciente chegou". */
+/* Quadro de vendas por equipe — "quem vendeu", pelo espelho do Feegow de cada
+   Life CRM (feegow-relatorios, ação caixa_equipes). É a MESMA leitura do
+   Resumo faturamento › Quem vendeu: o caixa do período ligado à proposta pela
+   fatura e somado na equipe de quem criou a proposta. A soma das linhas é o
+   caixa; o que entrou sem proposta não some, fica em "(sem proposta)".
+   Até 05/10/2026 vinha do bi-painel do projeto Controle de metas, com a régua
+   da planilha. Responde "quem vendeu"; os cartões acima respondem "por onde o
+   paciente chegou" — os dois não somam um com o outro. */
 var eqCacheKey = '';
 function carregaEquipes(){
   var tb = document.getElementById('tEquipes'), nota = document.getElementById('notaEquipes');
   if (!tb) return;
-  if (!KB) {
-    tb.innerHTML = '';
-    nota.textContent = 'Para ver as equipes aqui, abra esta tela pelo portal do grupo — a chave do BI (kb) não veio no link.';
-    return;
-  }
+  var bases = MARCAS_OK.filter(function(m){ return marcaSel === 'todas' || m.id === marcaSel; });
+  if (!bases.length) { tb.innerHTML = ''; nota.textContent = 'Nenhuma base carregada.'; return; }
   var chave = de + '|' + ate + '|' + marcaSel + '|' + (cmpAtivo && de2 && ate2 ? de2 + '|' + ate2 : '');
   if (chave === eqCacheKey) return;
   eqCacheKey = chave;
-  nota.textContent = 'Buscando o quadro de equipes no hub…';
+  nota.textContent = 'Buscando o caixa por equipe no espelho do Feegow…';
   var busca = function(i2, f2){
-    return fetch('https://oqzbmdajkqexbpivkacv.supabase.co/functions/v1/bi-painel?k=' + encodeURIComponent(KB) +
-                 '&ini=' + i2 + '&fim=' + f2 + '&doc=sem_doc')
-      .then(function(r){ if (!r.ok) throw new Error('hub ' + r.status); return r.json(); });
+    return Promise.all(bases.map(function(m){
+      return pede(m.fee, {token: m.k, action: 'caixa_equipes', ini: i2, fim: f2});
+    }));
   };
-  var rollup = function(d){
+  /* duas marcas: as equipes têm nomes diferentes em cada uma, então juntar é
+     somar por nome — nunca inventar uma equipe "do grupo" */
+  var rollup = function(rs){
     var porEq = {}, tot = 0;
-    (d.equipe || []).forEach(function(e){
-      if (marcaSel !== 'todas' && e.empresa !== marcaSel) return;
-      var k = e.equipe || '';
-      var o = (porEq[k] = porEq[k] || {valor:0, qtd:0, pessoas:{}});
-      var v = Number(e.valor || 0);
-      o.valor += v; o.qtd += Number(e.qtd || 0); tot += v;
-      o.pessoas[e.pessoa] = (o.pessoas[e.pessoa] || 0) + v;
+    rs.forEach(function(d){
+      (d.vendeu || []).forEach(function(e){
+        var k = e.equipe || 'Sem equipe no CRM';
+        var o = (porEq[k] = porEq[k] || {valor:0, mov:0, pessoas:{}});
+        var v = Number(e.part || 0) + Number(e.doc || 0);
+        o.valor += v; o.mov += Number(e.mov || 0); tot += v;
+      });
+      (d.vendeu_pessoa || []).forEach(function(x){
+        if (String(x.setor) === 'sem_proposta') return;
+        var o = porEq[x.equipe || 'Sem equipe no CRM'];
+        if (!o) return;
+        var p = x.pessoa || x.usuario || '—';
+        o.pessoas[p] = (o.pessoas[p] || 0) + Number(x.part || 0) + Number(x.doc || 0);
+      });
     });
     return {porEq: porEq, tot: tot};
   };
   Promise.all([busca(de, ate), (cmpAtivo && de2 && ate2) ? busca(de2, ate2) : Promise.resolve(null)])
     .then(function(rs){
+      if (chave !== eqCacheKey) return; /* chegou depois de outra troca de período */
       var A = rollup(rs[0]), B = rs[1] ? rollup(rs[1]) : null;
-      var ROTE = {recepcao_i:'Recepção Unidade I', recepcao_ii:'Recepção Unidade II',
-        recepcao_iii:'Recepção Unidade III', recepcao_iv:'Recepção Unidade IV',
-        recepcao_v:'Recepção Unidade V', recepcao_vi:'Recepção Unidade VI',
-        call_doctor:'Call Center Doctor+', call_acesso:'Call Center Acesso Saúde'};
-      var nomes = Object.keys(A.porEq).sort(function(a,b){ return A.porEq[b].valor - A.porEq[a].valor; });
-      if (!nomes.length) {
+      /* "(sem proposta)" vai por último: não é equipe, é o que ninguém vendeu */
+      var nomes = Object.keys(A.porEq).sort(function(a,b){
+        var sa = a === '(sem proposta)', sb = b === '(sem proposta)';
+        return sa !== sb ? (sa ? 1 : -1) : A.porEq[b].valor - A.porEq[a].valor; });
+      if (!nomes.length || !A.tot) {
         tb.innerHTML = '';
-        nota.textContent = 'Sem venda atribuída a equipe no período (régua da planilha).';
+        nota.textContent = 'Sem caixa ligado a proposta no período.';
         return;
       }
-      var mx = Math.max(1, A.porEq[nomes[0]].valor);
+      var mx = Math.max(1, Math.max.apply(null, nomes.map(function(k){ return A.porEq[k].valor; })));
+      var semProp = (A.porEq['(sem proposta)'] || {}).valor || 0;
       var linhas = nomes.map(function(k){
-        var o = A.porEq[k];
+        var o = A.porEq[k], sem = k === '(sem proposta)';
         var ps = Object.keys(o.pessoas);
         var top = ps.sort(function(a,b){ return o.pessoas[b] - o.pessoas[a]; })[0] || '—';
         var w = Math.max(3, Math.round(100 * o.valor / mx));
-        return '<tr><td>' + esc(ROTE[k] || k || '(sem equipe mapeada)') + '</td>' +
-          '<td style="text-align:right">' + N(ps.length) + '</td>' +
-          '<td style="text-align:right">' + N(o.qtd) + '</td>' +
-          '<td style="text-align:right;min-width:160px"><div style="height:5px;border-radius:3px;margin-bottom:3px;opacity:.85;background:var(--red);width:' + w + '%"></div><b>' + BRL0(o.valor) + '</b></td>' +
-          '<td style="text-align:right"><b>' + (A.tot > 0 ? (Math.round(1000 * o.valor / A.tot) / 10).toFixed(1).replace('.', ',') + '%' : '—') + '</b></td>' +
+        return '<tr' + (sem ? ' style="color:var(--gray-text)"' : '') + '><td>' + esc(k) + '</td>' +
+          '<td style="text-align:right">' + (sem ? '—' : N(ps.length)) + '</td>' +
+          '<td style="text-align:right">' + N(o.mov) + '</td>' +
+          '<td style="text-align:right;min-width:160px"><div style="height:5px;border-radius:3px;margin-bottom:3px;opacity:.85;background:' + (sem ? 'var(--mute)' : 'var(--red)') + ';width:' + w + '%"></div><b>' + BRL0(o.valor) + '</b></td>' +
+          '<td style="text-align:right"><b>' + (Math.round(1000 * o.valor / A.tot) / 10).toFixed(1).replace('.', ',') + '%</b></td>' +
           (B ? '<td style="text-align:right">' + (dtag(o.valor, (B.porEq[k] || {}).valor || 0, false) || '—') + '</td>' : '') +
-          '<td>' + esc(top) + ' <span style="color:var(--ink-3)">' + BRL0(o.pessoas[top] || 0) + '</span></td></tr>';
+          '<td>' + (sem ? '<span style="color:var(--gray-text)">sem proposta ligada</span>'
+                        : esc(top) + ' <span style="color:var(--gray-text)">' + BRL0(o.pessoas[top] || 0) + '</span>') + '</td></tr>';
       }).join('');
       tb.innerHTML = '<thead><tr><th>Equipe</th><th style="text-align:right">Pessoas</th>' +
-        '<th style="text-align:right">Recebimentos</th><th style="text-align:right">Valor</th>' +
+        '<th style="text-align:right">Movimentações</th><th style="text-align:right">Caixa</th>' +
         '<th style="text-align:right">Participação</th>' +
         (B ? '<th style="text-align:right">variação</th>' : '') +
-        '<th>Melhor vendedor</th></tr></thead><tbody>' + linhas + '</tbody>';
-      nota.innerHTML = '';
+        '<th>Melhor vendedor</th></tr></thead><tbody>' + linhas + '</tbody>' +
+        '<tfoot><tr><td><b>Total</b></td><td></td><td style="text-align:right"><b>' +
+        N(nomes.reduce(function(s, k){ return s + A.porEq[k].mov; }, 0)) + '</b></td>' +
+        '<td style="text-align:right"><b>' + BRL0(A.tot) + '</b></td><td style="text-align:right"><b>100%</b></td>' +
+        (B ? '<td style="text-align:right">' + (dtag(A.tot, B.tot, false) || '—') + '</td>' : '') + '<td></td></tr></tfoot>';
+      nota.innerHTML = 'Mesma leitura do <b>Resumo faturamento › Quem vendeu</b>, no portal: caixa do período ' +
+        '(particular + DOC) ligado à proposta pela fatura, na equipe de quem criou a proposta. ' +
+        'A soma é o caixa' + (semProp > 0 ? '; ' + BRL0(semProp) + ' entraram sem proposta ligada e ficam na linha própria. ' : '. ') +
+        'Não compare com os cartões de canal acima: eles contam por onde o paciente chegou, este conta quem vendeu.';
     })
     .catch(function(e){
       eqCacheKey = '';
       tb.innerHTML = '';
-      nota.textContent = 'Não consegui buscar o quadro de equipes agora (' + e.message + '). Ele volta na próxima atualização.';
+      if (e && e.relogar) avisaPortalRelogar(e.message);
+      nota.textContent = e && e.relogar
+        ? 'Sua sessão do portal venceu — entre de novo para ver o quadro de equipes.'
+        : 'Não consegui buscar o caixa por equipe agora (' + (e && e.message ? e.message : e) + '). Ele volta na próxima atualização.';
     });
 }
 function pintaDuelo(tp, tn, inv, tpB, tnB){

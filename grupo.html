@@ -30,7 +30,7 @@ iframe{border:0;width:100%;flex:1;background:#faf9fc}
   <button class="aba" id="ab-doctor">Doctor+</button>
   <button class="aba" id="ab-acesso">Acesso Saúde</button>
   <div class="risco"></div>
-  <button class="aba" id="ab-canais">Canais · pago × orgânico</button>
+  <button class="aba" id="ab-canais" title="Abre no portal de relatórios, com o login dele">Canais · pago × orgânico ↗</button>
  </nav>
  <div class="dir"><a id="cheia" href="#" target="_blank" rel="noopener">abrir em página própria ↗</a></div>
 </header>
@@ -40,8 +40,10 @@ iframe{border:0;width:100%;flex:1;background:#faf9fc}
 var h=new URLSearchParams(location.hash.replace(/^#/,''));
 var K={bi:h.get('kb')||'',doctor:h.get('kd')||'',acesso:h.get('ka')||''};
 var ABAS=['mensal','bi','doctor','acesso','canais'];
-/* Canais junta as duas clínicas numa tela só, então aceita qualquer uma das
-   duas chaves e usa as que existirem. */
+/* Canais mudou para o portal de relatórios em 05/10/2026: lá usa o login do
+   portal e o dado dos dois Life CRM, sem chave no link e sem o Controle de
+   metas. Aqui a aba só abre o portal numa aba nova. */
+var PORTAL_CANAIS='https://relatorio.arasys.software/#canais';
 /* carimbo de hora na URL: fura o cache de 10 min do GitHub Pages — atualizacao
    publicada chega ao leitor do portal em no maximo uma hora, sem Ctrl+F5 */
 function fresco(){ var d=new Date(); return '?r='+d.getFullYear()+(d.getMonth()+1)+d.getDate()+d.getHours(); }
@@ -61,8 +63,9 @@ function endereco(id){
   }
   return {bi:'bi.html',doctor:'index.html',acesso:'acesso.html'}[id]+fresco()+'#k='+K[id];
 }
-function temChave(id){ return id==='canais' ? !!(K.doctor||K.acesso) : id==='mensal' ? !!(K.doctor||K.acesso) : !!K[id]; }
+function temChave(id){ return id==='canais' ? true : id==='mensal' ? !!(K.doctor||K.acesso) : !!K[id]; }
 function abre(id){
+  if(id==='canais'){ window.open(PORTAL_CANAIS,'_blank','noopener'); return; }
   if(!temChave(id))return;
   var url=endereco(id);
   document.getElementById('painel').src=url;
@@ -76,7 +79,7 @@ ABAS.forEach(function(x){
  if(!temChave(x)){b.disabled=true;b.title='chave não incluída no link';}
  b.addEventListener('click',function(){abre(x)});
 });
-var inicial=ABAS.filter(temChave)[0];
+var inicial=ABAS.filter(function(x){return x!=='canais'&&temChave(x);})[0];
 if(inicial){abre(inicial);}
 else{
  document.getElementById('painel').style.display='none';

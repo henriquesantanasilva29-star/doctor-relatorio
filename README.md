@@ -143,6 +143,43 @@ agendamento → quem fez a proposta executada do mesmo paciente nos 45 dias ante
 fica em "Sem atribuição". O time de cada pessoa está em `relatorio_equipe_pessoa` (editável,
 nos dois CRMs).
 
+## Canais · pago × orgânico (`canais.html`) — mudou para o portal em 05/10/2026
+
+A aba Canais agora mora no **portal de relatórios**
+(**https://relatorio.arasys.software/#canais**), com o login dele. Acabou a chave
+no link e acabou o Controle de metas:
+
+```
+publica-relatorio (05:30) ─► relatorio_arquivo.dados.json ─► painel-canais ─┐
+  (Doctor e Acesso, cada uma no seu Life CRM)        só os blocos de       │
+                                                     marketing, só admin   ├─► canais.html
+espelho do Feegow ─► feegow-relatorios (caixa_equipes) ─────────────────────┘   (no portal)
+                     quadro de vendas por equipe = "Quem vendeu" do Resumo faturamento
+```
+
+- **Login:** a página roda na mesma origem do portal, dentro da aba Canais, e lê o
+  token que o portal guarda no `sessionStorage` (`rel_tok_doctor`, `rel_tok_acesso`).
+  Nada passa pelo endereço. Sessão vencida lá dentro devolve o portal para o login.
+- **Quem vê:** só administrador. É número da operação inteira (caixa por canal e por
+  agência das duas marcas), e a `painel-canais` recusa quem não é admin.
+- **Dado:** o mesmo `dados.json` de antes, mas a `painel-canais` só deixa sair os
+  blocos de marketing (`canais`, `midia`, `jornada`, `agencias`, `agencia_*`,
+  `crmproc`, `cria`, `conta`). As vozes do NPS, a agenda e o financeiro por unidade
+  ficam no banco. O código da função está em `supabase/functions/painel-canais/`.
+- **Quadro de equipes:** saiu do `bi-painel` (projeto Controle de metas, régua da
+  planilha) e passou a ser a leitura "Quem vendeu" do Resumo faturamento: caixa do
+  período ligado à proposta pela fatura, na equipe de quem criou a proposta.
+- Uma marca que falha não derruba a outra. Antes, a chave revogada da Doctor apagava
+  a tela inteira.
+
+O `canais.html` deste repositório é a cópia versionada do que roda no portal. Aberto
+pelo GitHub Pages, sem a sessão do portal, ele só aponta para lá; a aba Canais do
+`grupo.html` também abre o portal.
+
+**Para publicar uma mudança:** o portal é estático na Hostinger. Sobe `canais.html`
+(e o `index.html` do portal, se mudou) pelo Gerenciador de Arquivos do hPanel, na
+pasta do subdomínio `relatorio.arasys.software`.
+
 ## O que não sai daqui
 
 Fora do NPS, nenhum dado é pessoal: só agregados por dia, campanha, anúncio e
