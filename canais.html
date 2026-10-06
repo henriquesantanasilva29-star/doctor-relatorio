@@ -324,6 +324,8 @@ tfoot td{padding:8px 10px;font-weight:700;border-top:2px solid var(--dark)}
 .lado h4{margin:0 0 2px;font-size:12px;letter-spacing:.3px;text-transform:uppercase;color:var(--gray-text)}
 .lado .big{font-family:var(--font-display);font-size:26px;font-weight:700;color:var(--dark);
   line-height:1.1;font-variant-numeric:tabular-nums}
+.lado .barra-pago{height:6px;border-radius:999px;background:var(--border);overflow:hidden;margin:2px 0 8px}
+.lado .barra-pago i{display:block;height:100%;background:var(--green);border-radius:999px}
 .lado .linha{display:flex;justify-content:space-between;font-size:12px;margin-top:7px;
   padding-top:7px;border-top:1px solid var(--border)}
 .lado .linha:first-of-type{border-top:0}
@@ -1074,7 +1076,8 @@ function pintaAgencias(){
   /* --- um cartao por agencia do periodo (eram dois; na troca VX->FSX sao tres).
      "Nao identificada" nao vira cartao: e anuncio de conta sem dono cadastrado,
      e continua como linha na tabela abaixo. --- */
-  /* O NUMERO GRANDE E O RECEBIDO DE QUEM CHEGOU NO PERIODO (06/10/2026). Antes era
+  /* (historico — desde a tarde de 06/10/2026 o grande e o FECHADO, ver abaixo)
+     O NUMERO GRANDE ERA O RECEBIDO DE QUEM CHEGOU NO PERIODO (06/10/2026). Antes era
      o caixa do periodo, que soma pagamento de paciente que a agencia trouxe meses
      antes — em 1-6/10 a conta da FarMelhor teve R$ 6.320 de caixa, dos quais
      R$ 6.220 de leads da VX de setembro para tras. O cartao dizia "recebido" e a
@@ -1107,19 +1110,30 @@ function pintaAgencias(){
         'faturado e investimento por agência só existem na Doctor+. Aqui só dá para dizer de quem é o caixa.</div>' +
         '</div>';
     }
-    var grande = soCx
-      ? BRL0(cxDe(o.ag)) + dtag(cxDe(o.ag), cxDeB(o.ag), false) +
-        '</div><div class="ger" style="margin-bottom:4px">caixa do período — esta marca não tem a jornada por anúncio</div>'
-      : BRL0(o.pg) + dtag(o.pg, b ? b.pg : null, false) +
-        '</div><div class="ger" style="margin-bottom:4px">recebido de quem chegou no período — a régua da tabela de campanhas</div>';
+    /* 06/10/2026, pedido do Sant'Ana: o número grande é o que quem chegou no
+       período FECHOU na clínica (o faturado do Feegow), e logo abaixo quanto disso
+       já entrou no caixa e quanto falta. O grande anterior era só o já pago, e
+       numa semana em que a maior parte do fechado ainda não foi paga (exame e
+       consulta marcados para depois) ele parecia "pouco caixa" sem dizer por quê. */
+    var foiAte = ref.vig_ate && ref.vig_ate < de;
+    var grande = BRL0(o.v) + dtag(o.v, b ? b.v : null, false) +
+        '</div><div class="ger" style="margin-bottom:4px">fechado na clínica por quem chegou no período</div>' +
+        (o.v > 0.5
+          ? '<div class="barra-pago" title="já pago × falta pagar"><i style="width:' +
+            Math.min(100, 100 * o.pg / o.v).toFixed(1) + '%"></i></div>'
+          : '') +
+        (!o.r && foiAte
+          ? '<div class="ger" style="margin-bottom:6px">sem lead novo no período: a conta deixou de ser da ' +
+            esc(o.ag) + ' em ' + fmtBR(ref.vig_ate) + '</div>'
+          : '');
     return '<div class="lado ' + (AG_CLASSE[o.ag] || '') + '">' +
       '<h4>' + esc(o.ag) + selo + '</h4>' +
       '<div class="ger">gerenciador ' + esc(ref.ger || '—') + '<span class="vig">' + esc(agVigencia(ref)) + '</span></div>' +
       '<div class="big">' + grande +
+      l('Já pago — entrou no caixa', BRL0(o.pg) + (o.v > 0.5 ? ' · ' + PCT0(100 * o.pg / o.v) : '')) +
+      l('Falta pagar', BRL0(o.ab)) +
       l('Leads no CRM — quem chegou no período', N(o.r)) +
       l('Viraram paciente', N(o.p) + (o.r ? ' · ' + PCT0(100 * o.p / o.r) : '')) +
-      l('Faturado — quem chegou no período', BRL0(o.v)) +
-      l('Em aberto — quem chegou no período', BRL0(o.ab)) +
       l('Parado na mesa', BRL0(o.vne) + (o.ne ? ' · ' + N(o.ne) + ' propostas' : '')) +
       l('Investimento', soCx ? 'sem jornada por anúncio nesta marca'
                         : (ref.coletada ? BRL0(o.inv)
@@ -1131,7 +1145,7 @@ function pintaAgencias(){
       (antigo > 0.5
         ? l('Caixa no período de paciente que chegou antes', BRL0(antigo)) +
           '<div class="ger" style="margin-top:4px">pagamento feito agora por quem ' + esc(o.ag) +
-          ' trouxe antes do período — não entra no recebido de cima</div>'
+          ' trouxe antes do período — não entra no fechado de cima</div>'
         : '') +
       '</div>';
   }).join('');
@@ -1184,8 +1198,11 @@ function pintaAgencias(){
     'para a que chegou primeiro. <b>A conta da FarMelhor foi da VX até 30/09 e é da FSX desde 01/10:</b> ' +
     'o lead vai para quem operava a conta no dia em que ele chegou, e o investimento, para quem operava no ' +
     'dia do gasto. Paciente que a VX trouxe e que paga agora continua sendo da VX.' +
-    ' · <b>No cartão, o número grande é o recebido de quem chegou no período</b> — o mesmo da tabela ' +
-    '&ldquo;Campanhas por especialidade&rdquo;. O caixa de paciente antigo fica na última linha do cartão.' +
+    ' · <b>No cartão, o número grande é o que quem chegou no período fechou na clínica</b> (o faturado do ' +
+    'Feegow, desde o dia em que o lead chegou). A barra e as duas linhas logo abaixo dizem quanto disso já ' +
+    'entrou no caixa — o &ldquo;Recebido&rdquo; da tabela &ldquo;Campanhas por especialidade&rdquo; — e quanto ' +
+    'falta pagar: conta aberta no Feegow, quase sempre exame ou consulta marcada para depois, que vira caixa ' +
+    'quando o paciente vem e paga. O caixa de paciente antigo fica na última linha do cartão.' +
     (semColeta.length
       ? ' · <b>' + semColeta.map(function(o){ return esc(o.ag); }).join(' e ') +
         ': investimento em branco é ausência de dado, não de gasto.</b> Ou a conta não foi ' +
@@ -1336,15 +1353,15 @@ function pintaAgOrigem(CX){
   var fm = CX.faixa[maior];
   nota.innerHTML = '<b>Como ler:</b> o caixa do período é o dinheiro que entrou entre ' + fmtBR(de) + ' e ' +
     fmtBR(ate) + ' de pacientes que vieram de anúncio, separado pelo dia em que cada paciente chegou. ' +
-    'A coluna &ldquo;chegou no período&rdquo; é o mesmo dinheiro do número grande dos cartões; as outras duas são ' +
+    'A coluna &ldquo;chegou no período&rdquo; é o mesmo dinheiro da linha &ldquo;Já pago&rdquo; dos cartões; as outras duas são ' +
     'herança de antes. Exemplo deste período: dos ' + BRL0(tot(fm)) + ' de caixa de <b>' + esc(maior) + '</b>, ' +
     BRL0(fm.mes + fm.antes) + ' são de pacientes que chegaram antes de ' + fmtBR(de) + '.' +
     (marcaSel === 'todas' && AGCX.some(function(x){ return x.m !== 'doctor' && x.d >= de && x.d <= ate && (x.pgd || x.fora); })
       ? ' · <b>Na visão &ldquo;As duas&rdquo; esta tabela soma o caixa da Acesso</b>, e os cartões contam só a Doctor+ ' +
         '(a Acesso não tem a jornada por anúncio). Para comparar com os cartões, filtre a Doctor.'
       : '') +
-    ' · Pequenas diferenças para o número grande do cartão aparecem quando o período termina antes de hoje: ' +
-    'o recebido do cartão inclui pagamento feito depois do fim do período; o caixa, não.' +
+    ' · Pequenas diferenças para o &ldquo;Já pago&rdquo; do cartão aparecem quando o período termina antes de hoje: ' +
+    'o já pago do cartão inclui pagamento feito depois do fim do período; o caixa, não.' +
     ' · Caixa de paciente sem anúncio identificado (Google Ads e sem espelho) fica fora desta tabela.';
 }
 
