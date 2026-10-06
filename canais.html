@@ -293,6 +293,8 @@ tfoot td{padding:8px 10px;font-weight:700;border-top:2px solid var(--dark)}
 /* agências: quantas houver no período (na troca VX→FSX são três) */
 #agDuelo{grid-template-columns:repeat(auto-fit,minmax(290px,1fr))}
 .lado .vig{font-size:11px;color:var(--gray-text);margin-left:4px}
+.agn{font-weight:700}.agn.vg{color:var(--red)}.agn.fsx{color:#0E8F5E}.agn.vx{color:#C9650F}
+#tAgOrigem td.num,#tAgOrigem th.num{text-align:right}
 .lado{background:#fff;border:1px solid var(--border);border-radius:var(--r-md);
   padding:16px 18px;position:relative;overflow:hidden}
 .lado::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px}
@@ -422,8 +424,13 @@ tfoot td{padding:8px 10px;font-weight:700;border-top:2px solid var(--dark)}
 <div id="notaCanais" class="nota"></div>
 
 <div class="section-title">Quem trouxe — agências de mídia</div>
+<div id="agPend" class="nota aviso" style="display:none"></div>
 <div class="duelo" id="agDuelo"></div>
 <table id="tAgencias"></table>
+<div id="agConf" class="nota neutra" style="display:none"></div>
+<div class="section-title">O caixa de cada agência, por quando o paciente chegou</div>
+<table id="tAgOrigem"></table>
+<div id="notaAgOrigem" class="nota neutra"></div>
 <div id="notaAgencias" class="nota"></div>
 
 <div class="section-title">Os anúncios de cada agência</div>
@@ -985,22 +992,27 @@ function agAgrega(d1, d2){
    do cartao ao centavo; e por isso que este quadro pode ser lido como
    decomposicao dele, e nao como uma segunda contagem que briga com a primeira. */
 function agCaixa(d1, d2){
-  var m = {}, foraT = 0, antigo = {}, antigoPgd = {};
+  /* 06/10/2026: o caixa da agencia passa a ser o de TODO paciente cujo primeiro
+     anuncio e dela (pgd + fora), a mesma populacao do recebido dos cartoes e da
+     tabela de campanhas. Antes era so o que o canal do CRM chama de pago (pgd),
+     e a Vanguarda mostrava R$ 1.444 de recebido no cartao e R$ 422 de caixa do
+     mesmo grupo de pacientes na decomposicao. `pago` guarda a regua antiga, que
+     e a do cartao "Trafego pago", para a nota dizer de onde vem a diferenca. */
+  var m = {}, pago = {}, foraT = 0, antigo = {}, faixa = {};
+  var d30 = novaData(d1, -30);
   AGCX.forEach(function(x){
     if (x.d < d1 || x.d > d2) return;
     if (marcaSel !== 'todas' && x.m !== marcaSel) return;
-    m[x.ag] = (m[x.ag] || 0) + x.pgd;
+    var v = x.pgd + x.fora;
+    m[x.ag] = (m[x.ag] || 0) + v;
+    pago[x.ag] = (pago[x.ag] || 0) + x.pgd;
     foraT += x.fora;
-    /* caixa do período de paciente que chegou ANTES do período — pela mesma
-       população do cartão da agência (todo paciente cujo primeiro anúncio é
-       dela, classificado como pago ou não pelo canal) */
-    if (x.dc && x.dc < d1) {
-      antigo[x.ag] = (antigo[x.ag] || 0) + x.pgd + x.fora;
-      /* a mesma separação, mas só na régua do caixa da tabela (canal pago) */
-      antigoPgd[x.ag] = (antigoPgd[x.ag] || 0) + x.pgd;
-    }
+    if (!x.dc) return;
+    var f = faixa[x.ag] || (faixa[x.ag] = {per:0, mes:0, antes:0});
+    if (x.dc >= d1) f.per += v; else if (x.dc >= d30) f.mes += v; else f.antes += v;
+    if (x.dc < d1) antigo[x.ag] = (antigo[x.ag] || 0) + v;
   });
-  return {porAg: m, fora: foraT, antigo: antigo, antigoPgd: antigoPgd};
+  return {porAg: m, pago: pago, fora: foraT, antigo: antigo, faixa: faixa, d30: d30};
 }
 
 function agRef(nome){
@@ -1021,7 +1033,11 @@ function pintaAgencias(){
   var nota  = document.getElementById('notaAgencias');
   if (!duelo || !tab || !nota) return;
 
-  var limpa = function(msg){ duelo.innerHTML = ''; tab.innerHTML = ''; nota.innerHTML = msg; };
+  var limpa = function(msg){
+    duelo.innerHTML = ''; tab.innerHTML = ''; nota.innerHTML = msg;
+    ['agPend', 'agConf'].forEach(function(id){ var e = document.getElementById(id); if (e) e.style.display = 'none'; });
+    ['tAgOrigem', 'notaAgOrigem'].forEach(function(id){ var e = document.getElementById(id); if (e) e.innerHTML = ''; });
+  };
 
   var m = agAgrega(de, ate), mB = (cmpAtivo && de2 && ate2) ? agAgrega(de2, ate2) : null;
   var CX = agCaixa(de, ate), CXB = (cmpAtivo && de2 && ate2) ? agCaixa(de2, ate2) : null;
@@ -1085,8 +1101,8 @@ function pintaAgencias(){
         '<div class="ger">gerenciador ' + esc(ref.ger || '—') + '<span class="vig">' + esc(agVigencia(ref)) + '</span></div>' +
         '<div class="big">' + BRL0(cxDe(o.ag)) + dtag(cxDe(o.ag), cxDeB(o.ag), false) + '</div>' +
         '<div class="ger" style="margin-bottom:4px">caixa do período</div>' +
-        l('De paciente que chegou no período', BRL0(cxDe(o.ag) - (CX.antigoPgd[o.ag] || 0))) +
-        l('De paciente que chegou antes', BRL0(CX.antigoPgd[o.ag] || 0)) +
+        l('De paciente que chegou no período', BRL0(cxDe(o.ag) - antigo)) +
+        l('De paciente que chegou antes', BRL0(antigo)) +
         '<div class="ger" style="margin-top:8px">Esta marca não tem a jornada por anúncio: leads, pacientes, ' +
         'faturado e investimento por agência só existem na Doctor+. Aqui só dá para dizer de quem é o caixa.</div>' +
         '</div>';
@@ -1178,24 +1194,20 @@ function pintaAgencias(){
         'por lead e retorno não existem desse lado. Identificar a conta e pedir acesso em ' +
         '“Ver desempenho” fecha a lacuna.'
       : '') +
-    ' · <b>O caixa deste quadro fecha com o cartão &ldquo;Tráfego pago&rdquo;.</b> ' +
-    'As agências mais o &ldquo;anúncio não identificado&rdquo; somam <b>' + BRL0(cxTotal) + '</b>, ' +
-    'que é exatamente o número grande daquele cartão: este quadro é a <i>decomposição</i> dele, ' +
-    'não uma segunda contagem. As colunas Faturado, Recebido e Em aberto seguem sendo de coorte — ' +
-    'dinheiro de <i>quem chegou no período</i> — e por isso não somam o caixa.' +
+    ' · <b>&ldquo;Caixa do período&rdquo; é o que entrou no período de todo paciente que veio de anúncio da agência</b>, ' +
+    'pelo primeiro anúncio dele — a mesma população dos cartões. Com o &ldquo;anúncio não identificado&rdquo; dá <b>' +
+    BRL0(cxTotal) + '</b> = <b>' + BRL0(cxTotal - CX.fora) + '</b> do cartão &ldquo;Tráfego pago&rdquo;' +
+    (CX.fora > 0.5 ? ' + <b>' + BRL0(CX.fora) + '</b> de paciente que veio de anúncio mas que o canal do CRM ' +
+      'não marcou como pago (cai em &ldquo;Direto&rdquo; ou fica sem canal)' : '') + '. ' +
+    'As colunas Faturado, Recebido e Em aberto são de quem chegou no período; o caixa inclui quem chegou antes — ' +
+    'a tabela logo abaixo separa os dois.' +
     (soDoctor
       ? ' · <b>Atenção ao recorte: o caixa é do grupo, o resto é só da Doctor+.</b> ' +
-        'A Acesso Saúde entra na coluna &ldquo;Caixa do período&rdquo; — é por isso que a soma ' +
-        'fecha com o cartão — mas ela não tem a jornada por anúncio que alimenta Leads, ' +
+        'A Acesso Saúde entra na coluna &ldquo;Caixa do período&rdquo;, mas ela não tem a jornada por anúncio que alimenta Leads, ' +
         'Viraram paciente, Faturado, Em aberto e Investimento. Essas colunas contam só a ' +
         'Doctor+. Para ler as duas marcas com o mesmo recorte, filtre uma marca por vez.'
       : '') +
-    (CX.fora > 0.5
-      ? ' · <b>Os espelhos enxergam ' + BRL0(CX.fora) + ' a mais que o canal classifica como pago.</b> ' +
-        'É caixa de paciente cujo anúncio nós conhecemos, mas que o canal do primeiro contato dele ' +
-        'não marcou como Meta Ads — cai em &ldquo;Direto&rdquo; ou fica sem canal. Fora deste quadro ' +
-        'por coerência com o cartão, mas é atribuição paga que a tela ainda perde.'
-      : '') +
+
     ' · <b>Cobertura diferente não é desempenho diferente.</b> A Vanguarda é vista pelo utm do ' +
     'WTS no contato; a conta da FarMelhor (VX, agora FSX), só pela referência do anúncio dentro da mensagem do WhatsApp. São dois ' +
     'espelhos, com alcances distintos.' +
@@ -1204,8 +1216,8 @@ function pintaAgencias(){
     'cadastro nasceu, não de onde o paciente veio. Venda acontece no call center ou na recepção, e nos dois ' +
     'entram lead pago e lead orgânico — esta tela não separa isso. <b>Para “de onde veio o paciente” com ' +
     'cobertura total existe a origem declarada na recepção do Feegow</b>, preenchida em 100% dos agendamentos ' +
-    '(indicação, Instagram, fachada, convênio…). <b>Para “quem vendeu” a resposta está no quadro de equipes ' +
-    'do BI do grupo</b>, nome a nome. Nenhuma das duas é o que esta lista mede.' +
+    '(indicação, Instagram, fachada, convênio…). <b>Para “quem vendeu” a resposta está no &ldquo;Quadro de vendas ' +
+    'por equipe&rdquo;, mais abaixo</b>, nome a nome. Nenhuma das duas é o que esta lista mede.' +
     ' · <b>&ldquo;Leads no CRM&rdquo; não é a mesma coisa que &ldquo;conversas&rdquo; do relatório da agência.</b> ' +
     'Aqui contamos telefones distintos que tocaram um anúncio e viraram contato nosso; a Meta conta ' +
     'conversa iniciada, pela atribuição dela. O nosso número costuma ser <i>menor</i>: em julho a Meta ' +
@@ -1216,6 +1228,124 @@ function pintaAgencias(){
     '(&ldquo;Doctor Acesso&rdquo;, que é da Acesso Saúde, e &ldquo;Doctor odonto&rdquo;, que ninguém coleta). ' +
     'Comparar este quadro com o PDF da agência sem saber disso faz parecer que o BI está inflado. ' +
     'O confronto conta a conta está no <b>BI do grupo</b>, em &ldquo;Quem está rodando mídia&rdquo;.';
+
+  pintaAgPendencia();
+  pintaAgConferencia(linhas);
+  pintaAgOrigem(CX);
+}
+
+/* Conta de anuncio que traz lead e nao tem agencia cadastrada. Sem isto ela some
+   dentro de "Nao identificada" e ninguem percebe que uma agencia abriu conta nova
+   (06/10/2026: a conta final 0085 comecou em 03/10 e ficou dias assim). */
+function pintaAgPendencia(){
+  var el = document.getElementById('agPend');
+  if (!el) return;
+  var porSuf = {};
+  AGADS.forEach(function(x){
+    if (x.d < de || x.d > ate || x.ag !== 'Não identificada') return;
+    if (marcaSel !== 'todas' && x.m !== marcaSel) return;
+    var suf = String(x.a).slice(-4);
+    var o = porSuf[suf] || (porSuf[suf] = {suf:suf, r:0, desde:x.d});
+    o.r += x.r || 0; if (x.d < o.desde) o.desde = x.d;
+  });
+  var lista = Object.keys(porSuf).map(function(k){ return porSuf[k]; })
+                    .filter(function(o){ return o.r > 0; })
+                    .sort(function(a, b){ return b.r - a.r; });
+  if (!lista.length) { el.style.display = 'none'; return; }
+  var tot = lista.reduce(function(t, o){ return t + o.r; }, 0);
+  el.innerHTML = '<b>' + N(tot) + (tot === 1 ? ' lead chegou' : ' leads chegaram') +
+    ' por anúncio de conta sem agência cadastrada.</b> ' +
+    lista.map(function(o){ return 'Conta com final <b>' + esc(o.suf) + '</b>: ' + N(o.r) +
+      (o.r === 1 ? ' lead' : ' leads') + ' desde ' + fmtBR(o.desde); }).join(' · ') + '. ' +
+    'Enquanto a conta não for cadastrada, esses leads ficam em &ldquo;Não identificada&rdquo; e sem investimento. ' +
+    'Para resolver: dizer de quem é a conta e compartilhá-la com o portfólio da Doctor em &ldquo;Ver desempenho&rdquo;.';
+  el.style.display = '';
+}
+
+/* Conferencia visivel: o recebido de quem chegou no periodo, somado nas agencias,
+   tem de ser o total da tabela "Campanhas por especialidade". Quando nao bate, a
+   unica causa e lead de anuncio que nao veiculou no periodo: conta para a
+   agencia, mas a tabela de campanhas so lista anuncio com veiculacao. */
+function pintaAgConferencia(linhas){
+  var el = document.getElementById('agConf');
+  if (!el) return;
+  if (marcaSel === 'acesso' || !AG.length) { el.style.display = 'none'; return; }
+  var recAg = linhas.reduce(function(t, o){ return t + (o.pg || 0); }, 0);
+  /* a jornada por anuncio so existe na Doctor: a tabela de campanhas e lida no
+     mesmo recorte para a comparacao ser justa */
+  var sv = marcaSel; marcaSel = 'doctor';
+  var M = midiaAgrega();
+  marcaSel = sv;
+  var recCamp = M.cr.pg, dif = recAg - recCamp;
+  /* o que a tabela de campanhas deixa de fora: lead de anuncio sem veiculacao no
+     periodo. Medido aqui, e nao suposto — se a diferenca nao for isso, a tela diz. */
+  var recFora = 0, nFora = 0;
+  AGADS.forEach(function(x){
+    if (x.m !== 'doctor' || x.d < de || x.d > ate || M.ads[x.a]) return;
+    recFora += x.pg || 0; nFora += x.r || 0;
+  });
+  el.innerHTML = '<b>Conferência com a tabela &ldquo;Campanhas por especialidade&rdquo;</b>' +
+    'Recebido de quem chegou no período, somando as agências: <b>' + BRL(recAg) + '</b> · ' +
+    'na tabela de campanhas: <b>' + BRL(recCamp) + '</b> · ' +
+    (Math.abs(dif) < 0.5
+      ? '<b style="color:#0E7A4E">confere</b>.'
+      : Math.abs(dif - recFora) < 0.5
+        ? 'diferença de <b>' + BRL(dif) + '</b>, que é o recebido de ' + N(nFora) + ' leads de anúncio que não ' +
+          'veiculou neste período. Eles contam para a agência, mas a tabela de campanhas só lista anúncio ' +
+          'com veiculação no período.'
+        : '<b style="color:var(--red)">diferença de ' + BRL(dif) + ' sem explicação</b> — ' + BRL(recFora) +
+          ' dela é de anúncio sem veiculação no período; o resto precisa ser investigado.');
+  el.style.display = '';
+}
+
+/* O caixa de cada agencia, separado por QUANDO o paciente chegou. E a resposta para
+   "por que o caixa e maior que o recebido": o caixa inclui quem chegou antes. */
+function pintaAgOrigem(CX){
+  var tab = document.getElementById('tAgOrigem'), nota = document.getElementById('notaAgOrigem');
+  if (!tab || !nota) return;
+  var ags = Object.keys(CX.faixa).filter(function(k){
+    var f = CX.faixa[k]; return (f.per + f.mes + f.antes) > 0.5; });
+  if (!ags.length) { tab.innerHTML = ''; nota.innerHTML = 'Sem caixa de paciente de anúncio no período.'; return; }
+  var tot = function(f){ return f.per + f.mes + f.antes; };
+  ags.sort(function(a, b){ return tot(CX.faixa[b]) - tot(CX.faixa[a]); });
+  var d30a = novaData(de, -1);
+  var T = {per:0, mes:0, antes:0};
+  var td = function(v, b){ return '<td class="num">' + (b ? '<b>' : '') + (v > 0.5 ? BRL0(v) : '—') + (b ? '</b>' : '') + '</td>'; };
+  var linhas = ags.map(function(k){
+    var f = CX.faixa[k], t = tot(f);
+    T.per += f.per; T.mes += f.mes; T.antes += f.antes;
+    var ref = agRef(k);
+    return '<tr><td><span class="agn ' + (AG_CLASSE[k] || '') + '">' + esc(k) + '</span>' +
+      (agVigencia(ref) ? ' <span style="color:var(--gray-text);font-size:11px">' + esc(agVigencia(ref).replace(' · ', '')) + '</span>' : '') +
+      '</td>' + td(f.per) + td(f.mes) + td(f.antes) + td(t, true) +
+      '<td class="num">' + (t ? PCT0(100 * (f.mes + f.antes) / t) : '—') + '</td></tr>';
+  }).join('');
+  var tt = T.per + T.mes + T.antes;
+  tab.innerHTML = '<thead><tr><th>Agência que trouxe</th>' +
+    '<th class="num">Chegou no período<br><span style="font-weight:400">' + fmtBR(de) + ' a ' + fmtBR(ate) + '</span></th>' +
+    '<th class="num">Chegou nos 30 dias antes<br><span style="font-weight:400">' + fmtBR(CX.d30) + ' a ' + fmtBR(d30a) + '</span></th>' +
+    '<th class="num">Chegou antes disso</th><th class="num">Caixa do período</th>' +
+    '<th class="num">De quem chegou antes</th></tr></thead><tbody>' + linhas + '</tbody>' +
+    '<tfoot><tr><td>Total</td>' + td(T.per, true) + td(T.mes, true) + td(T.antes, true) + td(tt, true) +
+    '<td class="num"><b>' + (tt ? PCT0(100 * (T.mes + T.antes) / tt) : '—') + '</b></td></tr></tfoot>';
+
+  /* a frase de leitura sai da linha com mais heranca, com os numeros dela */
+  var maior = ags.slice().sort(function(a, b){
+    var fa = CX.faixa[a], fb = CX.faixa[b];
+    return (fb.mes + fb.antes) - (fa.mes + fa.antes); })[0];
+  var fm = CX.faixa[maior];
+  nota.innerHTML = '<b>Como ler:</b> o caixa do período é o dinheiro que entrou entre ' + fmtBR(de) + ' e ' +
+    fmtBR(ate) + ' de pacientes que vieram de anúncio, separado pelo dia em que cada paciente chegou. ' +
+    'A coluna &ldquo;chegou no período&rdquo; é o mesmo dinheiro do número grande dos cartões; as outras duas são ' +
+    'herança de antes. Exemplo deste período: dos ' + BRL0(tot(fm)) + ' de caixa de <b>' + esc(maior) + '</b>, ' +
+    BRL0(fm.mes + fm.antes) + ' são de pacientes que chegaram antes de ' + fmtBR(de) + '.' +
+    (marcaSel === 'todas' && AGCX.some(function(x){ return x.m !== 'doctor' && x.d >= de && x.d <= ate && (x.pgd || x.fora); })
+      ? ' · <b>Na visão &ldquo;As duas&rdquo; esta tabela soma o caixa da Acesso</b>, e os cartões contam só a Doctor+ ' +
+        '(a Acesso não tem a jornada por anúncio). Para comparar com os cartões, filtre a Doctor.'
+      : '') +
+    ' · Pequenas diferenças para o número grande do cartão aparecem quando o período termina antes de hoje: ' +
+    'o recebido do cartão inclui pagamento feito depois do fim do período; o caixa, não.' +
+    ' · Caixa de paciente sem anúncio identificado (Google Ads e sem espelho) fica fora desta tabela.';
 }
 
 /* ============ os anuncios de cada agencia ============
