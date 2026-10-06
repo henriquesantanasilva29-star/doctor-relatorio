@@ -588,12 +588,20 @@ function carrega(){
               return esc(f.m.nome) + ': ' + esc(f.e.message); }).join(' · ');
       return;
     }
-    var aviso = falhas.map(function(f){
+    /* base em que a pessoa não entrou no portal (login recusado ou bloqueado
+       por excesso de tentativas): a página não tem token dela e não pode
+       ler — mas tem de DIZER que ela ficou de fora, senão a tela de uma
+       marca só parece o grupo inteiro. */
+    var semSessao = MARCAS.filter(function(m){ return !m.k; }).map(function(m){
+      return '<b>' + esc(m.nome) + ' ficou de fora desta leitura</b> — você não está logado nessa base no portal. ' +
+        'Clique em Sair e entre de novo; se o login dela for recusado, peça o cadastro ao administrador.';
+    });
+    var aviso = semSessao.concat(falhas.map(function(f){
       return '<b>' + esc(f.m.nome) + ' ficou de fora desta leitura</b> — ' +
         (f.e.sem_acesso ? 'seu acesso nessa base não é de administrador.'
           : f.e.relogar ? 'a sessão nessa base venceu; entre de novo no portal.'
           : esc(f.e.message) + '.');
-    }).join('<br>');
+    })).join('<br>');
     var el = document.getElementById('avisoBase');
     if (aviso) { el.innerHTML = aviso; el.style.display = ''; }
     inicia();
