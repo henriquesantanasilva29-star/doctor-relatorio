@@ -290,12 +290,18 @@ tfoot td{padding:8px 10px;font-weight:700;border-top:2px solid var(--dark)}
 
 /* ---- comparação fixa no topo: os dois lados sempre visíveis ---- */
 .duelo{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px}
+/* agências: quantas houver no período (na troca VX→FSX são três) */
+#agDuelo{grid-template-columns:repeat(auto-fit,minmax(290px,1fr))}
+.lado .vig{font-size:11px;color:var(--gray-text);margin-left:4px}
 .lado{background:#fff;border:1px solid var(--border);border-radius:var(--r-md);
   padding:16px 18px;position:relative;overflow:hidden}
 .lado::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px}
 .lado.p::before{background:var(--red)}
 .lado.o::before{background:var(--green)}
-.lado.vg::before{background:var(--blue)}
+/* cores das agências (pedido de 06/10): Vanguarda vermelha, FSX verde; a VX
+   fica laranja só no histórico, até 30/09 */
+.lado.vg::before{background:var(--red)}
+.lado.fsx::before{background:var(--green)}
 .lado.vx::before{background:var(--orange)}
 .lado .selo{display:inline-block;font-size:10.5px;font-weight:700;letter-spacing:.2px;
   border-radius:var(--r-pill);padding:2px 9px;margin-left:7px;vertical-align:2px;
@@ -304,7 +310,8 @@ tfoot td{padding:8px 10px;font-weight:700;border-top:2px solid var(--dark)}
 .lado .selo.ok{background:#E8F8F1;color:#0E7A4E}
 .lado .ger{font-size:11.5px;color:var(--gray-text);margin-top:2px}
 #agDuelo .lado h4{text-transform:none;font-size:13.5px;color:var(--dark);font-weight:700}
-#agAdsSel button.on[data-ag="Vanguarda"]{background:var(--blue);border-color:var(--blue);color:#fff}
+#agAdsSel button.on[data-ag="Vanguarda"]{background:var(--red);border-color:var(--red);color:#fff}
+#agAdsSel button.on[data-ag="FSX"]{background:var(--green);border-color:var(--green);color:#fff}
 #agAdsSel button.on[data-ag="VX"]{background:var(--orange);border-color:var(--orange);color:#fff}
 #agAdsSel button.on{background:var(--dark);border-color:var(--dark);color:#fff}
 .ad-dica{color:var(--cinza);font-size:12.5px;font-style:italic;padding:2px 0}
@@ -414,7 +421,7 @@ tfoot td{padding:8px 10px;font-weight:700;border-top:2px solid var(--dark)}
 <table id="tCanais"></table>
 <div id="notaCanais" class="nota"></div>
 
-<div class="section-title">Quem trouxe — as duas agências</div>
+<div class="section-title">Quem trouxe — agências de mídia</div>
 <div class="duelo" id="agDuelo"></div>
 <table id="tAgencias"></table>
 <div id="notaAgencias" class="nota"></div>
@@ -493,7 +500,7 @@ var COR = {'Meta Ads':'var(--red)','Meta sem id do anúncio':'#F5136E99','Google
 
 var CAN = [], MID = [], JOR = [], MARCAS_OK = [], lado = 'pago', marcaSel = 'todas';
 var AG = [], AGREF = [];
-var AGADS = [], agAdsSel = 'VX', agAdsEspSel = null, agAdsEspAg = null, PROCAG = [], PROCADSAG = {};
+var AGADS = [], agAdsSel = '', agAdsEspSel = null, agAdsEspAg = null, PROCAG = [], PROCADSAG = {};
 /* caixa do periodo por agencia, na mesma populacao do cartao de trafego pago */
 var AGCX = [];
 var PROC = [], PROCADS = {}, CONTA = {}, CRI = {}, criPedido = {};
@@ -553,11 +560,12 @@ function carrega(){
           ab:x.ab||0, inv:x.inv||0, imp:x.imp||0, cli:x.cli||0, conv:x.conv||0}); });
         ((d.agencias && d.agencias.ref) || []).forEach(function(x){ AGREF.push({m:m.id,
           ag:x.ag, suf:x.suf||'', conta:x.conta||'', ger:x.ger||'', coletada:!!x.coletada,
+          vig_de:x.vig_de||'', vig_ate:x.vig_ate||'',
           nota:x.nota||''}); });
         /* funil por anuncio pelos DOIS espelhos — a chave `jornada` acima so
            enxerga o carimbo de utm do WTS, e por ele o anuncio da VX nao existe. */
         (d.agencia_caixa || []).forEach(function(x){
-          AGCX.push({m:m.id, d:x.d, ag:x.ag, pgd:x.pgd||0, fora:x.fora||0}); });
+          AGCX.push({m:m.id, d:x.d, ag:x.ag, dc:x.dc||'', pgd:x.pgd||0, fora:x.fora||0}); });
         (d.agencia_ads || []).forEach(function(x){ AGADS.push({m:m.id, d:x.d, a:String(x.a),
           ag:x.ag, r:x.r||0, k:x.k||0, p:x.p||0, o:x.o||0, e:x.e||0,
           v:x.v||0, pg:x.pg||0, ab:x.ab||0, ne:x.ne||0, vne:x.vne||0}); });
@@ -951,7 +959,13 @@ function midiaAgrega(){
    isso custo e retorno somem em vez de virar zero. `coletada` vem do banco e e
    observado, nao declarado: e verdade se existe investimento coletado daquela
    conta na janela. Nao troque por uma flag a mao — flag a mao envelhece. */
-var AG_CLASSE = {'Vanguarda':'vg', 'VX':'vx'};
+/* VIGÊNCIA (06/10/2026): a conta da FarMelhor foi da VX até 30/09 e é da FSX
+   desde 01/10. O banco já entrega cada lead na agência que operava a conta no
+   dia em que ele CHEGOU — paciente que a VX trouxe e pagou em outubro segue da
+   VX. O cartão tem de mostrar isso, senão a FSX leva crédito pelo trabalho da
+   VX e o número dela não bate com a tabela de campanhas. */
+var AG_CLASSE = {'Vanguarda':'vg', 'VX':'vx', 'FSX':'fsx'};
+var AG_CONHECIDAS = {'Vanguarda':1, 'VX':1, 'FSX':1};
 
 function agAgrega(d1, d2){
   var m = {};
@@ -971,19 +985,34 @@ function agAgrega(d1, d2){
    do cartao ao centavo; e por isso que este quadro pode ser lido como
    decomposicao dele, e nao como uma segunda contagem que briga com a primeira. */
 function agCaixa(d1, d2){
-  var m = {}, foraT = 0;
+  var m = {}, foraT = 0, antigo = {}, antigoPgd = {};
   AGCX.forEach(function(x){
     if (x.d < d1 || x.d > d2) return;
     if (marcaSel !== 'todas' && x.m !== marcaSel) return;
     m[x.ag] = (m[x.ag] || 0) + x.pgd;
     foraT += x.fora;
+    /* caixa do período de paciente que chegou ANTES do período — pela mesma
+       população do cartão da agência (todo paciente cujo primeiro anúncio é
+       dela, classificado como pago ou não pelo canal) */
+    if (x.dc && x.dc < d1) {
+      antigo[x.ag] = (antigo[x.ag] || 0) + x.pgd + x.fora;
+      /* a mesma separação, mas só na régua do caixa da tabela (canal pago) */
+      antigoPgd[x.ag] = (antigoPgd[x.ag] || 0) + x.pgd;
+    }
   });
-  return {porAg: m, fora: foraT};
+  return {porAg: m, fora: foraT, antigo: antigo, antigoPgd: antigoPgd};
 }
 
 function agRef(nome){
-  for (var i = 0; i < AGREF.length; i++) if (AGREF[i].ag === nome) return AGREF[i];
-  return {ag:nome, conta:'', ger:'', coletada:false, nota:''};
+  for (var i = 0; i < AGREF.length; i++)
+    if (AGREF[i].ag === nome && (marcaSel === 'todas' || AGREF[i].m === marcaSel)) return AGREF[i];
+  return {ag:nome, conta:'', ger:'', coletada:false, nota:'', vig_de:'', vig_ate:''};
+}
+function agVigencia(ref){
+  if (ref.vig_de && ref.vig_ate) return ' · de ' + fmtBR(ref.vig_de) + ' a ' + fmtBR(ref.vig_ate);
+  if (ref.vig_de) return ' · desde ' + fmtBR(ref.vig_de);
+  if (ref.vig_ate) return ' · até ' + fmtBR(ref.vig_ate);
+  return '';
 }
 
 function pintaAgencias(){
@@ -1026,23 +1055,51 @@ function pintaAgencias(){
   var soDoctor = temCaixa && (marcaSel === 'todas') &&
                  AGCX.some(function(x){ return x.m !== 'doctor' && x.d >= de && x.d <= ate && x.pgd; });
 
-  /* --- os dois cartoes, lado a lado --- */
-  duelo.innerHTML = linhas.slice(0, 2).map(function(o){
+  /* --- um cartao por agencia do periodo (eram dois; na troca VX->FSX sao tres).
+     "Nao identificada" nao vira cartao: e anuncio de conta sem dono cadastrado,
+     e continua como linha na tabela abaixo. --- */
+  /* O NUMERO GRANDE E O RECEBIDO DE QUEM CHEGOU NO PERIODO (06/10/2026). Antes era
+     o caixa do periodo, que soma pagamento de paciente que a agencia trouxe meses
+     antes — em 1-6/10 a conta da FarMelhor teve R$ 6.320 de caixa, dos quais
+     R$ 6.220 de leads da VX de setembro para tras. O cartao dizia "recebido" e a
+     tabela de campanhas, na mesma tela, dizia R$ 100. Agora o grande e a mesma
+     regua da tabela, e o caixa de paciente antigo aparece numa linha propria. */
+  duelo.innerHTML = linhas.filter(function(o){
+    return AG_CONHECIDAS[o.ag] || agRef(o.ag).suf;
+  }).map(function(o){
     var ref = agRef(o.ag), b = mB && mB[o.ag];
-    /* so caixa: nao ha jornada por anuncio nesta marca, entao nada de coorte e
-       nada de investimento pode ser afirmado para esta linha. */
-    var soCx = !o.r && !o.v && !o.inv;
+    /* so caixa: a MARCA nao tem jornada por anuncio desta agencia (a Acesso), entao
+       nada de coorte e nada de investimento pode ser afirmado. Agencia que so nao
+       trouxe ninguem no periodo — a VX depois de 30/09 — NAO e "so caixa": ela tem
+       jornada, e o recebido de quem chegou e zero de verdade. */
+    var soCx = !AG.some(function(x){ return x.ag === o.ag && (marcaSel === 'todas' || x.m === marcaSel); });
     var l = function(r, v){ return '<div class="linha"><span>' + r + '</span><b>' + v + '</b></div>'; };
-    var selo = ref.coletada
+    var selo = soCx ? '' : ref.coletada
       ? '<span class="selo ok">investimento coletado</span>'
       : '<span class="selo falta">' + (ref.ger ? 'conta não compartilhada'
                                                : 'conta não identificada') + '</span>';
+    var antigo = CX.antigo[o.ag] || 0;
+    if (soCx) {
+      return '<div class="lado ' + (AG_CLASSE[o.ag] || '') + '">' +
+        '<h4>' + esc(o.ag) + '</h4>' +
+        '<div class="ger">gerenciador ' + esc(ref.ger || '—') + '<span class="vig">' + esc(agVigencia(ref)) + '</span></div>' +
+        '<div class="big">' + BRL0(cxDe(o.ag)) + dtag(cxDe(o.ag), cxDeB(o.ag), false) + '</div>' +
+        '<div class="ger" style="margin-bottom:4px">caixa do período</div>' +
+        l('De paciente que chegou no período', BRL0(cxDe(o.ag) - (CX.antigoPgd[o.ag] || 0))) +
+        l('De paciente que chegou antes', BRL0(CX.antigoPgd[o.ag] || 0)) +
+        '<div class="ger" style="margin-top:8px">Esta marca não tem a jornada por anúncio: leads, pacientes, ' +
+        'faturado e investimento por agência só existem na Doctor+. Aqui só dá para dizer de quem é o caixa.</div>' +
+        '</div>';
+    }
+    var grande = soCx
+      ? BRL0(cxDe(o.ag)) + dtag(cxDe(o.ag), cxDeB(o.ag), false) +
+        '</div><div class="ger" style="margin-bottom:4px">caixa do período — esta marca não tem a jornada por anúncio</div>'
+      : BRL0(o.pg) + dtag(o.pg, b ? b.pg : null, false) +
+        '</div><div class="ger" style="margin-bottom:4px">recebido de quem chegou no período — a régua da tabela de campanhas</div>';
     return '<div class="lado ' + (AG_CLASSE[o.ag] || '') + '">' +
       '<h4>' + esc(o.ag) + selo + '</h4>' +
-      '<div class="ger">gerenciador ' + esc(ref.ger || '—') + '</div>' +
-      '<div class="big">' + BRL0(cxDe(o.ag)) + dtag(cxDe(o.ag), cxDeB(o.ag), false) + '</div>' +
-      '<div class="ger" style="margin-bottom:4px">recebido em caixa no período</div>' +
-      l('Recebido — quem chegou no período', BRL0(o.pg)) +
+      '<div class="ger">gerenciador ' + esc(ref.ger || '—') + '<span class="vig">' + esc(agVigencia(ref)) + '</span></div>' +
+      '<div class="big">' + grande +
       l('Leads no CRM — quem chegou no período', N(o.r)) +
       l('Viraram paciente', N(o.p) + (o.r ? ' · ' + PCT0(100 * o.p / o.r) : '')) +
       l('Faturado — quem chegou no período', BRL0(o.v)) +
@@ -1055,6 +1112,11 @@ function pintaAgencias(){
       l('Custo por paciente', (ref.coletada && o.p) ? BRL(o.inv / o.p) : '—') +
       l('Retorno sobre a mídia', (ref.coletada && o.inv)
           ? (o.v / o.inv).toFixed(1).replace('.', ',') + '× faturado' : '—') +
+      (antigo > 0.5
+        ? l('Caixa no período de paciente que chegou antes', BRL0(antigo)) +
+          '<div class="ger" style="margin-top:4px">pagamento feito agora por quem ' + esc(o.ag) +
+          ' trouxe antes do período — não entra no recebido de cima</div>'
+        : '') +
       '</div>';
   }).join('');
 
@@ -1102,8 +1164,12 @@ function pintaAgencias(){
   nota.innerHTML =
     '<b>A agência sai da conta de anúncio, não do nome da campanha.</b> O prefixo [VG] é da ' +
     'Vanguarda, mas ela opera mídia de mais de uma marca, e a VX nomeia campanha de outro jeito — ' +
-    'rotular por nome atribui lead à agência errada. Quem tocou anúncio das duas conta uma vez só, ' +
-    'para a que chegou primeiro.' +
+    'rotular por nome atribui lead à agência errada. Quem tocou anúncio de duas agências conta uma vez só, ' +
+    'para a que chegou primeiro. <b>A conta da FarMelhor foi da VX até 30/09 e é da FSX desde 01/10:</b> ' +
+    'o lead vai para quem operava a conta no dia em que ele chegou, e o investimento, para quem operava no ' +
+    'dia do gasto. Paciente que a VX trouxe e que paga agora continua sendo da VX.' +
+    ' · <b>No cartão, o número grande é o recebido de quem chegou no período</b> — o mesmo da tabela ' +
+    '&ldquo;Campanhas por especialidade&rdquo;. O caixa de paciente antigo fica na última linha do cartão.' +
     (semColeta.length
       ? ' · <b>' + semColeta.map(function(o){ return esc(o.ag); }).join(' e ') +
         ': investimento em branco é ausência de dado, não de gasto.</b> Ou a conta não foi ' +
@@ -1131,7 +1197,7 @@ function pintaAgencias(){
         'por coerência com o cartão, mas é atribuição paga que a tela ainda perde.'
       : '') +
     ' · <b>Cobertura diferente não é desempenho diferente.</b> A Vanguarda é vista pelo utm do ' +
-    'WTS no contato; a VX, só pela referência do anúncio dentro da mensagem do WhatsApp. São dois ' +
+    'WTS no contato; a conta da FarMelhor (VX, agora FSX), só pela referência do anúncio dentro da mensagem do WhatsApp. São dois ' +
     'espelhos, com alcances distintos.' +
     ' · <b>“Criado pela equipe” e “Base importada” não são canais.</b> São o campo ' +
     '<span style="font-family:monospace">origin</span> do Life CRM (CREATED_BY_USER e IMPORTED): dizem como o ' +
@@ -1168,22 +1234,31 @@ function pintaAgencias(){
    Igualar tudo pede trocar a fonte de `jornada_anuncio` e de
    `mv_paciente_anuncio` — mexe no numero que aquelas duas paginas publicam,
    entao nao foi feito de passagem. */
-function agDeAnuncio(id){
-  var suf = String(id || '').slice(-4);
-  for (var i = 0; i < AGREF.length; i++) if (AGREF[i].suf === suf) return AGREF[i].ag;
-  return 'Não identificada';
+/* agência do anúncio NO DIA: a mesma conta muda de agência na troca VX->FSX */
+function agDeAnuncio(id, dia){
+  var suf = String(id || '').slice(-4), achou = '';
+  for (var i = 0; i < AGREF.length; i++) {
+    var r = AGREF[i];
+    if (r.suf !== suf) continue;
+    if (!dia) { achou = achou || r.ag; continue; }
+    if ((!r.vig_de || dia >= r.vig_de) && (!r.vig_ate || dia <= r.vig_ate)) return r.ag;
+  }
+  return achou || 'Não identificada';
 }
 
 function agAdsAgrega(){
   var per = {};
-  var novo = function(id, m){
-    return per[id] || (per[id] = {id:id, m:m, nome:'', camp:'', dias:{},
+  /* chave = anúncio + agência: o anúncio que veiculou na troca aparece na VX com
+     os dias dela e na FSX com os dias dela, sem um somar no outro */
+  var novo = function(id, m, ag){
+    var k = id + '|' + ag;
+    return per[k] || (per[k] = {id:id, m:m, ag:ag, nome:'', camp:'', dias:{},
       inv:0, imp:0, cli:0, conv:0, r:0, k:0, p:0, o:0, e:0, v:0, pg:0, ab:0, ne:0, vne:0});
   };
   MID.forEach(function(x){
     if (x.d < de || x.d > ate) return;
     if (marcaSel !== 'todas' && x.m !== marcaSel) return;
-    var a = novo(x.id, x.m);
+    var a = novo(x.id, x.m, agDeAnuncio(x.id, x.d));
     a.inv += x.inv; a.imp += x.imp; a.cli += x.cli; a.conv += x.conv; a.dias[x.d] = 1;
     if (x.anuncio) a.nome = x.anuncio;
     if (x.camp) a.camp = x.camp;
@@ -1191,7 +1266,7 @@ function agAdsAgrega(){
   AGADS.forEach(function(x){
     if (x.d < de || x.d > ate) return;
     if (marcaSel !== 'todas' && x.m !== marcaSel) return;
-    var a = novo(x.a, x.m);
+    var a = novo(x.a, x.m, x.ag || agDeAnuncio(x.a, x.d));
     ['r','k','p','o','e','v','pg','ab','ne','vne'].forEach(function(c){ a[c] += x[c] || 0; });
   });
   return per;
@@ -1300,9 +1375,9 @@ function pintaAgAds(){
 
   var per = agAdsAgrega();
   var porAg = {};
-  Object.keys(per).forEach(function(id){
-    var ag = agDeAnuncio(id);
-    (porAg[ag] = porAg[ag] || []).push(per[id]);
+  Object.keys(per).forEach(function(k){
+    var ag = per[k].ag;
+    (porAg[ag] = porAg[ag] || []).push(per[k]);
   });
   /* Agencia sem linha em meta_agencia nao vira aba: e sempre resto — um anuncio
      solto, sem investimento e sem campanha coletada. Aparecer como se fosse uma
@@ -1359,7 +1434,7 @@ function pintaAgAds(){
     BRL0(T.v) + ' faturados' + (T.inv ? ' · ' + (T.v / T.inv).toFixed(1).replace('.', ',') + '× de retorno' : '') +
     '. · <b>Na Doctor o lead é contado pelos dois espelhos</b> — o carimbo de utm que o WTS grava ' +
     'no contato e a referência do anúncio dentro da mensagem do WhatsApp. Só o segundo alcança ' +
-    'conta de fora, então sem ele os anúncios da VX apareceriam com retorno zero. A Acesso tem ' +
+    'conta de fora, então sem ele os anúncios da conta da FarMelhor (VX até 30/09, FSX desde 01/10) apareceriam com retorno zero. A Acesso tem ' +
     'só o primeiro espelho, e o relatório da Doctor e o painel também — por isso o número de ' +
     'anúncio lá é menor.' +
     (ref.coletada ? '' : ' · <b>Sem investimento:</b> a conta desta agência não é coletada, então ' +
