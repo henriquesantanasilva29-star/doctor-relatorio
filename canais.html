@@ -471,7 +471,18 @@ tfoot td{padding:8px 10px;font-weight:700;border-top:2px solid var(--dark)}
 var PORTAL = 'https://relatorio.arasys.software/';
 var FN = { doctor: 'https://myiqdeonxuznvhtsvfxg.supabase.co/functions/v1/',
            acesso: 'https://dfvmuqxjdcvwskrrdbfm.supabase.co/functions/v1/' };
-function tokenDe(b){ try { return sessionStorage.getItem('rel_tok_' + b) || ''; } catch (e) { return ''; } }
+/* 07/10/2026: login único. A sessão do portal (painel-login) fica no
+   localStorage, nas chaves do Painel do vendedor; vale para as duas marcas e
+   cada função confere no servidor se a pessoa vê a operação inteira. */
+function lsLe(k){ try { return localStorage.getItem(k) || ''; } catch (e) { return ''; } }
+/* 07/10/2026, tarde: a troca do login deixou portal aberto ANTES da troca sem a
+   sessão nova no localStorage — e o Canais, recarregado dentro dele, abria em
+   "entre no portal" com a pessoa logada na frente. Agora: sessão única se
+   houver; senão o token antigo do portal (rel_tok_<marca> no sessionStorage),
+   que a painel-canais e a feegow-relatorios seguem aceitando durante a troca. */
+var K_SES = 'meu_desempenho_sessao', K_DEV = 'meu_desempenho_device';
+function tokenAntigo(b){ try { return sessionStorage.getItem('rel_tok_' + b) || ''; } catch (e) { return ''; } }
+function tokenDe(b){ return lsLe(K_SES) || tokenAntigo(b); }
 var MARCAS = [
   {id:'doctor', nome:'Doctor Mais Saúde', api:FN.doctor + 'painel-canais', fee:FN.doctor + 'feegow-relatorios', k:tokenDe('doctor')},
   {id:'acesso', nome:'Acesso Saúde Manaus', api:FN.acesso + 'painel-canais', fee:FN.acesso + 'feegow-relatorios', k:tokenDe('acesso')},
@@ -479,6 +490,12 @@ var MARCAS = [
 /* POST com o token da base. Erro vira exceção com o status e as marcas que o
    servidor manda (relogar = sessão vencida; sem_acesso = não é admin). */
 function pede(url, corpo){
+  corpo = Object.assign({}, corpo);
+  /* só a sessão única vira {sessao, device_id}; o token antigo vai como token */
+  var ses = lsLe(K_SES);
+  if ('token' in corpo && ses && corpo.token === ses) {
+    corpo.sessao = ses; corpo.device_id = lsLe(K_DEV); delete corpo.token;
+  }
   return fetch(url, {method:'POST', headers:{'content-type':'application/json'},
                      body:JSON.stringify(corpo), cache:'no-store'})
     .then(function(r){
@@ -541,6 +558,14 @@ var GERADO = {}; /* quando a publicação das 05:30 gerou o dado, por marca */
 function carrega(){
   var pend = MARCAS.filter(function(m){return m.k;});
   if(!pend.length){
+    /* dentro do portal e sem sessão nenhuma: não é para ficar parado aqui com a
+       pessoa logada na frente — o portal volta para o login dele */
+    if (NO_PORTAL) {
+      document.getElementById('carregando').innerHTML =
+        '<b>O login do portal mudou hoje (login único).</b> Entre de novo no portal para abrir o Canais.';
+      avisaPortalRelogar('O login do portal mudou: entre de novo para abrir o Canais.');
+      return;
+    }
     document.getElementById('carregando').innerHTML =
       '<b>Esta aba agora mora no portal de relatórios, com o login dele.</b> ' +
       'Não existe mais chave no link: entre no portal e abra a aba Canais — ' + linkPortal + '.';
