@@ -4,6 +4,13 @@
 <meta name="robots" content="noindex,nofollow">
 <title>Grupo JOB — de onde vem o paciente</title>
 <script></script>
+<script>/* tema do portal de relatórios (claro/escuro), 07/10/2026 */
+(function(){ var d = document.documentElement;
+  function aplica(){ var t = null; try{ t = localStorage.getItem("rel_tema"); }catch(e){}
+    d.setAttribute("data-theme", t === "light" ? "light" : "dark"); }
+  aplica(); window.addEventListener("storage", function(e){ if(!e.key || e.key === "rel_tema") aplica(); });
+  window.addEventListener("message", function(e){ if(e.origin === location.origin && e.data && e.data.tipo === "tema") aplica(); });
+})();</script>
 <style>
 /* Design System Life CRM (Arasys) — tokens oficiais.
    Rosa #F5136E é a ação. O gradiente roxo→rosa→laranja é o DNA da marca e
@@ -314,6 +321,25 @@ tfoot td{padding:8px 10px;font-weight:700;border-top:2px solid var(--dark)}
 #agDuelo .lado h4{text-transform:none;font-size:13.5px;color:var(--dark);font-weight:700}
 #agAdsSel button.on[data-ag="Vanguarda"]{background:var(--red);border-color:var(--red);color:#fff}
 #agAdsSel button.on[data-ag="FSX"]{background:var(--green);border-color:var(--green);color:#fff}
+/* rastro: quem pagou, paciente por paciente (07/10/2026) */
+.tabela-rolagem{overflow-x:auto;-webkit-overflow-scrolling:touch}
+#rastroFiltros button.on{background:#241b35;border-color:#241b35;color:#fff}
+#rastroFiltros button.on[data-f="Vanguarda"]{background:var(--red);border-color:var(--red)}
+#rastroFiltros button.on[data-f="FSX"]{background:var(--green);border-color:var(--green)}
+#rastroFiltros button.on[data-f="VX"]{background:var(--orange);border-color:var(--orange)}
+#rastroFiltros input{font:inherit;font-size:13.5px;padding:7px 12px;border:1px solid var(--border);
+  border-radius:999px;min-width:190px;background:#fff;color:var(--dark)}
+#tRastro td{vertical-align:top}
+#tRastro .obs{display:block;font-size:11px;color:var(--gray-text);margin-top:2px;line-height:1.35}
+#tRastro .cod{font-family:monospace;font-size:12.5px;white-space:nowrap}
+#tRastro .mais td{text-align:center;padding:12px}
+/* celular: tabela larga rola dentro dela, não arrasta a página inteira (antes a
+   página passava de 1.000 px de largura num telefone de 390) */
+@media (max-width:760px){
+  table{display:block;max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}
+}
+#tRastro .mais button{font:inherit;font-size:13px;border:1px solid var(--border);background:#fff;
+  border-radius:999px;padding:6px 14px;cursor:pointer}
 #agAdsSel button.on[data-ag="VX"]{background:var(--orange);border-color:var(--orange);color:#fff}
 #agAdsSel button.on{background:var(--dark);border-color:var(--dark);color:#fff}
 .ad-dica{color:var(--cinza);font-size:12.5px;font-style:italic;padding:2px 0}
@@ -376,6 +402,74 @@ tfoot td{padding:8px 10px;font-weight:700;border-top:2px solid var(--dark)}
 .ad-tproc .num{text-align:right}
 .ad-tproc tfoot td{font-weight:700;border-top:2px solid #eee6f2}
 @media(max-width:640px){.ad-cartao{grid-template-columns:1fr}.ad-foto,.ad-semfoto{width:100%;height:150px}}
+
+/* ---------- modo escuro (segue o botão do portal; gerado de patch/tema_escuro.py) ---------- */
+html[data-theme="dark"]{color-scheme:dark;--dark:#f2f1f7;--gray-bg:#1d1c29;--gray-text:#a29bb8;--border:#2b2a3c;--alert-bg:#2c1522;--mute:#6d6886;--surface-page:#0e0e14;--text-body:#cbc7d8;--shadow-xs:0 1px 2px rgba(0,0,0,.4);--shadow-sm:0 2px 6px rgba(0,0,0,.45)}
+html[data-theme="dark"] @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700&family=DM+Sans:opsz,html[data-theme="dark"] wght@9..40,html[data-theme="dark"] 400;9..40,html[data-theme="dark"] 500;9..40,html[data-theme="dark"] 700&family=DM+Mono:wght@400;500&display=swap');
+:root{border:#292239}
+html[data-theme="dark"] .preset:hover,html[data-theme="dark"] .preset.on{background:#17171f;border-color:#292929}
+html[data-theme="dark"] .tab-btn{background:#17171f}
+html[data-theme="dark"] .kpi-card{background:#17171f}
+html[data-theme="dark"] tr.faixa th{background:#17171f}
+html[data-theme="dark"] .detalhe-btn{background:#17171f}
+html[data-theme="dark"] .tproc{background:#17171f}
+html[data-theme="dark"] .marca-btn{background:#17171f}
+html[data-theme="dark"] .saude{background:#17171f}
+html[data-theme="dark"] .chart-card{background:#17171f}
+html[data-theme="dark"] table{background:#17171f}
+html[data-theme="dark"] tbody tr.det,html[data-theme="dark"] tbody tr.det:nth-child(4n+3){background:#17171f}
+html[data-theme="dark"] .passo{background:#17171f}
+html[data-theme="dark"] .cob.boa{background:#14311f;color:#9ae9b8}
+html[data-theme="dark"] .cob.media{background:#2a1e10;color:#ecb179}
+html[data-theme="dark"] .cob.ruim{background:#280f0f}
+html[data-theme="dark"] .det p{color:#b2b2b2}
+html[data-theme="dark"] .anuncio{background:#17171f}
+html[data-theme="dark"] .anuncio .copy{color:#b2b2b2}
+html[data-theme="dark"] .esc{background:#17171f}
+html[data-theme="dark"] .et{background:#17171f}
+html[data-theme="dark"] .nota.aviso{background:#261c0e}
+html[data-theme="dark"] .vazio{background:#17171f}
+html[data-theme="dark"] .bl-row.fraca .bl-t i{background:#4a1c2d}
+html[data-theme="dark"] .chip-uni{background:#17171f}
+html[data-theme="dark"] .voz{background:#17171f}
+html[data-theme="dark"] .voz.promotor{background:#0d2217}
+html[data-theme="dark"] .voz-nota{background:#17171f}
+html[data-theme="dark"] .voz.promotor .voz-nota{border-color:#335e4a;color:#8aeec8}
+html[data-theme="dark"] .voz.detrator .voz-nota{border-color:#4f2a39;color:#ec79a9}
+html[data-theme="dark"] .alt button{background:#17171f}
+html[data-theme="dark"] .agn.fsx{color:#79ecc0}
+html[data-theme="dark"] .agn.vx{color:#ecae79}
+html[data-theme="dark"] .lado{background:#17171f}
+html[data-theme="dark"] .lado .selo.ok{background:#112c20;color:#88eec4}
+html[data-theme="dark"] .ad-vazio{background:#17171f}
+html[data-theme="dark"] .ad-esp{background:#291019;color:#ec79a6}
+html[data-theme="dark"] .cbars{background:#17171f}
+html[data-theme="dark"] .esp-linha:hover td{background:#190e1c}
+html[data-theme="dark"] .esp-seta{color:#ec79a7}
+html[data-theme="dark"] .esp-det>td{background:#17171f}
+html[data-theme="dark"] .ad-cartao{background:#17171f;border:1px solid #311f3a}
+html[data-theme="dark"] .ad-semfoto{background:#1b1224}
+html[data-theme="dark"] .ad-marca{color:#aea7be}
+html[data-theme="dark"] .ad-copy{color:#ada7be}
+html[data-theme="dark"] .ad-mais{color:#ec79a7}
+html[data-theme="dark"] .ad-tag,html[data-theme="dark"] .ad-cob{background:#1b1224;color:#ada7be}
+html[data-theme="dark"] .ad-cob.boa{background:#133222;color:#88eec4}
+html[data-theme="dark"] .ad-cob.media{background:#312613;color:#ecc979}
+html[data-theme="dark"] .ad-cob.baixa,html[data-theme="dark"] .ad-cob.nula{background:#291015;color:#ec79a6}
+html[data-theme="dark"] .ad-ml{color:#aea7be}
+html[data-theme="dark"] .ad-detbtn{color:#ec79a7;background:#17171f}
+html[data-theme="dark"] .ad-tproc{background:#17171f}
+html[data-theme="dark"] .ad-tproc th,html[data-theme="dark"] .ad-tproc td{border-bottom:1px solid #311f3a}
+html[data-theme="dark"] .ad-tproc tfoot td{border-top:2px solid #311f3a}
+html[data-theme="dark"] body{background:var(--surface-page)}
+html[data-theme="dark"] #rastroFiltros input,html[data-theme="dark"] #tRastro .mais button{background:#17171f;color:var(--dark);border-color:var(--border)}
+html[data-theme="dark"] #rastroFiltros button.on{background:#f2f1f7;color:#17171f;border-color:#f2f1f7}
+html[data-theme="dark"] #rastroFiltros button.on[data-f="Vanguarda"]{background:var(--red);border-color:var(--red);color:#fff}
+html[data-theme="dark"] #rastroFiltros button.on[data-f="FSX"]{background:var(--green);border-color:var(--green);color:#fff}
+html[data-theme="dark"] #rastroFiltros button.on[data-f="VX"]{background:var(--orange);border-color:var(--orange);color:#fff}
+html[data-theme="dark"] svg text{fill:#b9b4c9}
+html[data-theme="dark"] tbody tr:nth-child(even){background:#14141d}
+html[data-theme="dark"] .preset:hover,html[data-theme="dark"] .preset.on{background:#fff;border-color:#fff}
 </style></head><body><div class="wrap">
 
 <div class="capa">
@@ -435,6 +529,12 @@ tfoot td{padding:8px 10px;font-weight:700;border-top:2px solid var(--dark)}
 <div id="notaAgOrigem" class="nota neutra"></div>
 <div id="notaAgencias" class="nota"></div>
 
+<div class="section-title">Quem pagou no período, paciente por paciente</div>
+<div class="alt" id="rastroFiltros"></div>
+<div id="rastroResumo" class="nota neutra"></div>
+<div class="tabela-rolagem"><table id="tRastro"></table></div>
+<div id="notaRastro" class="nota"></div>
+
 <div class="section-title">Os anúncios de cada agência</div>
 <div class="alt" id="agAdsSel"></div>
 <table id="agAdsEsp"></table>
@@ -475,14 +575,9 @@ var FN = { doctor: 'https://myiqdeonxuznvhtsvfxg.supabase.co/functions/v1/',
    localStorage, nas chaves do Painel do vendedor; vale para as duas marcas e
    cada função confere no servidor se a pessoa vê a operação inteira. */
 function lsLe(k){ try { return localStorage.getItem(k) || ''; } catch (e) { return ''; } }
-/* 07/10/2026, tarde: a troca do login deixou portal aberto ANTES da troca sem a
-   sessão nova no localStorage — e o Canais, recarregado dentro dele, abria em
-   "entre no portal" com a pessoa logada na frente. Agora: sessão única se
-   houver; senão o token antigo do portal (rel_tok_<marca> no sessionStorage),
-   que a painel-canais e a feegow-relatorios seguem aceitando durante a troca. */
-var K_SES = 'meu_desempenho_sessao', K_DEV = 'meu_desempenho_device';
-function tokenAntigo(b){ try { return sessionStorage.getItem('rel_tok_' + b) || ''; } catch (e) { return ''; } }
-function tokenDe(b){ return lsLe(K_SES) || tokenAntigo(b); }
+/* a sessão vive só na memória do portal (07/10, 16h50): lida do portal, nunca do armazenamento */
+function sessaoPortal(){ try { return (window.parent.__portalSessao && window.parent.__portalSessao()) || null; } catch (e) { return null; } }
+function tokenDe(b){ var s = sessaoPortal(); return s ? s.sessao : ''; }
 var MARCAS = [
   {id:'doctor', nome:'Doctor Mais Saúde', api:FN.doctor + 'painel-canais', fee:FN.doctor + 'feegow-relatorios', k:tokenDe('doctor')},
   {id:'acesso', nome:'Acesso Saúde Manaus', api:FN.acesso + 'painel-canais', fee:FN.acesso + 'feegow-relatorios', k:tokenDe('acesso')},
@@ -491,11 +586,7 @@ var MARCAS = [
    servidor manda (relogar = sessão vencida; sem_acesso = não é admin). */
 function pede(url, corpo){
   corpo = Object.assign({}, corpo);
-  /* só a sessão única vira {sessao, device_id}; o token antigo vai como token */
-  var ses = lsLe(K_SES);
-  if ('token' in corpo && ses && corpo.token === ses) {
-    corpo.sessao = ses; corpo.device_id = lsLe(K_DEV); delete corpo.token;
-  }
+  if ('token' in corpo) { var ps = sessaoPortal(); corpo.sessao = corpo.token; corpo.device_id = (ps && ps.device_id) || lsLe('meu_desempenho_device'); delete corpo.token; }
   return fetch(url, {method:'POST', headers:{'content-type':'application/json'},
                      body:JSON.stringify(corpo), cache:'no-store'})
     .then(function(r){
@@ -558,14 +649,6 @@ var GERADO = {}; /* quando a publicação das 05:30 gerou o dado, por marca */
 function carrega(){
   var pend = MARCAS.filter(function(m){return m.k;});
   if(!pend.length){
-    /* dentro do portal e sem sessão nenhuma: não é para ficar parado aqui com a
-       pessoa logada na frente — o portal volta para o login dele */
-    if (NO_PORTAL) {
-      document.getElementById('carregando').innerHTML =
-        '<b>O login do portal mudou hoje (login único).</b> Entre de novo no portal para abrir o Canais.';
-      avisaPortalRelogar('O login do portal mudou: entre de novo para abrir o Canais.');
-      return;
-    }
     document.getElementById('carregando').innerHTML =
       '<b>Esta aba agora mora no portal de relatórios, com o login dele.</b> ' +
       'Não existe mais chave no link: entre no portal e abra a aba Canais — ' + linkPortal + '.';
@@ -1237,7 +1320,8 @@ function pintaAgencias(){
         '“Ver desempenho” fecha a lacuna.'
       : '') +
     ' · <b>&ldquo;Caixa do período&rdquo; é o que entrou no período de todo paciente que veio de anúncio da agência</b>, ' +
-    'pelo primeiro anúncio dele — a mesma população dos cartões. Com o &ldquo;anúncio não identificado&rdquo; dá <b>' +
+    'pela régua única de origem — a mesma do cartão &ldquo;Tráfego pago&rdquo;, da tabela de campanhas e da lista ' +
+    '&ldquo;Quem pagou no período&rdquo;. Com o &ldquo;anúncio não identificado&rdquo; dá <b>' +
     BRL0(cxTotal) + '</b> = <b>' + BRL0(cxTotal - CX.fora) + '</b> do cartão &ldquo;Tráfego pago&rdquo;' +
     (CX.fora > 0.5 ? ' + <b>' + BRL0(CX.fora) + '</b> de paciente que veio de anúncio mas que o canal do CRM ' +
       'não marcou como pago (cai em &ldquo;Direto&rdquo; ou fica sem canal)' : '') + '. ' +
@@ -1251,8 +1335,9 @@ function pintaAgencias(){
       : '') +
 
     ' · <b>Cobertura diferente não é desempenho diferente.</b> A Vanguarda é vista pelo utm do ' +
-    'WTS no contato; a conta da FarMelhor (VX, agora FSX), só pela referência do anúncio dentro da mensagem do WhatsApp. São dois ' +
-    'espelhos, com alcances distintos.' +
+    'WTS no contato; a conta da FarMelhor (VX, agora FSX) era vista pela referência do anúncio dentro da mensagem do ' +
+    'WhatsApp até 21/09 e, desde então, também pelo utm. Paciente é ligado ao lead pelo TELEFONE: o lead que marcou ' +
+    'para a família inteira traz todos os pacientes daquele número.' +
     ' · <b>“Criado pela equipe” e “Base importada” não são canais.</b> São o campo ' +
     '<span style="font-family:monospace">origin</span> do Life CRM (CREATED_BY_USER e IMPORTED): dizem como o ' +
     'cadastro nasceu, não de onde o paciente veio. Venda acontece no call center ou na recepção, e nos dois ' +
@@ -1868,6 +1953,165 @@ function maisCopy(id, btn){
   btn.textContent = aberta ? 'recolher texto' : 'ver texto completo';
 }
 
+/* ============ quem pagou no período, paciente por paciente (07/10/2026) ============
+   Pedido do Sant'Ana: rastreabilidade de paciente. Cada linha é um paciente do
+   Feegow num dia: o que ele pagou, o que fechou e DE ONDE ele veio, pela régua
+   única de origem (mv_atribuicao_unica) — a mesma do cartão Tráfego pago, das
+   agências e da tabela de campanhas. Sem nome: o paciente aparece pelo código do
+   Feegow. O dado vem NA HORA do banco (painel-canais, action "rastro"), não do
+   dados.json das 05:30: na Acesso são 15 mil linhas em dois meses.
+   Linha: [d, conta, pago, fat, canal, ag, aid, dc, via, reat_ag, reat_d, procs, uni, desde, base] */
+var RASTRO = {}, RASTRO_ATUAL = [], rastroChave = '', rastroFiltro = 'pago', rastroBusca = '', rastroLimite = 120;
+var NOME_AD = null;
+function nomeAnuncio(aid){
+  if (!aid) return '';
+  if (!NOME_AD) { NOME_AD = {}; MID.forEach(function(r){ if (r.id && !NOME_AD[r.id]) NOME_AD[r.id] = r.anuncio; }); }
+  return NOME_AD[String(aid)] || '';
+}
+function rastroGrupo(l){
+  if (PAGO.indexOf(l.canal) >= 0) return 'pago';
+  if (NPAGO.indexOf(l.canal) >= 0) return 'naopago';
+  return 'fora';
+}
+function rastroCarrega(){
+  var tb = document.getElementById('tRastro'), res = document.getElementById('rastroResumo');
+  if (!tb) return;
+  var bases = MARCAS_OK.filter(function(m){ return marcaSel === 'todas' || m.id === marcaSel; });
+  if (!bases.length) { tb.innerHTML = ''; res.textContent = 'Nenhuma base carregada.'; return; }
+  var dias = (Date.parse(ate) - Date.parse(de)) / 864e5;
+  if (dias > 93) {
+    rastroChave = ''; RASTRO_ATUAL = []; tb.innerHTML = '';
+    document.getElementById('rastroFiltros').innerHTML = '';
+    res.innerHTML = '<b>A lista paciente por paciente vai até 93 dias por vez.</b> Escolha um período menor ' +
+      '(30 dias, um mês) para ver quem pagou e de onde cada paciente veio.';
+    document.getElementById('notaRastro').innerHTML = '';
+    return;
+  }
+  var chave = de + '|' + ate + '|' + bases.map(function(m){ return m.id; }).join(',');
+  if (chave === rastroChave) { pintaRastro(); return; }
+  rastroChave = chave; rastroLimite = 120;
+  res.textContent = 'Buscando no Feegow quem pagou no período…'; tb.innerHTML = '';
+  Promise.all(bases.map(function(m){
+    var k = m.id + '|' + de + '|' + ate;
+    if (RASTRO[k]) return Promise.resolve({m: m, linhas: RASTRO[k]});
+    return pede(m.api, {token: m.k, action: 'rastro', de: de, ate: ate})
+      .then(function(j){ RASTRO[k] = j.rastro || []; return {m: m, linhas: RASTRO[k]}; })
+      .catch(function(e){ return {m: m, erro: e}; });
+  })).then(function(rs){
+    if (chave !== rastroChave) return;
+    RASTRO_ATUAL = [];
+    var erros = [];
+    rs.forEach(function(r){
+      if (r.erro) { erros.push(esc(r.m.nome) + ': ' + esc(r.erro.message)); return; }
+      r.linhas.forEach(function(x){
+        RASTRO_ATUAL.push({m: r.m.id, d: x[0], conta: x[1], pago: x[2] || 0, fat: x[3] || 0, canal: x[4] || '',
+          ag: x[5] || '', aid: x[6] || '', dc: x[7] || '', via: x[8] || '', reat_ag: x[9] || '', reat_d: x[10] || '',
+          procs: x[11] || '', uni: x[12] || '', desde: x[13] || '', base: !!x[14]});
+      });
+    });
+    RASTRO_ATUAL.erros = erros;
+    pintaRastro();
+  });
+}
+function pintaRastro(){
+  var tb = document.getElementById('tRastro'), res = document.getElementById('rastroResumo');
+  var fil = document.getElementById('rastroFiltros'), nota = document.getElementById('notaRastro');
+  if (!tb) return;
+  var L = RASTRO_ATUAL || [];
+  /* somas do período por origem, só de pagamento */
+  var soma = {pago: 0, naopago: 0, fora: 0, tudo: 0}, porAg = {};
+  L.forEach(function(l){
+    if (!l.pago) return;
+    var g = rastroGrupo(l); soma[g] += l.pago; soma.tudo += l.pago;
+    if (g === 'pago') { var a = l.ag || 'Anúncio não identificado'; porAg[a] = (porAg[a] || 0) + l.pago; }
+  });
+  var ags = Object.keys(porAg).sort(function(a, b){ return porAg[b] - porAg[a]; });
+  /* filtros */
+  var opc = [['pago', 'Tráfego pago']].concat(ags.map(function(a){ return [a, a]; }))
+    .concat([['naopago', 'Não pago'], ['fora', 'Equipe, base e sem rastreio'], ['todos', 'Todos']]);
+  if (!opc.some(function(o){ return o[0] === rastroFiltro; })) rastroFiltro = 'pago';
+  fil.innerHTML = opc.map(function(o){
+    return '<button type="button" data-f="' + esc(o[0]) + '" class="' + (o[0] === rastroFiltro ? 'on' : '') + '">' +
+      esc(o[1]) + '</button>';
+  }).join('') + '<input id="rastroBusca" type="search" placeholder="código do paciente ou procedimento" value="' +
+    esc(rastroBusca) + '">';
+  Array.prototype.forEach.call(fil.querySelectorAll('button'), function(b){
+    b.onclick = function(){ rastroFiltro = b.getAttribute('data-f'); rastroLimite = 120; pintaRastro(); };
+  });
+  var inp = document.getElementById('rastroBusca');
+  inp.oninput = function(){ rastroBusca = inp.value; rastroLimite = 120; pintaTabelaRastro(); };
+  /* resumo + conferência com o cartão Tráfego pago (mesma régua, mesmo período) */
+  var mapa = porCanal(), cxCartao = PAGO.reduce(function(s, c){ return s + ((mapa[c] && mapa[c].pgd) || 0); }, 0);
+  var dif = soma.pago - cxCartao;
+  res.innerHTML = (L.erros && L.erros.length ? '<b>Não consegui ler:</b> ' + L.erros.join(' · ') + '<br>' : '') +
+    '<b>Pago no período: ' + BRL0(soma.tudo) + '.</b> Tráfego pago <b>' + BRL0(soma.pago) + '</b>' +
+    (ags.length ? ' (' + ags.map(function(a){ return esc(a) + ' ' + BRL0(porAg[a]); }).join(' · ') + ')' : '') +
+    ' · não pago ' + BRL0(soma.naopago) + ' · equipe, base e sem rastreio ' + BRL0(soma.fora) + '.' +
+    (Math.abs(dif) < 0.5
+      ? ' <b style="color:#0E7A4E">Confere com o cartão Tráfego pago.</b>'
+      : dif > 0
+        ? ' Esta lista tem ' + BRL(dif) + ' a mais que o cartão Tráfego pago: ela é lida agora, e o cartão, na ' +
+          'publicação das 05:30 — é pagamento de paciente de anúncio lançado no Feegow depois dela.'
+        : ' Esta lista tem ' + BRL(-dif) + ' a menos que o cartão Tráfego pago: o Feegow mudou depois da ' +
+          'publicação das 05:30 (pagamento estornado ou corrigido, ou paciente que mudou de origem).');
+  pintaTabelaRastro();
+  nota.innerHTML =
+    '<b>Como a origem é decidida (régua única, a mesma de toda a aba).</b> O paciente do Feegow é ligado aos ' +
+    'contatos do CRM e aos anúncios pelo <b>telefone</b> — do cadastro dele, do cruzamento contato × paciente e dos ' +
+    'contatos ligados a ele; telefone de família liga todos os pacientes do número. Ele <b>chega</b> no primeiro ' +
+    'contato; se houver anúncio até 1 dia depois, é do anúncio, e a agência é a que operava a conta naquele dia. ' +
+    'Quem já estava na base migrada em 05/06 e depois veio por anúncio é do anúncio. Quem chegou por outro caminho e ' +
+    'só depois clicou num anúncio <b>não</b> vira paciente da agência: aparece aqui como “clicou em anúncio depois”. ' +
+    '“Fechado” é a fatura do dia; “pago”, o pagamento do dia. Para achar um paciente, procure o código no Feegow.';
+}
+function pintaTabelaRastro(){
+  var tb = document.getElementById('tRastro'); if (!tb) return;
+  var b = (rastroBusca || '').trim().toLowerCase();
+  var L = (RASTRO_ATUAL || []).filter(function(l){
+    if (rastroFiltro === 'todos') { /* tudo */ }
+    else if (rastroFiltro === 'pago' || rastroFiltro === 'naopago' || rastroFiltro === 'fora') { if (rastroGrupo(l) !== rastroFiltro) return false; }
+    else if ((l.ag || '') !== rastroFiltro) return false;
+    if (b && String(l.conta).indexOf(b) < 0 && l.procs.toLowerCase().indexOf(b) < 0) return false;
+    return true;
+  }).sort(function(x, y){ return (y.pago - x.pago) || (y.fat - x.fat) || (x.d < y.d ? 1 : -1); });
+  if (!L.length) { tb.innerHTML = '<tbody><tr><td>Nenhum paciente neste recorte.</td></tr></tbody>'; return; }
+  var mostra = L.slice(0, rastroLimite), duas = marcaSel === 'todas' && MARCAS_OK.length > 1;
+  var tP = 0, tF = 0; L.forEach(function(l){ tP += l.pago; tF += l.fat; });
+  tb.innerHTML = '<thead><tr><th>Dia</th><th>Paciente</th><th>Unidade</th><th>O que foi</th>' +
+    '<th class="num">Pago no dia</th><th class="num">Fechado no dia</th><th>De onde veio</th><th>Chegou</th></tr></thead><tbody>' +
+    mostra.map(function(l){
+      var origem;
+      if (l.canal === 'Meta Ads') {
+        var nm = nomeAnuncio(l.aid);
+        origem = '<span class="agn ' + (AG_CLASSE[l.ag] || '') + '">' + esc(l.ag || 'Não identificada') + '</span>' +
+          (nm ? '<span class="obs">' + esc(nm) + '</span>' : (l.aid ? '<span class="obs">anúncio ' + esc(l.aid) + '</span>' : ''));
+      } else {
+        origem = esc(l.canal);
+        if (l.via === 'cobranca_ctwa') origem += '<span class="obs">conversa aberta por anúncio, sem o id do anúncio</span>';
+      }
+      var obs = [];
+      if (l.base) obs.push('era da base antiga e voltou por anúncio');
+      if (l.reat_ag) obs.push('clicou em anúncio da ' + esc(l.reat_ag) + ' depois, em ' + fmtBR(l.reat_d));
+      if (l.desde && l.dc && l.desde < novaData(l.dc, -1)) obs.push('paciente do Feegow desde ' + fmtBR(l.desde));
+      return '<tr><td>' + fmtBR(l.d) + '</td>' +
+        '<td><span class="cod">' + esc(l.conta) + '</span>' + (duas ? '<span class="obs">' + (l.m === 'doctor' ? 'Doctor+' : 'Acesso') + '</span>' : '') + '</td>' +
+        '<td>' + esc(l.uni) + '</td>' +
+        '<td>' + esc(l.procs || '—') + '</td>' +
+        '<td class="num">' + (l.pago ? '<b>' + BRL0(l.pago) + '</b>' : '—') + '</td>' +
+        '<td class="num">' + (l.fat ? BRL0(l.fat) : '—') + '</td>' +
+        '<td>' + origem + (obs.length ? '<span class="obs">' + obs.join(' · ') + '</span>' : '') + '</td>' +
+        '<td>' + (l.dc ? fmtBR(l.dc) : '—') + '</td></tr>';
+    }).join('') +
+    (L.length > mostra.length
+      ? '<tr class="mais"><td colspan="8"><button type="button" id="rastroMais">mostrar mais ' +
+        N(Math.min(L.length - mostra.length, 300)) + ' de ' + N(L.length - mostra.length) + ' restantes</button></td></tr>'
+      : '') +
+    '</tbody><tfoot><tr><td colspan="4">' + N(L.length) + ' linhas neste recorte</td>' +
+    '<td class="num">' + BRL0(tP) + '</td><td class="num">' + BRL0(tF) + '</td><td colspan="2"></td></tr></tfoot>';
+  var bm = document.getElementById('rastroMais');
+  if (bm) bm.onclick = function(){ rastroLimite += 300; pintaTabelaRastro(); };
+}
+
 /* ============ desenho ============ */
 function render(){
   (function(){
@@ -1954,6 +2198,7 @@ function render(){
   pintaAgAds();
   pintaMidia(tp);
   carregaEquipes();
+  rastroCarrega();
   pintaComparacao();
 }
 

@@ -157,9 +157,10 @@ espelho do Feegow ─► feegow-relatorios (caixa_equipes) ───────
                      quadro de vendas por equipe = "Quem vendeu" do Resumo faturamento
 ```
 
-- **Login:** a página roda na mesma origem do portal, dentro da aba Canais, e lê o
-  token que o portal guarda no `sessionStorage` (`rel_tok_doctor`, `rel_tok_acesso`).
-  Nada passa pelo endereço. Sessão vencida lá dentro devolve o portal para o login.
+- **Login:** a página roda na mesma origem do portal, dentro da aba Canais, e lê a
+  sessão do login único que o portal mantém só em memória (`window.__portalSessao()`,
+  desde 07/10). Nada passa pelo endereço. Sessão vencida lá dentro devolve o portal
+  para o login.
 - **Quem vê:** só administrador. É número da operação inteira (caixa por canal e por
   agência das duas marcas), e a `painel-canais` recusa quem não é admin.
 - **Dado:** o mesmo `dados.json` de antes, mas a `painel-canais` só deixa sair os
@@ -178,7 +179,42 @@ pelo GitHub Pages, sem a sessão do portal, ele só aponta para lá; a aba Canai
 
 **Para publicar uma mudança:** o portal é estático na Hostinger. Sobe `canais.html`
 (e o `index.html` do portal, se mudou) pelo Gerenciador de Arquivos do hPanel, na
-pasta do subdomínio `relatorio.arasys.software`.
+pasta do subdomínio `relatorio.arasys.software`. **Antes de subir, baixe o que está no
+ar e compare**: outras conversas também publicam esse arquivo (login único e modo
+escuro entraram assim em 07/10).
+
+### Régua única de origem — 07/10/2026
+
+Até 07/10 a aba tinha três réguas de "paciente de tráfego pago", cada uma com o seu
+cruzamento de identidade, e os números não fechavam entre si (em 07/09–06/10: 238,
+203 e 279 pacientes; faturado de R$ 53 mil, R$ 46 mil e R$ 66 mil para o mesmo
+tráfego). Agora tudo sai de **`mv_atribuicao_unica`** (uma linha por paciente do
+Feegow), montada por `atribuicao_pacientes()` em cada base e atualizada a cada 20 min
+pelo `refresh_mvs_jornada()`:
+
+- **Telefone liga tudo:** paciente do Feegow ↔ contatos do CRM ↔ anúncios. Telefone de
+  família liga todos os pacientes do número; telefone de enchimento (00000000…) ou
+  dividido por mais de 6 pacientes não liga ninguém.
+- **Chegada** = primeiro contato; anúncio até 1 dia depois dele faz o paciente ser do
+  anúncio (agência pela vigência da conta no dia). "Base importada" (migração de
+  05/06) não é chegada. Anúncio clicado depois de chegar por outro caminho é
+  **reativação** (`reat_*`), não paciente novo da agência.
+- **utm regravado:** o CRM grava no contato o utm do ÚLTIMO anúncio clicado. Se o
+  anúncio começou depois da criação do contato, a data do toque vira a primeira
+  conversa a partir do início do anúncio (`v_jornada_origem`) e o canal do contato
+  sai só da origem do cadastro.
+- **Parado na mesa** = só proposta aguardando aprovação (rejeitada não entra).
+- Leem dela: `canal_serie`, `agencia_serie`, `agencia_anuncios`, `agencia_caixa`,
+  `jornada_anuncio`, `crm_procedimentos`/`agencia_procedimentos` e `rastro_periodo`.
+  Conferência de 07/09–06/10 na Doctor: cartão Tráfego pago = soma das agências =
+  tabela de campanhas = lista de quem pagou (315 pacientes, R$ 68.481,70 fechados,
+  R$ 82.891,50 de caixa); caixa total = Feegow (R$ 433.373,85).
+- **Quem pagou no período** (`rastro_periodo(de, ate)`, até 93 dias): lido na hora pela
+  `painel-canais` (`action: "rastro"`), uma linha por paciente e dia, sem nome.
+
+Sobraram sem uso no banco da Doctor, das tentativas da tarde, `mv_atribuicao`,
+`mv_atribuicao_paciente` e `_auditoria_canais_antes` (também na Acesso). Podem ser
+apagadas: a remoção pelo assistente foi recusada pela confirmação de comando destrutivo.
 
 ## O que não sai daqui
 
