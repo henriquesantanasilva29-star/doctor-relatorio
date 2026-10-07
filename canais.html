@@ -576,7 +576,22 @@ var FN = { doctor: 'https://myiqdeonxuznvhtsvfxg.supabase.co/functions/v1/',
    cada função confere no servidor se a pessoa vê a operação inteira. */
 function lsLe(k){ try { return localStorage.getItem(k) || ''; } catch (e) { return ''; } }
 /* a sessão vive só na memória do portal (07/10, 16h50): lida do portal, nunca do armazenamento */
-function sessaoPortal(){ try { return (window.parent.__portalSessao && window.parent.__portalSessao()) || null; } catch (e) { return null; } }
+function portalNovo(){ try { return window.parent !== window && typeof window.parent.__portalSessao === 'function'; } catch (e) { return false; } }
+function sessaoPortal(){
+  try {
+    if (portalNovo()) return window.parent.__portalSessao() || null;
+    /* 07/10, 17h20: portal aberto ANTES da versão das 17h não tem __portalSessao —
+       ele ainda guarda a sessão do login único no localStorage. Sem isto, quem
+       clicava em "Recarregar" no Canais sem recarregar o portal caía em "entre
+       no portal" estando logado. Só vale para esse portal antigo: o novo apaga
+       essa chave ao abrir, e aí a sessão vem só da memória dele, acima. */
+    if (window.parent !== window && window.parent.location.origin === location.origin) {
+      var s = localStorage.getItem('meu_desempenho_sessao');
+      if (s) return { sessao: s, device_id: localStorage.getItem('meu_desempenho_device') || '' };
+    }
+  } catch (e) {}
+  return null;
+}
 function tokenDe(b){ var s = sessaoPortal(); return s ? s.sessao : ''; }
 var MARCAS = [
   {id:'doctor', nome:'Doctor Mais Saúde', api:FN.doctor + 'painel-canais', fee:FN.doctor + 'feegow-relatorios', k:tokenDe('doctor')},
@@ -649,6 +664,14 @@ var GERADO = {}; /* quando a publicação das 05:30 gerou o dado, por marca */
 function carrega(){
   var pend = MARCAS.filter(function(m){return m.k;});
   if(!pend.length){
+    /* dentro de um portal de versão anterior e sem sessão que dê para ler: a
+       saída é recarregar o portal, não "entrar no portal" (a pessoa já está nele) */
+    if (NO_PORTAL && !portalNovo()) {
+      document.getElementById('carregando').innerHTML =
+        '<b>O portal foi atualizado e esta aba ainda está com a versão anterior.</b> ' +
+        'Aperte F5 na página do portal e entre de novo: o Canais abre em seguida.';
+      return;
+    }
     document.getElementById('carregando').innerHTML =
       '<b>Esta aba agora mora no portal de relatórios, com o login dele.</b> ' +
       'Não existe mais chave no link: entre no portal e abra a aba Canais — ' + linkPortal + '.';
