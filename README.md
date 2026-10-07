@@ -209,6 +209,11 @@ pelo `refresh_mvs_jornada()`:
   Conferência de 07/09–06/10 na Doctor: cartão Tráfego pago = soma das agências =
   tabela de campanhas = lista de quem pagou (315 pacientes, R$ 68.481,70 fechados,
   R$ 82.891,50 de caixa); caixa total = Feegow (R$ 433.373,85).
+- **Agência com mais de uma conta:** a FSX opera a conta da FarMelhor (hiperbárica, final
+  0397, coletada) e, desde 04/10, a de odonto da Doctor na BM OrthoDontic Manaus (final
+  0085, WhatsApp final 7899), cadastrada em 07/10 em `meta_agencia`/`meta_agencia_periodo`.
+  A 0085 não está compartilhada com o portfólio da Doctor: sem investimento dela, o cartão
+  junta as contas, marca "investimento parcial" e deixa custo e retorno em branco.
 - **Quem pagou no período** (`rastro_periodo(de, ate)`, até 93 dias): lido na hora pela
   `painel-canais` (`action: "rastro"`), uma linha por paciente e dia, sem nome.
 

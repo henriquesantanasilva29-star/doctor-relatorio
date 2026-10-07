@@ -1148,10 +1148,45 @@ function agCaixa(d1, d2){
   return {porAg: m, pago: pago, fora: foraT, antigo: antigo, faixa: faixa, d30: d30};
 }
 
+/* 07/10/2026: agência com MAIS DE UMA CONTA. A FSX opera a conta da FarMelhor
+   (hiperbárica, final 0397, coletada) e a de odonto da Doctor na BM OrthoDontic
+   (final 0085, não coletada). Antes o cartão lia a primeira conta que achasse:
+   ou mostrava só o investimento da hiperbárica com retorno calculado sobre o
+   faturado das duas, ou escondia tudo. Agora as contas da agência vigentes no
+   período são juntadas, e `coletada` só é verdade se TODAS forem coletadas —
+   com `parcial` dizendo que parte do investimento existe e parte não. */
 function agRef(nome){
+  var todas = AGREF.filter(function(r){
+    return r.ag === nome && (marcaSel === 'todas' || r.m === marcaSel); });
+  if (!todas.length) return {ag:nome, suf:'', conta:'', ger:'', coletada:false, parcial:false,
+                             faltam:[], nota:'', vig_de:'', vig_ate:''};
+  var vale = todas.filter(function(r){
+    return (!r.vig_de || r.vig_de <= ate) && (!r.vig_ate || r.vig_ate >= de); });
+  if (!vale.length) vale = todas;
+  var uniq = function(a){ return a.filter(function(x, i){ return x && a.indexOf(x) === i; }); };
+  var col = vale.filter(function(r){ return r.coletada; });
+  var faltam = vale.filter(function(r){ return !r.coletada; });
+  var des = vale.map(function(r){ return r.vig_de; }), ates = vale.map(function(r){ return r.vig_ate; });
+  return {ag:nome, m:vale[0].m,
+    suf: uniq(vale.map(function(r){ return r.suf; })).join(', '),
+    conta: (col[0] || vale[0]).conta,
+    ger: uniq(vale.map(function(r){ return r.ger; })).join(' + '),
+    coletada: !faltam.length, parcial: col.length > 0 && faltam.length > 0,
+    faltam: faltam.map(function(r){ return {suf:r.suf, ger:r.ger}; }),
+    nota: uniq(vale.map(function(r){ return r.nota; })).join(' '),
+    vig_de: des.every(Boolean) ? des.sort()[0] : '',
+    vig_ate: ates.every(Boolean) ? ates.sort().slice(-1)[0] : ''};
+}
+/* conta de UM anúncio: é ela, e não a agência, que diz se há investimento */
+function agRefAnuncio(id, ag){
+  var suf = String(id || '').slice(-4);
   for (var i = 0; i < AGREF.length; i++)
-    if (AGREF[i].ag === nome && (marcaSel === 'todas' || AGREF[i].m === marcaSel)) return AGREF[i];
-  return {ag:nome, conta:'', ger:'', coletada:false, nota:'', vig_de:'', vig_ate:''};
+    if (AGREF[i].suf === suf && (!ag || AGREF[i].ag === ag)) return AGREF[i];
+  return {suf:suf, conta:'', ger:'', coletada:false};
+}
+function agFaltamTxt(ref){
+  return ref.faltam.map(function(f){
+    return 'conta final ' + f.suf + (f.ger ? ' (' + f.ger + ')' : ''); }).join(' e ');
 }
 function agVigencia(ref){
   if (ref.vig_de && ref.vig_ate) return ' · de ' + fmtBR(ref.vig_de) + ' a ' + fmtBR(ref.vig_ate);
@@ -1226,8 +1261,10 @@ function pintaAgencias(){
     var l = function(r, v){ return '<div class="linha"><span>' + r + '</span><b>' + v + '</b></div>'; };
     var selo = soCx ? '' : ref.coletada
       ? '<span class="selo ok">investimento coletado</span>'
-      : '<span class="selo falta">' + (ref.ger ? 'conta não compartilhada'
-                                               : 'conta não identificada') + '</span>';
+      : ref.parcial
+        ? '<span class="selo falta">investimento parcial</span>'
+        : '<span class="selo falta">' + (ref.ger ? 'conta não compartilhada'
+                                                 : 'conta não identificada') + '</span>';
     var antigo = CX.antigo[o.ag] || 0;
     if (soCx) {
       return '<div class="lado ' + (AG_CLASSE[o.ag] || '') + '">' +
@@ -1268,7 +1305,13 @@ function pintaAgencias(){
       l('Parado na mesa', BRL0(o.vne) + (o.ne ? ' · ' + N(o.ne) + ' propostas' : '')) +
       l('Investimento', soCx ? 'sem jornada por anúncio nesta marca'
                         : (ref.coletada ? BRL0(o.inv)
+                        : ref.parcial ? BRL0(o.inv) + ' + ?'
                         : (ref.ger ? 'não compartilhado' : 'conta não identificada'))) +
+      (ref.parcial
+        ? '<div class="ger" style="margin:-2px 0 4px">o ' + BRL0(o.inv) + ' é só da conta coletada; a ' +
+          esc(agFaltamTxt(ref)) + ' não está compartilhada, então custo e retorno ficam em branco ' +
+          'até ela entrar na coleta</div>'
+        : '') +
       l('Custo por lead', (ref.coletada && o.r) ? BRL(o.inv / o.r) : '—') +
       l('Custo por paciente', (ref.coletada && o.p) ? BRL(o.inv / o.p) : '—') +
       l('Retorno sobre a mídia', (ref.coletada && o.inv)
@@ -1304,7 +1347,9 @@ function pintaAgencias(){
         td(cxDe(o.ag) ? '<b>' + BRL0(cxDe(o.ag)) + '</b>' : '—') +
         td(o.v ? BRL0(o.v) : '—') + td(o.pg ? BRL0(o.pg) : '—') + td(o.ab ? BRL0(o.ab) : '—') +
         td(o.vne ? BRL0(o.vne) : '—') +
-        td(soCx ? '—' : (ref.coletada ? BRL0(o.inv) : '<span style="color:var(--red)">' +
+        td(soCx ? '—' : (ref.coletada ? BRL0(o.inv)
+             : ref.parcial ? BRL0(o.inv) + ' <span style="color:var(--red)">+ conta não coletada</span>'
+             : '<span style="color:var(--red)">' +
              (ref.ger ? 'não compartilhado' : 'não identificada') + '</span>')) +
         td((ref.coletada && o.r) ? BRL(o.inv / o.r) : '—') +
         td((ref.coletada && o.inv) ? (o.v / o.inv).toFixed(1).replace('.', ',') + '×' : '—') +
@@ -1335,8 +1380,9 @@ function pintaAgencias(){
     'falta pagar: conta aberta no Feegow, quase sempre exame ou consulta marcada para depois, que vira caixa ' +
     'quando o paciente vem e paga. O caixa de paciente antigo fica na última linha do cartão.' +
     (semColeta.length
-      ? ' · <b>' + semColeta.map(function(o){ return esc(o.ag); }).join(' e ') +
-        ': investimento em branco é ausência de dado, não de gasto.</b> Ou a conta não foi ' +
+      ? ' · <b>' + semColeta.map(function(o){ var rf = agRef(o.ag);
+          return esc(o.ag) + (rf.faltam.length ? ', ' + esc(agFaltamTxt(rf)) : ''); }).join(' e ') +
+        ': investimento em branco ou parcial é ausência de dado, não de gasto.</b> Ou a conta não foi ' +
         'compartilhada com a gente, ou ninguém disse ainda de quem ela é — em qualquer um dos ' +
         'dois casos não há investimento, impressão nem conversa da Meta dela, e sem isso custo ' +
         'por lead e retorno não existem desse lado. Identificar a conta e pedir acesso em ' +
@@ -1584,6 +1630,10 @@ function pintaAgAdsEsp(lista, ref){
   lista.forEach(function(a){ Object.keys(a.dias).forEach(function(d){ diasT[d] = 1; }); });
   var T = {n:0, inv:0, conv:0, pg:0, ab:0};
   grupos.forEach(function(g){ T.n += g.n; T.inv += g.inv; T.conv += g.conv; T.pg += g.pg; T.ab += g.ab; });
+  /* investimento só onde TODOS os anúncios do grupo são de conta coletada */
+  var colAd = function(a){ return agRefAnuncio(a.id, a.ag).coletada; };
+  var colG = function(g){ return lista.filter(function(a){ return curto(a.camp) === g.e; }).every(colAd); };
+  ref = {coletada: lista.every(colAd)};
   tab.innerHTML =
     '<thead><tr><th>Especialidade</th><th class="num">Anúncios</th><th class="num">Dias no ar</th>' +
       '<th class="num">Investimento</th><th class="num">Conversas</th><th class="num">Custo/conversa</th>' +
@@ -1593,13 +1643,13 @@ function pintaAgAdsEsp(lista, ref){
       return '<tr class="esp-linha' + (ativa ? ' aberta' : '') + '" data-i="' + i + '">' +
         '<td><span class="esp-seta">' + (ativa ? '▾' : '▸') + '</span> ' + esc(g.e) + '</td>' +
         td(N(g.n)) + td(N(Object.keys(g.dias).length)) +
-        td(ref.coletada ? BRL(g.inv) : '—') +
-        td(N(g.conv)) + td((ref.coletada && g.conv) ? BRL(g.inv / g.conv) : '—') +
+        td(colG(g) ? BRL(g.inv) : '—') +
+        td(N(g.conv)) + td((colG(g) && g.conv) ? BRL(g.inv / g.conv) : '—') +
         td(g.pg ? BRL0(g.pg) : '—') + td(g.ab ? BRL0(g.ab) : '—') + '</tr>';
     }).join('') + '</tbody>' +
     '<tfoot><tr><td>Total — ' + N(grupos.length) + ' especialidades</td>' +
       td(N(T.n)) + td(N(Object.keys(diasT).length)) +
-      td(ref.coletada ? BRL(T.inv) : '—') +
+      td(ref.coletada ? BRL(T.inv) : (T.inv ? BRL(T.inv) + ' + ?' : '—')) +
       td(N(T.conv)) + td((ref.coletada && T.conv) ? BRL(T.inv / T.conv) : '—') +
       td(BRL0(T.pg)) + td(BRL0(T.ab)) + '</tr></tfoot>';
   Array.prototype.forEach.call(tab.querySelectorAll('.esp-linha'), function(tr){
@@ -1711,17 +1761,25 @@ function pintaAgAds(){
   nota.innerHTML =
     '<b>' + esc(agAdsSel) + ' no período:</b> ' + N(lista.length) + ' anúncios · ' +
     BRL0(T.inv) + ' investidos · ' + N(T.r) + ' leads · ' + N(T.p) + ' pacientes · ' +
-    BRL0(T.v) + ' faturados' + (T.inv ? ' · ' + (T.v / T.inv).toFixed(1).replace('.', ',') + '× de retorno' : '') +
+    BRL0(T.v) + ' faturados' + ((T.inv && ref.coletada) ? ' · ' + (T.v / T.inv).toFixed(1).replace('.', ',') + '× de retorno' : '') +
     '. · <b>Na Doctor o lead é contado pelos dois espelhos</b> — o carimbo de utm que o WTS grava ' +
     'no contato e a referência do anúncio dentro da mensagem do WhatsApp. Só o segundo alcança ' +
     'conta de fora, então sem ele os anúncios da conta da FarMelhor (VX até 30/09, FSX desde 01/10) apareceriam com retorno zero. A Acesso tem ' +
     'só o primeiro espelho, e o relatório da Doctor e o painel também — por isso o número de ' +
     'anúncio lá é menor.' +
-    (ref.coletada ? '' : ' · <b>Sem investimento:</b> a conta desta agência não é coletada, então ' +
-      'custo e retorno não existem aqui — e zero seria mentira.');
+    (ref.coletada ? ''
+      : ref.parcial
+        ? ' · <b>Investimento parcial:</b> os anúncios da ' + esc(agFaltamTxt(ref)) + ' não têm investimento ' +
+          'coletado — o total acima é só o das outras contas, por isso não há retorno calculado. Nos cartões de ' +
+          'anúncio dessa conta, custo e retorno ficam em branco.'
+        : ' · <b>Sem investimento:</b> a conta desta agência não é coletada, então ' +
+          'custo e retorno não existem aqui — e zero seria mentira.');
 }
 
 function cartaoAdAgencia(a, ref){
+  /* a conta do PRÓPRIO anúncio decide investimento e link do gerenciador: a FSX
+     tem uma conta coletada e outra não (07/10/2026) */
+  ref = agRefAnuncio(a.id, a.ag);
   var cr = CRI[a.id] || {};
   var foto = cr.img ? '<img class="ad-foto" alt="" src="data:image/jpeg;base64,' + cr.img + '">'
                     : '<div class="ad-semfoto">sem miniatura</div>';
