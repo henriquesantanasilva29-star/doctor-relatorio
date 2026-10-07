@@ -213,7 +213,14 @@ pelo `refresh_mvs_jornada()`:
   0397, coletada) e, desde 04/10, a de odonto da Doctor na BM OrthoDontic Manaus (final
   0085, WhatsApp final 7899), cadastrada em 07/10 em `meta_agencia`/`meta_agencia_periodo`.
   A 0085 não está compartilhada com o portfólio da Doctor: sem investimento dela, o cartão
-  junta as contas, marca "investimento parcial" e deixa custo e retorno em branco.
+  junta as contas, marca "investimento parcial" e deixa custo e retorno da agência em
+  branco — e abre "conta a conta", com o retorno de cada conta coletada.
+- **Reativação** (`agencia_serie` v6, campos `xp/xc/xv/xpg`): quem chegou por outro caminho
+  (orgânico, equipe ou anúncio de outra agência) e comprou depois de clicar no anúncio da
+  agência. Conta o fechado desde o dia do clique, fica fora do número grande e da soma com
+  o cartão Tráfego pago. Na 1ª semana da FSX: 4 reativados, 2 compraram hiperbárica,
+  R$ 12.500 fechados. A série agora tem grão (dia, agência, conta) — somar por agência dá
+  o mesmo da v5. A MV guarda só a PRIMEIRA reativação de cada paciente.
 - **Quem pagou no período** (`rastro_periodo(de, ate)`, até 93 dias): lido na hora pela
   `painel-canais` (`action: "rastro"`), uma linha por paciente e dia, sem nome.
 

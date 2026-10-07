@@ -356,6 +356,10 @@ tfoot td{padding:8px 10px;font-weight:700;border-top:2px solid var(--dark)}
   padding-top:7px;border-top:1px solid var(--border)}
 .lado .linha:first-of-type{border-top:0}
 .lado .linha b{font-variant-numeric:tabular-nums;color:var(--dark)}
+.lado .contas-ag{margin-top:10px;border-top:1px solid var(--border);padding-top:6px}
+.lado .conta-ag{background:var(--gray-bg);border-radius:var(--r-sm);padding:7px 9px;margin-top:6px;
+  font-size:11.5px;line-height:1.5;color:var(--text-body)}
+.lado .conta-ag b{color:var(--dark);font-variant-numeric:tabular-nums}
 @media(max-width:760px){.duelo{grid-template-columns:1fr}}
 
 /* ---- barras sem biblioteca: proporção lida de relance ---- */
@@ -697,7 +701,8 @@ function carrega(){
         ((d.agencias && d.agencias.serie) || []).forEach(function(x){ AG.push({m:m.id, d:x.d,
           ag:x.ag, r:x.r||0, rev:x.rev||0, k:x.k||0, p:x.p||0, o:x.o||0, e:x.e||0,
           vexec:x.vexec||0, ne:x.ne||0, vne:x.vne||0, nf:x.nf||0, v:x.v||0, pg:x.pg||0,
-          ab:x.ab||0, inv:x.inv||0, imp:x.imp||0, cli:x.cli||0, conv:x.conv||0}); });
+          ab:x.ab||0, inv:x.inv||0, imp:x.imp||0, cli:x.cli||0, conv:x.conv||0,
+          suf:x.suf||'', xp:x.xp||0, xc:x.xc||0, xv:x.xv||0, xpg:x.xpg||0}); });
         ((d.agencias && d.agencias.ref) || []).forEach(function(x){ AGREF.push({m:m.id,
           ag:x.ag, suf:x.suf||'', conta:x.conta||'', ger:x.ger||'', coletada:!!x.coletada,
           vig_de:x.vig_de||'', vig_ate:x.vig_ate||'',
@@ -1107,15 +1112,20 @@ function midiaAgrega(){
 var AG_CLASSE = {'Vanguarda':'vg', 'VX':'vx', 'FSX':'fsx'};
 var AG_CONHECIDAS = {'Vanguarda':1, 'VX':1, 'FSX':1};
 
+var AG_CAMPOS = ['r','rev','k','p','o','e','vexec','ne','vne','nf','v','pg','ab','inv','conv',
+                 'xp','xc','xv','xpg'];
 function agAgrega(d1, d2){
   var m = {};
   AG.forEach(function(x){
     if (x.d < d1 || x.d > d2) return;
     if (marcaSel !== 'todas' && x.m !== marcaSel) return;
     var o = m[x.ag] || (m[x.ag] = {ag:x.ag, r:0, rev:0, k:0, p:0, o:0, e:0, vexec:0,
-                                   ne:0, vne:0, nf:0, v:0, pg:0, ab:0, inv:0, conv:0});
-    ['r','rev','k','p','o','e','vexec','ne','vne','nf','v','pg','ab','inv','conv']
-      .forEach(function(c){ o[c] += x[c] || 0; });
+                                   ne:0, vne:0, nf:0, v:0, pg:0, ab:0, inv:0, conv:0,
+                                   xp:0, xc:0, xv:0, xpg:0, contas:{}});
+    AG_CAMPOS.forEach(function(c){ o[c] += x[c] || 0; });
+    /* a mesma soma conta a conta (sufixo do anuncio), para agencia com mais de uma */
+    var cs = x.suf || '?', oc = o.contas[cs] || (o.contas[cs] = {suf:cs});
+    AG_CAMPOS.forEach(function(c){ oc[c] = (oc[c] || 0) + (x[c] || 0); });
   });
   return m;
 }
@@ -1195,6 +1205,43 @@ function agVigencia(ref){
   return '';
 }
 
+/* REATIVAÇÃO (07/10/2026, pedido do Sant'Ana): paciente que já conhecia a Doctor —
+   chegou por orgânico, pela equipe ou por anúncio de outra agência — clica no anúncio
+   desta agência e compra. Na régua de chegada ele não é da agência, e a venda sumia
+   do cartão: na primeira semana da FSX, R$ 12.500 de hiperbárica fechados depois do
+   clique não apareciam em lugar nenhum. Fica fora do número grande e da soma com o
+   cartão "Tráfego pago" (lá ele já está no canal por onde chegou). */
+function agReativacaoHtml(o, l){
+  if (!o.xp) return '';
+  return l('Reativou quem já conhecia a Doctor', N(o.xp) + (o.xp === 1 ? ' paciente' : ' pacientes') +
+           ' · ' + N(o.xc) + (o.xc === 1 ? ' comprou' : ' compraram')) +
+    l('Fechado depois do clique', BRL0(o.xv) + (o.xv > 0.5 ? ' · pago ' + BRL0(o.xpg) : '')) +
+    '<div class="ger" style="margin-top:4px">chegou por outro caminho e clicou no anúncio da ' + esc(o.ag) +
+    ' antes de comprar — fica fora do número grande e da soma com o cartão Tráfego pago</div>';
+}
+/* conta a conta, quando a agência tem mais de uma no período (FSX: hiperbárica na
+   FarMelhor + odonto na OrthoDontic). O retorno de cada conta só existe se ela for
+   coletada — e a hiperbárica não pode ficar sem retorno porque a odonto não é. */
+function agContasHtml(o){
+  var cs = Object.keys(o.contas || {}).map(function(k){ return o.contas[k]; })
+             .filter(function(c){ return c.r || c.p || c.v || c.inv || c.xp; });
+  if (cs.length < 2) return '';
+  cs.sort(function(a, b){ return (b.inv - a.inv) || (b.r - a.r); });
+  var x = function(v){ return v.toFixed(1).replace('.', ',') + '×'; };
+  return '<div class="contas-ag"><div class="ger">conta a conta</div>' + cs.map(function(c){
+    var rf = agRefAnuncio(c.suf, o.ag), fech = c.v + c.xv;
+    return '<div class="conta-ag"><b>' + esc(rf.ger || 'conta') + '</b> · final ' + esc(c.suf) + '<br>' +
+      (rf.coletada ? '<b>' + BRL0(c.inv) + '</b> investidos' : 'investimento não coletado') +
+      ' · ' + N(c.r) + ' leads · ' + N(c.p) + (c.p === 1 ? ' paciente' : ' pacientes') + '<br>' +
+      'fechado <b>' + BRL0(c.v) + '</b>' +
+      (c.xv > 0.5 ? ' + <b>' + BRL0(c.xv) + '</b> de reativação' : '') +
+      (rf.coletada && c.inv > 0.5
+        ? ' · retorno <b>' + x(fech / c.inv) + '</b>' + (c.xv > 0.5 ? ' (' + x(c.v / c.inv) + ' sem reativação)' : '')
+        : '') +
+      '</div>';
+  }).join('') + '</div>';
+}
+
 function pintaAgencias(){
   var duelo = document.getElementById('agDuelo');
   var tab   = document.getElementById('tAgencias');
@@ -1225,9 +1272,10 @@ function pintaAgencias(){
      caixa, montar a tabela pela jornada a deixaria de fora e a soma voltaria a
      nao fechar com o cartao -- que foi exatamente o defeito relatado. */
   var vazia = function(ag){ return {ag:ag, r:0, rev:0, k:0, p:0, o:0, e:0, vexec:0,
-                                    ne:0, vne:0, nf:0, v:0, pg:0, ab:0, inv:0, conv:0}; };
+                                    ne:0, vne:0, nf:0, v:0, pg:0, ab:0, inv:0, conv:0,
+                                    xp:0, xc:0, xv:0, xpg:0, contas:{}}; };
   var nomes = {};
-  Object.keys(m).forEach(function(k){ if (m[k].r || m[k].v || m[k].inv) nomes[k] = 1; });
+  Object.keys(m).forEach(function(k){ if (m[k].r || m[k].v || m[k].inv || m[k].xp) nomes[k] = 1; });
   Object.keys(CX.porAg).forEach(function(k){
     if (k !== 'Anúncio não identificado' && CX.porAg[k]) nomes[k] = 1; });
   var linhas = Object.keys(nomes).map(function(k){ return m[k] || vazia(k); })
@@ -1315,7 +1363,12 @@ function pintaAgencias(){
       l('Custo por lead', (ref.coletada && o.r) ? BRL(o.inv / o.r) : '—') +
       l('Custo por paciente', (ref.coletada && o.p) ? BRL(o.inv / o.p) : '—') +
       l('Retorno sobre a mídia', (ref.coletada && o.inv)
-          ? (o.v / o.inv).toFixed(1).replace('.', ',') + '× faturado' : '—') +
+          ? (o.v / o.inv).toFixed(1).replace('.', ',') + '× faturado' +
+            (((o.v + o.xv) / o.inv).toFixed(1) !== (o.v / o.inv).toFixed(1)
+              ? ' · ' + ((o.v + o.xv) / o.inv).toFixed(1).replace('.', ',') + '× com reativação' : '')
+          : '—') +
+      agReativacaoHtml(o, l) +
+      agContasHtml(o) +
       (antigo > 0.5
         ? l('Caixa no período de paciente que chegou antes', BRL0(antigo)) +
           '<div class="ger" style="margin-top:4px">pagamento feito agora por quem ' + esc(o.ag) +
@@ -1328,13 +1381,14 @@ function pintaAgencias(){
   var td = function(v){ return '<td class="num">' + v + '</td>'; };
   var cxNaoId = CX.porAg['Anúncio não identificado'] || 0;
   var cxTotal = Object.keys(CX.porAg).reduce(function(s, k){ return s + CX.porAg[k]; }, 0);
-  var T = {r:0, p:0, o:0, v:0, pg:0, ab:0, vne:0, inv:0};
-  linhas.forEach(function(o){ ['r','p','o','v','pg','ab','vne','inv'].forEach(function(c){ T[c] += o[c]; }); });
+  var T = {r:0, p:0, o:0, v:0, pg:0, ab:0, vne:0, inv:0, xv:0};
+  linhas.forEach(function(o){ ['r','p','o','v','pg','ab','vne','inv','xv'].forEach(function(c){ T[c] += o[c] || 0; }); });
   tab.innerHTML =
     '<thead><tr><th>Agência</th><th>Gerenciador</th><th class="num">Leads</th>' +
       '<th class="num">Viraram paciente</th><th class="num">Propostas</th>' +
       '<th class="num">Caixa do período</th>' +
       '<th class="num">Faturado</th><th class="num">Recebido</th><th class="num">Em aberto</th>' +
+      '<th class="num" title="fechado por quem já conhecia a Doctor e comprou depois de clicar no anúncio da agência — fora do total">Reativação</th>' +
       /* as tres colunas acima sao COORTE: dinheiro de quem chegou no periodo, nao
          caixa do periodo. O cabecalho diz isso na nota abaixo da tabela. */
       '<th class="num">Parado na mesa</th><th class="num">Investimento</th>' +
@@ -1346,6 +1400,7 @@ function pintaAgencias(){
         td(N(o.r)) + td(N(o.p)) + td(N(o.o)) +
         td(cxDe(o.ag) ? '<b>' + BRL0(cxDe(o.ag)) + '</b>' : '—') +
         td(o.v ? BRL0(o.v) : '—') + td(o.pg ? BRL0(o.pg) : '—') + td(o.ab ? BRL0(o.ab) : '—') +
+        td(o.xv ? BRL0(o.xv) : '—') +
         td(o.vne ? BRL0(o.vne) : '—') +
         td(soCx ? '—' : (ref.coletada ? BRL0(o.inv)
              : ref.parcial ? BRL0(o.inv) + ' <span style="color:var(--red)">+ conta não coletada</span>'
@@ -1360,10 +1415,11 @@ function pintaAgencias(){
        cartao de trafego pago, e a tabela voltaria a parecer quebrada. */
     (cxNaoId ? '<tr><td><b>Anúncio não identificado</b></td><td>—</td>' +
        td('—') + td('—') + td('—') + td('<b>' + BRL0(cxNaoId) + '</b>') +
-       td('—') + td('—') + td('—') + td('—') + td('—') + td('—') + td('—') + '</tr>' : '') +
+       td('—') + td('—') + td('—') + td('—') + td('—') + td('—') + td('—') + td('—') + '</tr>' : '') +
     '<tfoot><tr><td>Total — ' + N(linhas.length) + ' agências</td><td></td>' +
       td(N(T.r)) + td(N(T.p)) + td(N(T.o)) + td('<b>' + BRL0(cxTotal) + '</b>') +
       td(BRL0(T.v)) + td(BRL0(T.pg)) + td(BRL0(T.ab)) +
+      td(T.xv ? BRL0(T.xv) : '—') +
       td(BRL0(T.vne)) + td(BRL0(T.inv)) + td('—') + td('—') + '</tr></tfoot>';
 
   var semColeta = linhas.filter(function(o){ return !agRef(o.ag).coletada && o.r; });
@@ -1379,6 +1435,11 @@ function pintaAgencias(){
     'entrou no caixa — o &ldquo;Recebido&rdquo; da tabela &ldquo;Campanhas por especialidade&rdquo; — e quanto ' +
     'falta pagar: conta aberta no Feegow, quase sempre exame ou consulta marcada para depois, que vira caixa ' +
     'quando o paciente vem e paga. O caixa de paciente antigo fica na última linha do cartão.' +
+    ' · <b>Reativação</b> é quem já conhecia a Doctor — chegou por orgânico, pela equipe ou por anúncio de ' +
+    'outra agência — e comprou depois de clicar no anúncio da agência: conta o fechado desde o dia do clique. ' +
+    'Ela não entra no número grande nem no total, porque esse paciente já está contado no canal por onde chegou; ' +
+    'é a resposta para &ldquo;o anúncio trouxe venda de quem já era nosso?&rdquo;. Quando a agência tem mais de ' +
+    'uma conta, o cartão abre conta a conta, com o retorno de cada uma que é coletada.' +
     (semColeta.length
       ? ' · <b>' + semColeta.map(function(o){ var rf = agRef(o.ag);
           return esc(o.ag) + (rf.faltam.length ? ', ' + esc(agFaltamTxt(rf)) : ''); }).join(' e ') +
