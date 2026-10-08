@@ -242,8 +242,15 @@ pelo `refresh_mvs_jornada()`:
 - **Espelho do WhatsApp (Evolution) parado:** o coletor `evolution-anuncios` (projeto Sentinela,
   cron 14) recebe 404 porque as instâncias "Doctor-5700" (desde 05/10) e "DOCTOR corporativo
   Vieralves - 2125" (desde 21/09) não existem mais no Evolution — os números foram para Z-API no
-  Life CRM. O utm do CRM segue cobrindo os anúncios; voltar o espelho depende de religar o número
-  no Evolution (QR no celular) ou de pegar a procedência pelo webhook do Z-API.
+  Life CRM. **Decisão de 08/10 (Henrique): a procedência vem do CRM (Z-API).** O CRM grava no
+  contato só o ÚLTIMO anúncio clicado; o gatilho `trg_helena_utm_historico` (Doctor e Acesso)
+  guarda cada troca em `crm_utm_historico` com a hora — o utm sobrescrito com a data corrigida
+  pela mesma regra da `v_jornada_origem`. Na Doctor ele entra na régua pela `v_jornada_origem`
+  (via `crm_utm`); na Acesso, direto na `atribuicao_pacientes`. Nada disso escreve no CRM.
+- **Conta 0085 = "Doctor odonto"** (act_3624673681138830, BM OrthoDontic Manaus), confirmada como
+  FSX em 08/10. Para o investimento entrar, alguém com admin na BM precisa atribuir o portfólio da
+  Doctor (709329867800952) como parceiro em "Ver desempenho" e, no portfólio da Doctor, atribuir a
+  conta ao usuário do sistema da coleta (como foi feito com a FarMelhor em 25/08).
 - **Quem pagou no período** (`rastro_periodo(de, ate)`, até 93 dias): lido na hora pela
   `painel-canais` (`action: "rastro"`), uma linha por paciente e dia, sem nome.
 

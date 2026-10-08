@@ -1501,8 +1501,10 @@ function pintaAgencias(){
       : '') +
 
     ' · <b>Cobertura diferente não é desempenho diferente.</b> A Vanguarda é vista pelo utm do ' +
-    'WTS no contato; a conta da FarMelhor (VX, agora FSX) era vista pela referência do anúncio dentro da mensagem do ' +
-    'WhatsApp até 21/09 e, desde então, também pelo utm. Paciente é ligado ao lead pelo TELEFONE: o lead que marcou ' +
+    'WTS no contato; a conta da FarMelhor (VX, agora FSX) era vista também pela referência do anúncio dentro da ' +
+    'mensagem do WhatsApp (espelho do Evolution), que parou quando os números foram para o Z-API do Life CRM — o 2125 ' +
+    'em 21/09 e o 5700 em 05/10. Desde 08/10 a procedência vem só do CRM, e cada troca de utm fica guardada com a hora, ' +
+    'porque o CRM guarda só o último anúncio clicado. Paciente é ligado ao lead pelo TELEFONE: o lead que marcou ' +
     'para a família inteira traz todos os pacientes daquele número.' +
     ' · <b>“Criado pela equipe” e “Base importada” não são canais.</b> São o campo ' +
     '<span style="font-family:monospace">origin</span> do Life CRM (CREATED_BY_USER e IMPORTED): dizem como o ' +
@@ -1859,11 +1861,10 @@ function pintaAgAds(){
     '<b>' + esc(agAdsSel) + ' no período:</b> ' + N(lista.length) + ' anúncios · ' +
     BRL0(T.inv) + ' investidos · ' + N(T.r) + ' leads · ' + N(T.p) + ' pacientes · ' +
     BRL0(T.v) + ' faturados' + ((T.inv && ref.coletada) ? ' · ' + (T.v / T.inv).toFixed(1).replace('.', ',') + '× de retorno' : '') +
-    '. · <b>Na Doctor o lead é contado pelos dois espelhos</b> — o carimbo de utm que o WTS grava ' +
-    'no contato e a referência do anúncio dentro da mensagem do WhatsApp. Só o segundo alcança ' +
-    'conta de fora, então sem ele os anúncios da conta da FarMelhor (VX até 30/09, FSX desde 01/10) apareceriam com retorno zero. A Acesso tem ' +
-    'só o primeiro espelho, e o relatório da Doctor e o painel também — por isso o número de ' +
-    'anúncio lá é menor.' +
+    '. · <b>Na Doctor o lead é contado pelo utm que o CRM grava no contato</b> e pelo histórico dele (desde 08/10 ' +
+    'cada anúncio clicado fica guardado, mesmo quando o CRM o sobrescreve com o seguinte). Até 05/10 havia também a ' +
+    'referência do anúncio dentro da mensagem do WhatsApp (espelho do Evolution); ela parou quando os números foram ' +
+    'para o Z-API, e o que ela registrou continua contando.' +
     (ref.coletada ? ''
       : ref.parcial
         ? ' · <b>Investimento parcial:</b> os anúncios da ' + esc(agFaltamTxt(ref)) + ' não têm investimento ' +
