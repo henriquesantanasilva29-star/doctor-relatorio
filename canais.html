@@ -340,6 +340,28 @@ tfoot td{padding:8px 10px;font-weight:700;border-top:2px solid var(--dark)}
 }
 #tRastro .mais button{font:inherit;font-size:13px;border:1px solid var(--border);background:#fff;
   border-radius:999px;padding:6px 14px;cursor:pointer}
+/* em aberto, paciente por paciente (08/10/2026) — mesma marcação do rastro */
+#abFiltros button.on,#abSits button.on{background:#241b35;border-color:#241b35;color:#fff}
+#abFiltros button.on[data-f="Vanguarda"]{background:var(--red);border-color:var(--red)}
+#abFiltros button.on[data-f="FSX"]{background:var(--green);border-color:var(--green)}
+#abFiltros button.on[data-f="VX"]{background:var(--orange);border-color:var(--orange)}
+#abFiltros input{font:inherit;font-size:13.5px;padding:7px 12px;border:1px solid var(--border);
+  border-radius:999px;min-width:190px;background:#fff;color:var(--dark)}
+#abSits{margin-top:-8px}
+#abSits button{text-align:left;line-height:1.3}
+#abSits button small{display:block;font-family:var(--font-body);font-weight:500;font-size:11.5px;opacity:.8}
+#tAberto td{vertical-align:top}
+#tAberto .obs{display:block;font-size:11px;color:var(--gray-text);margin-top:2px;line-height:1.35}
+#tAberto .cod{font-family:monospace;font-size:12.5px;white-space:nowrap}
+#tAberto .mais td{text-align:center;padding:12px}
+#tAberto .mais button{font:inherit;font-size:13px;border:1px solid var(--border);background:#fff;
+  border-radius:999px;padding:6px 14px;cursor:pointer}
+#tAberto tr.grupo td{background:var(--gray-bg);font-weight:700;color:var(--dark);font-size:12.5px}
+.sit{display:inline-block;font-size:11px;font-weight:700;border-radius:999px;padding:2px 8px;white-space:nowrap}
+.sit.realizado{background:var(--alert-bg);color:var(--red)}
+.sit.passou{background:#FFF6E9;color:#B45A00}
+.sit.sem_data{background:var(--gray-bg);color:var(--gray-text)}
+.sit.marcado{background:#E8F8F1;color:#0E7A4E}
 #agAdsSel button.on[data-ag="VX"]{background:var(--orange);border-color:var(--orange);color:#fff}
 #agAdsSel button.on{background:var(--dark);border-color:var(--dark);color:#fff}
 .ad-dica{color:var(--cinza);font-size:12.5px;font-style:italic;padding:2px 0}
@@ -468,6 +490,13 @@ html[data-theme="dark"] .ad-tproc tfoot td{border-top:2px solid #311f3a}
 html[data-theme="dark"] body{background:var(--surface-page)}
 html[data-theme="dark"] #rastroFiltros input,html[data-theme="dark"] #tRastro .mais button{background:#17171f;color:var(--dark);border-color:var(--border)}
 html[data-theme="dark"] #rastroFiltros button.on{background:#f2f1f7;color:#17171f;border-color:#f2f1f7}
+html[data-theme="dark"] #abFiltros input,html[data-theme="dark"] #tAberto .mais button{background:#17171f;color:var(--dark);border-color:var(--border)}
+html[data-theme="dark"] #abFiltros button.on,html[data-theme="dark"] #abSits button.on{background:#f2f1f7;color:#17171f;border-color:#f2f1f7}
+html[data-theme="dark"] #abFiltros button.on[data-f="Vanguarda"]{background:var(--red);border-color:var(--red);color:#fff}
+html[data-theme="dark"] #abFiltros button.on[data-f="FSX"]{background:var(--green);border-color:var(--green);color:#fff}
+html[data-theme="dark"] #abFiltros button.on[data-f="VX"]{background:var(--orange);border-color:var(--orange);color:#fff}
+html[data-theme="dark"] .sit.passou{background:#261c0e;color:#f0b46e}
+html[data-theme="dark"] .sit.marcado{background:#112c20;color:#88eec4}
 html[data-theme="dark"] #rastroFiltros button.on[data-f="Vanguarda"]{background:var(--red);border-color:var(--red);color:#fff}
 html[data-theme="dark"] #rastroFiltros button.on[data-f="FSX"]{background:var(--green);border-color:var(--green);color:#fff}
 html[data-theme="dark"] #rastroFiltros button.on[data-f="VX"]{background:var(--orange);border-color:var(--orange);color:#fff}
@@ -538,6 +567,13 @@ html[data-theme="dark"] .preset:hover,html[data-theme="dark"] .preset.on{backgro
 <div id="rastroResumo" class="nota neutra"></div>
 <div class="tabela-rolagem"><table id="tRastro"></table></div>
 <div id="notaRastro" class="nota"></div>
+
+<div class="section-title">Em aberto — fechou e ainda não pagou, paciente por paciente</div>
+<div class="alt" id="abFiltros"></div>
+<div class="alt" id="abSits"></div>
+<div id="abResumo" class="nota neutra"></div>
+<div class="tabela-rolagem"><table id="tAberto"></table></div>
+<div id="notaAberto" class="nota"></div>
 
 <div class="section-title">Os anúncios de cada agência</div>
 <div class="alt" id="agAdsSel"></div>
@@ -2254,6 +2290,216 @@ function pintaTabelaRastro(){
   if (bm) bm.onclick = function(){ rastroLimite += 300; pintaTabelaRastro(); };
 }
 
+/* ============ em aberto — fechou e ainda não pagou (08/10/2026) ============
+   Pedido do Sant'Ana: ver no painel, com precisão, quem fechou e não pagou. É o
+   "Falta pagar" dos cartões aberto paciente por paciente, pela MESMA régua:
+   quem chegou no período (régua única) e tem conta aberta no Feegow desde o dia
+   em que chegou. Quem chegou antes e foi reativado por anúncio no período entra
+   como "Reativação", com as contas desde o dia do clique. Lido NA HORA do banco
+   (painel-canais, action "aberto"); sem nome — o paciente aparece pelo código do
+   Feegow. A situação sai dos itens das contas abertas:
+     realizado  algo com valor já foi feito e não foi pago        -> cobrar
+     passou     tinha horário (agendamento) e ele passou sem ser feito -> remarcar / conferir se veio
+     sem_data   conta aberta sem horário marcado                   -> agendar
+     marcado    tem horário de hoje em diante                      -> confirmar presença
+   Item sem agendamento carrega no Feegow a data da própria conta, que não é
+   horário: por isso ele não conta como "passou" (a primeira versão contava, e
+   quem nunca teve horário aparecia como falta).
+   Linha: [conta, tipo, ag, canal, ref, fechado, pago, aberto, sit, data, uni, aid, reat_ag, reat_d, n_pend] */
+var ABERTO = {}, ABERTO_ATUAL = [], abChave = '', abFiltro = 'pago', abSit = 'todas', abBusca = '', abLimite = 150;
+var AB_SIT = {
+  realizado: {n: 'Realizado, falta pagar', o: 1, f: 'cobrar'},
+  passou:    {n: 'Horário passou sem atendimento', o: 2, f: 'remarcar ou conferir se veio'},
+  sem_data:  {n: 'Sem horário marcado', o: 3, f: 'agendar'},
+  marcado:   {n: 'Marcado', o: 4, f: 'confirmar presença'}
+};
+function abGrupo(l){ return l.tipo === 'r' ? 'reat' : rastroGrupo(l); }
+function abertoCarrega(){
+  var tb = document.getElementById('tAberto'), res = document.getElementById('abResumo');
+  if (!tb) return;
+  var bases = MARCAS_OK.filter(function(m){ return marcaSel === 'todas' || m.id === marcaSel; });
+  var limpa = function(msg){
+    abChave = ''; ABERTO_ATUAL = []; tb.innerHTML = '';
+    ['abFiltros', 'abSits', 'notaAberto'].forEach(function(id){ document.getElementById(id).innerHTML = ''; });
+    res.innerHTML = msg;
+  };
+  if (!bases.length) { limpa('Nenhuma base carregada.'); return; }
+  if ((Date.parse(ate) - Date.parse(de)) / 864e5 > 93) {
+    limpa('<b>A lista de em aberto vai até 93 dias por vez.</b> Escolha um período menor para ver quem fechou e ainda não pagou.');
+    return;
+  }
+  var chave = de + '|' + ate + '|' + bases.map(function(m){ return m.id; }).join(',');
+  if (chave === abChave) { pintaAberto(); return; }
+  abChave = chave; abLimite = 150;
+  res.textContent = 'Buscando no Feegow as contas em aberto…'; tb.innerHTML = '';
+  Promise.all(bases.map(function(m){
+    var k = m.id + '|' + de + '|' + ate;
+    if (ABERTO[k]) return Promise.resolve({m: m, j: ABERTO[k]});
+    return pede(m.api, {token: m.k, action: 'aberto', de: de, ate: ate})
+      .then(function(j){ ABERTO[k] = j; return {m: m, j: j}; })
+      .catch(function(e){ return {m: m, erro: e}; });
+  })).then(function(rs){
+    if (chave !== abChave) return;
+    ABERTO_ATUAL = []; ABERTO_ATUAL.erros = []; ABERTO_ATUAL.lido = '';
+    rs.forEach(function(r){
+      if (r.erro) { ABERTO_ATUAL.erros.push(esc(r.m.nome) + ': ' + esc(r.erro.message)); return; }
+      if (r.j.lido_em && r.j.lido_em > ABERTO_ATUAL.lido) ABERTO_ATUAL.lido = r.j.lido_em;
+      (r.j.aberto || []).forEach(function(x){
+        ABERTO_ATUAL.push({m: r.m.id, conta: x[0], tipo: x[1] || 'c', ag: x[2] || '', canal: x[3] || '',
+          ref: x[4] || '', v: x[5] || 0, pg: x[6] || 0, ab: x[7] || 0, sit: x[8] || 'sem_data', data: x[9] || '',
+          uni: x[10] || '', aid: x[11] || '', reat_ag: x[12] || '', reat_d: x[13] || '', pend: x[14] || 0});
+      });
+    });
+    pintaAberto();
+  });
+}
+function abNoRecorte(l, f){
+  f = f || abFiltro;
+  if (f === 'todos') return true;
+  if (f === 'reat') return l.tipo === 'r';
+  if (f === 'pago' || f === 'naopago' || f === 'fora') return l.tipo === 'c' && abGrupo(l) === f;
+  return l.tipo === 'c' && l.canal === 'Meta Ads' && l.ag === f;
+}
+function pintaAberto(){
+  var tb = document.getElementById('tAberto'), res = document.getElementById('abResumo');
+  var fil = document.getElementById('abFiltros'), sits = document.getElementById('abSits');
+  var nota = document.getElementById('notaAberto');
+  if (!tb) return;
+  var L = ABERTO_ATUAL || [];
+  /* filtros de origem — as agências são as que têm conta aberta no recorte */
+  var porAg = {};
+  L.forEach(function(l){ if (l.tipo === 'c' && l.canal === 'Meta Ads' && l.ag) porAg[l.ag] = (porAg[l.ag] || 0) + l.ab; });
+  var ags = Object.keys(porAg).sort(function(a, b){ return porAg[b] - porAg[a]; });
+  var temReat = L.some(function(l){ return l.tipo === 'r'; });
+  var opc = [['pago', 'Tráfego pago']].concat(ags.map(function(a){ return [a, a]; }))
+    .concat(temReat ? [['reat', 'Reativação']] : [])
+    .concat([['naopago', 'Não pago'], ['fora', 'Equipe, base e sem rastreio'], ['todos', 'Todos']]);
+  if (!opc.some(function(o){ return o[0] === abFiltro; })) abFiltro = 'pago';
+  var tot = function(f){ return L.filter(function(l){ return abNoRecorte(l, f); })
+                                 .reduce(function(s, l){ return s + l.ab; }, 0); };
+  fil.innerHTML = opc.map(function(o){
+    return '<button type="button" data-f="' + esc(o[0]) + '" class="' + (o[0] === abFiltro ? 'on' : '') + '">' +
+      esc(o[1]) + ' · ' + BRL0(tot(o[0])) + '</button>';
+  }).join('') + '<input id="abBusca" type="search" placeholder="código do paciente" value="' + esc(abBusca) + '">';
+  Array.prototype.forEach.call(fil.querySelectorAll('button'), function(b){
+    b.onclick = function(){ abFiltro = b.getAttribute('data-f'); abLimite = 150; pintaAberto(); };
+  });
+  var inp = document.getElementById('abBusca');
+  inp.oninput = function(){ abBusca = inp.value; abLimite = 150; pintaTabelaAberto(); };
+  /* situação: quantos e quanto em cada uma, dentro do recorte de origem */
+  var R = L.filter(function(l){ return abNoRecorte(l); });
+  var S = {}; R.forEach(function(l){ var o = S[l.sit] || (S[l.sit] = {n: 0, v: 0}); o.n++; o.v += l.ab; });
+  var totR = R.reduce(function(s, l){ return s + l.ab; }, 0);
+  if (abSit !== 'todas' && !S[abSit]) abSit = 'todas';
+  sits.innerHTML = '<button type="button" data-s="todas" class="' + (abSit === 'todas' ? 'on' : '') + '">Todas as situações' +
+      '<small>' + N(R.length) + ' pacientes · ' + BRL0(totR) + '</small></button>' +
+    Object.keys(AB_SIT).filter(function(k){ return S[k]; }).map(function(k){
+      return '<button type="button" data-s="' + k + '" class="' + (abSit === k ? 'on' : '') + '">' + AB_SIT[k].n +
+        '<small>' + N(S[k].n) + (S[k].n === 1 ? ' paciente · ' : ' pacientes · ') + BRL0(S[k].v) + ' · ' + AB_SIT[k].f + '</small></button>';
+    }).join('');
+  Array.prototype.forEach.call(sits.querySelectorAll('button'), function(b){
+    b.onclick = function(){ abSit = b.getAttribute('data-s'); abLimite = 150; pintaAberto(); };
+  });
+  /* conferência com o "Falta pagar" dos cartões das agências (Doctor+, mesma régua) */
+  var conf = '';
+  if (marcaSel !== 'acesso' && AG.length) {
+    var sv = marcaSel; marcaSel = 'doctor'; var mc = agAgrega(de, ate); marcaSel = sv;
+    var lista = {}; L.forEach(function(l){
+      if (l.m === 'doctor' && l.tipo === 'c' && l.canal === 'Meta Ads' && l.ag) lista[l.ag] = (lista[l.ag] || 0) + l.ab; });
+    var nomes = Object.keys(mc).filter(function(k){ return (mc[k].ab || 0) > 0.5 || lista[k]; }).sort();
+    if (nomes.length) {
+      var igual = nomes.every(function(k){ return Math.abs((mc[k].ab || 0) - (lista[k] || 0)) < 0.5; });
+      conf = ' · <b>Conferência com o “Falta pagar” dos cartões das agências (Doctor+):</b> ' + nomes.map(function(k){
+          return esc(k) + ' — cartão ' + BRL0(mc[k].ab || 0) + ', lista ' + BRL0(lista[k] || 0); }).join(' · ') +
+        (igual ? '. <b style="color:#0E7A4E">Confere.</b>'
+               : '. A lista é lida agora e o cartão vem da publicação das 05:30: a diferença é conta lançada ou paga ' +
+                 'no Feegow depois dela (e paciente que chegou hoje).');
+    }
+  }
+  res.innerHTML = (L.erros && L.erros.length ? '<b>Não consegui ler:</b> ' + L.erros.join(' · ') + '<br>' : '') +
+    '<b>Em aberto neste recorte: ' + BRL0(totR) + ' de ' + N(R.length) + (R.length === 1 ? ' paciente' : ' pacientes') + '.</b> ' +
+    'Lido no Feegow ' + (L.lido ? 'às ' + new Date(L.lido).toLocaleTimeString('pt-BR', {hour: '2-digit', minute: '2-digit'}) : 'agora') +
+    ' (o espelho do Feegow atualiza de hora em hora).' + conf;
+  pintaTabelaAberto();
+  nota.innerHTML =
+    '<b>Como ler.</b> Cada linha é um paciente que <b>chegou no período</b> (pela régua única de origem, a mesma dos ' +
+    'cartões) e tem conta aberta no Feegow desde o dia em que chegou: <b>em aberto = fechado − pago</b>. Somando as ' +
+    'linhas de uma agência dá o &ldquo;Falta pagar&rdquo; do cartão dela. Em <b>Reativação</b> está quem já conhecia a ' +
+    'Doctor e clicou no anúncio no período; as contas contam desde o dia do clique. ' +
+    '<b>A situação vem dos itens das contas abertas, nesta ordem:</b> &ldquo;realizado&rdquo; — algo com valor já foi ' +
+    'feito e não foi pago (cobrar); &ldquo;marcado&rdquo; — tem horário de hoje em diante (confirmar presença); ' +
+    '&ldquo;horário passou&rdquo; — tinha agendamento e a data passou sem o item ser feito (faltou, ou a recepção não ' +
+    'marcou como realizado no Feegow); &ldquo;sem horário&rdquo; — conta aberta sem nenhum horário marcado (agendar: ' +
+    'é orçamento fechado esperando a pessoa marcar, ou o resto de um pacote). A data de item sem agendamento é a da ' +
+    'conta, não um horário, e por isso não vira falta. Sem nome: procure o código no Feegow.';
+}
+function pintaTabelaAberto(){
+  var tb = document.getElementById('tAberto'); if (!tb) return;
+  var b = (abBusca || '').trim();
+  var L = (ABERTO_ATUAL || []).filter(function(l){
+    if (!abNoRecorte(l)) return false;
+    if (abSit !== 'todas' && l.sit !== abSit) return false;
+    if (b && String(l.conta).indexOf(b) < 0) return false;
+    return true;
+  }).sort(function(x, y){
+    return ((AB_SIT[x.sit] || {o: 9}).o - (AB_SIT[y.sit] || {o: 9}).o) || (y.ab - x.ab) || (x.conta - y.conta);
+  });
+  if (!L.length) { tb.innerHTML = '<tbody><tr><td>Nenhuma conta em aberto neste recorte.</td></tr></tbody>'; return; }
+  var mostra = L.slice(0, abLimite), duas = marcaSel === 'todas' && MARCAS_OK.length > 1;
+  var hoje = new Date(Date.now() - 4 * 3600e3).toISOString().slice(0, 10); /* Manaus, UTC-4 */
+  var T = {v: 0, pg: 0, ab: 0}; L.forEach(function(l){ T.v += l.v; T.pg += l.pg; T.ab += l.ab; });
+  var grupoAnt = '';
+  tb.innerHTML = '<thead><tr><th>Paciente</th><th>Situação</th><th>Data</th><th>Unidade</th>' +
+    '<th class="num">Fechado</th><th class="num">Pago</th><th class="num">Em aberto</th>' +
+    '<th>De onde veio</th><th>Chegou</th></tr></thead><tbody>' +
+    mostra.map(function(l){
+      var cab = '';
+      if (l.sit !== grupoAnt) {
+        grupoAnt = l.sit;
+        var g = L.filter(function(x){ return x.sit === l.sit; });
+        cab = '<tr class="grupo"><td colspan="9">' + esc((AB_SIT[l.sit] || {n: l.sit}).n) + ' — ' + N(g.length) +
+          (g.length === 1 ? ' paciente, ' : ' pacientes, ') + BRL0(g.reduce(function(s, x){ return s + x.ab; }, 0)) +
+          ((AB_SIT[l.sit] || {}).f ? ' · ' + AB_SIT[l.sit].f : '') + '</td></tr>';
+      }
+      var data = !l.data ? '—'
+        : l.sit === 'realizado' ? 'feito em ' + fmtBR(l.data)
+        : l.sit === 'sem_data' ? '<span class="obs" style="margin:0">conta de ' + fmtBR(l.data) + '</span>'
+        : l.sit === 'passou' ? 'era ' + fmtBR(l.data)
+        : l.data === hoje ? '<b>hoje</b>' : fmtBR(l.data);
+      var origem;
+      if (l.canal === 'Meta Ads' || l.tipo === 'r') {
+        var nm = nomeAnuncio(l.aid);
+        origem = '<span class="agn ' + (AG_CLASSE[l.ag] || '') + '">' + esc(l.ag || 'Não identificada') + '</span>' +
+          (l.tipo === 'r' ? '<span class="obs">reativação: já tinha chegado antes (' + esc(l.canal) + ') e clicou no anúncio em ' +
+            fmtBR(l.ref) + '</span>' : '') +
+          (nm ? '<span class="obs">' + esc(nm) + '</span>' : (l.aid ? '<span class="obs">anúncio ' + esc(l.aid) + '</span>' : ''));
+      } else {
+        origem = esc(l.canal);
+      }
+      if (l.reat_ag) origem += '<span class="obs">clicou em anúncio da ' + esc(l.reat_ag) + ' em ' + fmtBR(l.reat_d) + '</span>';
+      return cab + '<tr><td><span class="cod">' + esc(l.conta) + '</span>' +
+          (duas ? '<span class="obs">' + (l.m === 'doctor' ? 'Doctor+' : 'Acesso') + '</span>' : '') + '</td>' +
+        '<td><span class="sit ' + esc(l.sit) + '">' + esc((AB_SIT[l.sit] || {n: l.sit}).n) + '</span>' +
+          (l.pend > 1 ? '<span class="obs">' + N(l.pend) + ' itens pendentes</span>' : '') + '</td>' +
+        '<td>' + data + '</td>' +
+        '<td>' + esc(l.uni || '—') + '</td>' +
+        '<td class="num">' + BRL0(l.v) + '</td>' +
+        '<td class="num">' + (l.pg > 0.5 ? BRL0(l.pg) : '—') + '</td>' +
+        '<td class="num"><b>' + BRL0(l.ab) + '</b></td>' +
+        '<td>' + origem + '</td>' +
+        '<td>' + (l.ref ? (l.tipo === 'r' ? 'clicou ' : '') + fmtBR(l.ref) : '—') + '</td></tr>';
+    }).join('') +
+    (L.length > mostra.length
+      ? '<tr class="mais"><td colspan="9"><button type="button" id="abMais">mostrar mais ' +
+        N(Math.min(L.length - mostra.length, 300)) + ' de ' + N(L.length - mostra.length) + ' restantes</button></td></tr>'
+      : '') +
+    '</tbody><tfoot><tr><td colspan="4">' + N(L.length) + (L.length === 1 ? ' paciente' : ' pacientes') + ' neste recorte</td>' +
+    '<td class="num">' + BRL0(T.v) + '</td><td class="num">' + BRL0(T.pg) + '</td><td class="num">' + BRL0(T.ab) + '</td>' +
+    '<td colspan="2"></td></tr></tfoot>';
+  var bm = document.getElementById('abMais');
+  if (bm) bm.onclick = function(){ abLimite += 300; pintaTabelaAberto(); };
+}
+
 /* ============ desenho ============ */
 function render(){
   (function(){
@@ -2341,6 +2587,7 @@ function render(){
   pintaMidia(tp);
   carregaEquipes();
   rastroCarrega();
+  abertoCarrega();
   pintaComparacao();
 }
 

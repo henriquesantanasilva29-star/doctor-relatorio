@@ -1,4 +1,4 @@
-// painel-canais v4 — 07/10/2026
+// painel-canais v5 — 08/10/2026
 //
 // A aba "Canais · pago × orgânico" dentro do portal de relatórios
 // (relatorio.arasys.software). Até 05/10 ela morava no GitHub Pages e lia o
@@ -17,6 +17,11 @@
 // rastro_periodo(de, ate), com a origem pela régua única (mv_atribuicao_unica).
 // Não vai no dados.json: na Acesso são 15 mil linhas em 62 dias.
 //
+// v5 (08/10/2026): action "aberto" — quem chegou no período (ou foi reativado
+// por anúncio) e tem conta aberta no Feegow, paciente por paciente (código do
+// Feegow, sem nome), com a situação: realizado e não pago, data passou, marcado.
+// Lido na hora pela função aberto_periodo(de, ate). Pedido do Sant'Ana em 08/10.
+//
 // O quadro de vendas por equipe NÃO passa por esta função: a página pede o
 // `caixa_equipes` da feegow-relatorios, o mesmo do Resumo faturamento.
 //
@@ -27,13 +32,14 @@
 //   { sessao, device_id, action: "dados" }      -> blocos de marketing do dados.json
 //   { sessao, device_id, action: "criativos" }  -> miniaturas dos anúncios (criativos.json)
 //   { sessao, device_id, action: "rastro", de, ate } -> pagamentos por paciente (até 93 dias)
+//   { sessao, device_id, action: "aberto", de, ate } -> conta aberta por paciente (até 93 dias)
 //   (o token antigo do portal, { token }, segue aceito durante a troca de login)
 //
 // Roda IGUAL na Doctor (myiqdeonxuznvhtsvfxg) e na Acesso (dfvmuqxjdcvwskrrdbfm).
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
-const VERSAO = 4; // v2 (07/10): login único · v3: painel "canais" · v4: rastro
+const VERSAO = 5; // v2 (07/10): login único · v3: painel "canais" · v4: rastro · v5: aberto
 const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
   { auth: { persistSession: false } });
 
@@ -169,9 +175,22 @@ Deno.serve(async (req) => {
     return J({ ok: true, versao: VERSAO, de, ate, rastro: data ?? [] });
   }
 
+  // ------------------------------------------------- aberto (v5, 08/10/2026)
+  // Conta aberta no Feegow de quem chegou no período, pela régua única. Sem
+  // nome: o paciente aparece pelo código do Feegow.
+  if (acao === "aberto") {
+    const de = String(body.de ?? ""), ate = String(body.ate ?? "");
+    if (!DATA.test(de) || !DATA.test(ate) || de > ate) return J({ error: "período inválido (de, ate em AAAA-MM-DD)" }, 400);
+    const dias = (Date.parse(ate) - Date.parse(de)) / 86_400_000;
+    if (dias > 93) return J({ error: "a lista de em aberto vai até 93 dias por vez; encurte o período" }, 400);
+    const { data, error } = await sb.rpc("aberto_periodo", { p_de: de, p_ate: ate });
+    if (error) return J({ error: `não consegui ler as contas em aberto: ${error.message}` }, 500);
+    return J({ ok: true, versao: VERSAO, de, ate, lido_em: new Date().toISOString(), aberto: data ?? [] });
+  }
+
   // ----------------------------------------------------------------- leitura
   const arquivo = acao === "dados" ? "dados.json" : acao === "criativos" ? "criativos.json" : null;
-  if (!arquivo) return J({ error: "ação inválida (dados, criativos, rastro)" }, 400);
+  if (!arquivo) return J({ error: "ação inválida (dados, criativos, rastro, aberto)" }, 400);
 
   const { data, error } = await sb.from("relatorio_arquivo")
     .select("conteudo, atualizado_em").eq("caminho", arquivo).maybeSingle();

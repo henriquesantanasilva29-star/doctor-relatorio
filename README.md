@@ -221,6 +221,14 @@ pelo `refresh_mvs_jornada()`:
   o cartão Tráfego pago. Na 1ª semana da FSX: 4 reativados, 2 compraram hiperbárica,
   R$ 12.500 fechados. A série agora tem grão (dia, agência, conta) — somar por agência dá
   o mesmo da v5. A MV guarda só a PRIMEIRA reativação de cada paciente.
+- **Em aberto, paciente por paciente** (`aberto_periodo(de, ate)`, até 93 dias, desde 08/10):
+  o "Falta pagar" dos cartões aberto por paciente — quem chegou no período (ou foi reativado
+  por anúncio) e tem conta aberta no Feegow, com a situação tirada dos itens: realizado e não
+  pago (cobrar), horário passou sem atendimento (remarcar), sem horário marcado (agendar),
+  marcado (confirmar). Item sem agendamento carrega a data da conta, não um horário, e por isso
+  não vira falta. Lido na hora pela `painel-canais` v5 (`action: "aberto"`), sem nome; a soma
+  por agência confere com o cartão (08/10: FSX R$ 1.350,64, Vanguarda R$ 5.860,21). O SQL está
+  em `supabase/sql/aberto_periodo.sql`.
 - **Quem pagou no período** (`rastro_periodo(de, ate)`, até 93 dias): lido na hora pela
   `painel-canais` (`action: "rastro"`), uma linha por paciente e dia, sem nome.
 
