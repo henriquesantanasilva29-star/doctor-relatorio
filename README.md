@@ -223,12 +223,27 @@ pelo `refresh_mvs_jornada()`:
   o mesmo da v5. A MV guarda só a PRIMEIRA reativação de cada paciente.
 - **Em aberto, paciente por paciente** (`aberto_periodo(de, ate)`, até 93 dias, desde 08/10):
   o "Falta pagar" dos cartões aberto por paciente — quem chegou no período (ou foi reativado
-  por anúncio) e tem conta aberta no Feegow, com a situação tirada dos itens: realizado e não
-  pago (cobrar), horário passou sem atendimento (remarcar), sem horário marcado (agendar),
-  marcado (confirmar). Item sem agendamento carrega a data da conta, não um horário, e por isso
-  não vira falta. Lido na hora pela `painel-canais` v5 (`action: "aberto"`), sem nome; a soma
-  por agência confere com o cartão (08/10: FSX R$ 1.350,64, Vanguarda R$ 5.860,21). O SQL está
-  em `supabase/sql/aberto_periodo.sql`.
+  por anúncio) e tem conta aberta no Feegow. A situação (v3) junta os itens das contas e a
+  AGENDA do Feegow (eventos de agendamento em `events`, por paciente): realizado ou atendido
+  sem baixa (cobrar), horário de hoje em diante (confirmar), horário que passou sem atendimento
+  (remarcar — com o que a agenda registra: não compareceu, desmarcou ou ficou como marcado) e
+  sem nenhum horário (agendar). Item sem agendamento carrega a data da conta, não um horário.
+  Lido na hora pela `painel-canais` v5 (`action: "aberto"`), sem nome; a soma por agência
+  confere com o cartão (08/10: FSX R$ 1.350,64, Vanguarda R$ 5.860,21). SQL em
+  `supabase/sql/aberto_periodo.sql`.
+- **Auditoria de 08/10** (agente separado, só leitura): cartões = agências = campanhas = rastro =
+  em aberto, e caixa total = Feegow, nas duas marcas e em dois períodos — tudo fecha no centavo.
+  Correções que saíram dela: reativação não conta quem chegou por "Meta sem id do anúncio"
+  (`agencia_serie` v6.1); pago nulo do Feegow vale zero; na Acesso o telefone do cadastro do
+  paciente (`patients`) entrou na régua, porque o `feegow_paciente` de lá só tem quem passou pela
+  agenda (+202 pacientes atribuídos, +20 de anúncio); "Sem rastreio (pré-CRM)" aparece na tela
+  como "Sem ligação com o CRM" — é paciente sem telefone válido, com telefone dividido por mais
+  de 6 cadastros ou sem conversa com a clínica, não paciente anterior ao CRM.
+- **Espelho do WhatsApp (Evolution) parado:** o coletor `evolution-anuncios` (projeto Sentinela,
+  cron 14) recebe 404 porque as instâncias "Doctor-5700" (desde 05/10) e "DOCTOR corporativo
+  Vieralves - 2125" (desde 21/09) não existem mais no Evolution — os números foram para Z-API no
+  Life CRM. O utm do CRM segue cobrindo os anúncios; voltar o espelho depende de religar o número
+  no Evolution (QR no celular) ou de pegar a procedência pelo webhook do Z-API.
 - **Quem pagou no período** (`rastro_periodo(de, ate)`, até 93 dias): lido na hora pela
   `painel-canais` (`action: "rastro"`), uma linha por paciente e dia, sem nome.
 

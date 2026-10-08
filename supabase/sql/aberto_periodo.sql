@@ -1,31 +1,40 @@
--- Aplicada nas duas bases (Doctor myiqdeonxuznvhtsvfxg e Acesso dfvmuqxjdcvwskrrdbfm) em 08/10/2026 (v2).
+-- Aplicada nas duas bases (Doctor myiqdeonxuznvhtsvfxg e Acesso dfvmuqxjdcvwskrrdbfm) em 08/10/2026 (v3).
 CREATE OR REPLACE FUNCTION public.aberto_periodo(p_de date, p_ate date)
  RETURNS jsonb
  LANGUAGE sql
  STABLE
  SET search_path TO 'public'
 AS $function$
--- 08/10/2026 — "Em aberto, paciente por paciente" da aba Canais (lido na hora pela painel-canais).
+-- v3, 08/10/2026 — "Em aberto, paciente por paciente" da aba Canais (lido na hora pela painel-canais).
 -- Uma linha por paciente com conta aberta no Feegow, pela MESMA régua do cartão:
 --   'c' = chegou no período (mv_atribuicao_unica.dia), qualquer canal; contas desde o dia em que chegou.
---   'r' = chegou antes e foi REATIVADO por anúncio no período; contas desde o dia do clique.
+--   'r' = chegou antes por OUTRO caminho e foi REATIVADO por anúncio no período; contas desde o clique.
+--         Quem chegou por "Meta sem id do anúncio" (anúncio pago de agência desconhecida) não é
+--         reativação: não dá para dizer que veio por outro caminho.
 -- aberto = valor - pago (pago limitado ao valor), somado nas contas desde o dia de referência — é o
--- "Falta pagar" do cartão da agência. Situação pelos itens das contas abertas (nesta ordem):
---   realizado = há item com valor já realizado e a conta não foi paga (cobrar)
---   marcado   = há item pendente com data de hoje em diante
---   passou    = há item pendente, com valor e com AGENDAMENTO, cuja data já passou (horário passou sem
---               atendimento). Item de valor zero (o horário de uma sessão de pacote) não conta.
---   sem_data  = o resto: conta aberta sem horário marcado (agendar). Item sem agendamento carrega
---               a data da própria conta no Feegow, que NÃO é horário — por isso não conta como "passou"
---               (v1 contava, e 40 pacientes apareciam como falta sem nunca terem tido horário).
+-- "Falta pagar" do cartão da agência.
+-- SITUAÇÃO, nesta ordem, pelos itens das contas abertas e pela AGENDA (últimos eventos de agendamento
+-- em `events`, os mesmos da v_feegow_agendamento_atual):
+--   realizado = item com valor já feito, ou item cujo agendamento foi atendido (check-in/atendido)
+--               sem a baixa no item -> cobrar
+--   marcado   = o paciente tem horário de hoje em diante (agenda: marcado, confirmado, remarcado,
+--               aguardando pagamento, ou já na clínica hoje) -> confirmar presença
+--   passou    = item com valor e com agendamento cuja data passou sem atendimento -> remarcar.
+--               `st` diz o que a agenda registra: nao_compareceu, desmarcado, cancelado ou sem_baixa
+--               (ficou "marcado/confirmado" depois da data: faltou ou ninguém deu baixa)
+--   sem_data  = o resto: conta aberta sem nenhum horário (agendar). Item sem agendamento carrega a data
+--               da própria conta, que NÃO é horário — v1 contava como falta; v2 contava como "marcado"
+--               quando a conta era de hoje.
 -- [conta, tipo, agencia, canal, dia_ref, fechado, pago, aberto, situacao, data, unidade, anuncio,
---  reat_agencia, reat_dia, itens_pendentes]
+--  reat_agencia, reat_dia, itens_pendentes, st]
 with hoje as (select (now() at time zone 'America/Manaus')::date as d),
 c as (
   select m.conta_id conta, 'c'::text tipo, m.agencia ag, m.canal, m.dia ref, m.anuncio_id aid,
          case when m.reat_dia between p_de and p_ate and m.reat_agencia is distinct from m.agencia
+                   and m.canal is distinct from 'Meta sem id do anúncio'
               then m.reat_agencia end rag,
          case when m.reat_dia between p_de and p_ate and m.reat_agencia is distinct from m.agencia
+                   and m.canal is distinct from 'Meta sem id do anúncio'
               then m.reat_dia end rdia
   from mv_atribuicao_unica m where m.dia between p_de and p_ate
 ),
@@ -33,6 +42,7 @@ r as (
   select m.conta_id, 'r'::text, m.reat_agencia, m.canal, m.reat_dia, m.reat_anuncio, m.reat_agencia, m.reat_dia
   from mv_atribuicao_unica m
   where m.reat_agencia is not null and m.reat_agencia is distinct from m.agencia
+    and m.canal is distinct from 'Meta sem id do anúncio'
     and m.reat_dia between p_de and p_ate
     and m.conta_id not in (select conta from c)
 ),
@@ -47,39 +57,92 @@ tot as (
          min(unidade_id::text) filter (where v - pg > 0.005) uni
   from inv group by 1
 ),
-itens as (
-  select i.conta,
-         count(*) filter (where it.is_executado and it.valor_brl > 0) n_exec,
-         count(*) filter (where not coalesce(it.is_executado,false) and it.valor_brl > 0) n_pend,
-         min(it.data_execucao::date) filter (where not coalesce(it.is_executado,false)
-                                               and it.data_execucao::date >= h.d) prox,
-         max(it.data_execucao::date) filter (where not coalesce(it.is_executado,false)
-                                               and it.valor_brl > 0 and it.agendamento_id is not null
-                                               and it.data_execucao::date < h.d) falta,
-         max(it.data_execucao::date) filter (where it.is_executado and it.valor_brl > 0) ult_exec,
-         min(i.data_invoice) aberta_em
-  from inv i cross join hoje h
-  join feegow_invoice_items it on it.invoice_id = i.invoice_id and not coalesce(it.is_cancelado,false)
+it as (
+  select i.conta, i.data_invoice, x.agendamento_id::text ag_id, x.valor_brl valor,
+         coalesce(x.is_executado,false) feito, x.data_execucao::date dex
+  from inv i
+  join feegow_invoice_items x on x.invoice_id = i.invoice_id and not coalesce(x.is_cancelado,false)
   where i.v - i.pg > 0.005
+),
+abertas as (select distinct conta from it),
+-- agenda: todo agendamento do paciente (pelo paciente_id do Feegow) e os ligados aos itens
+ag_ids as (
+  select distinct e.payload->>'agendamento_id' ag_id
+  from events e
+  where e.type in ('appointment_created','appointment_canceled','consultation_done','check_in_done')
+    and e.payload->>'paciente_id' in (select conta::text from abertas)
+  union
+  select ag_id from it where ag_id is not null
+),
+ev as (
+  select distinct on (e.payload->>'agendamento_id')
+         e.payload->>'agendamento_id' ag_id, e.payload->>'status_id' st,
+         parse_feegow_date(e.payload->>'data') dt
+  from events e join ag_ids a on a.ag_id = e.payload->>'agendamento_id'
+  where e.type in ('appointment_created','appointment_canceled','consultation_done','check_in_done')
+  order by e.payload->>'agendamento_id', e.occurred_at desc
+),
+ev_pac as (
+  select distinct (e.payload->>'paciente_id') pac, e.payload->>'agendamento_id' ag_id
+  from events e
+  where e.type in ('appointment_created','appointment_canceled','consultation_done','check_in_done')
+    and e.payload->>'paciente_id' in (select conta::text from abertas)
+),
+prox_ag as (
+  select p.pac, min(v2.dt) dt
+  from ev_pac p join ev v2 on v2.ag_id = p.ag_id cross join hoje h
+  where v2.dt >= h.d and v2.st in ('1','7','15','208','2','4','5')
   group by 1
+),
+sit as (
+  select a.conta,
+    count(*) filter (where (t.feito and t.valor > 0)
+                        or (not t.feito and v.st in ('2','3','4','5'))) n_real,
+    max(case when t.feito and t.valor > 0 then t.dex
+             when not t.feito and v.st in ('2','3','4','5') then coalesce(v.dt, t.dex) end) dt_real,
+    count(*) filter (where not t.feito and t.valor > 0) n_pend,
+    -- horário de hoje em diante: na agenda (qualquer agendamento do paciente) ou no item agendado
+    least(
+      pa.dt,
+      min(t.dex) filter (where not t.feito and t.ag_id is not null and t.dex >= (select d from hoje)
+                           and coalesce(v.st,'1') in ('1','7','15','208','2','4','5'))
+    ) prox,
+    max(coalesce(v.dt, t.dex)) filter (where not t.feito and t.valor > 0 and t.ag_id is not null
+                                         and coalesce(v.dt, t.dex) < (select d from hoje)
+                                         and coalesce(v.st,'') not in ('2','3','4','5')) falta,
+    (array_agg(case when v.st = '6' then 'nao_compareceu'
+                    when v.st = '11' then 'desmarcado'
+                    when v.st in ('22','900') then 'cancelado'
+                    else 'sem_baixa' end
+               order by coalesce(v.dt, t.dex) desc)
+       filter (where not t.feito and t.valor > 0 and t.ag_id is not null
+                 and coalesce(v.dt, t.dex) < (select d from hoje)
+                 and coalesce(v.st,'') not in ('2','3','4','5')))[1] st_falta,
+    min(t.data_invoice) aberta_em
+  from abertas a
+  join it t on t.conta = a.conta
+  left join ev v on v.ag_id = t.ag_id
+  left join prox_ag pa on pa.pac = a.conta::text
+  group by a.conta, pa.dt
 )
 select coalesce(jsonb_agg(jsonb_build_array(
   b.conta, b.tipo, b.ag, b.canal, to_char(b.ref,'YYYY-MM-DD'),
   t.v::float8, t.pg::float8, t.ab::float8,
-  case when coalesce(it.n_exec,0) > 0 then 'realizado'
-       when it.prox is not null then 'marcado'
-       when it.falta is not null then 'passou'
+  case when coalesce(s.n_real,0) > 0 then 'realizado'
+       when s.prox is not null then 'marcado'
+       when s.falta is not null then 'passou'
        else 'sem_data' end,
-  to_char(case when coalesce(it.n_exec,0) > 0 then it.ult_exec
-               when it.prox is not null then it.prox
-               when it.falta is not null then it.falta
-               else it.aberta_em end,'YYYY-MM-DD'),
+  to_char(case when coalesce(s.n_real,0) > 0 then s.dt_real
+               when s.prox is not null then s.prox
+               when s.falta is not null then s.falta
+               else s.aberta_em end,'YYYY-MM-DD'),
   coalesce(regexp_replace(u.nome, '^Unidade\s+', ''), t.uni, ''),
-  b.aid, b.rag, to_char(b.rdia,'YYYY-MM-DD'), coalesce(it.n_pend,0)
+  b.aid, b.rag, to_char(b.rdia,'YYYY-MM-DD'), coalesce(s.n_pend,0),
+  case when coalesce(s.n_real,0) = 0 and s.prox is null and s.falta is not null then s.st_falta end
 ) order by t.ab desc, b.conta), '[]'::jsonb)
 from base b
 join tot t on t.conta = b.conta
-left join itens it on it.conta = b.conta
+left join sit s on s.conta = b.conta
 left join feegow_dim_unidade u on u.unidade_id::text = t.uni
 where t.ab > 0.005;
 $function$;

@@ -2146,6 +2146,10 @@ function nomeAnuncio(aid){
   if (!NOME_AD) { NOME_AD = {}; MID.forEach(function(r){ if (r.id && !NOME_AD[r.id]) NOME_AD[r.id] = r.anuncio; }); }
   return NOME_AD[String(aid)] || '';
 }
+/* "Sem rastreio (pré-CRM)" é a chave que o banco usa para o paciente do Feegow que não se liga a
+   nenhum contato do CRM. Não é "antes do CRM": é sem telefone válido, telefone dividido por mais
+   de 6 cadastros ou telefone que nunca conversou com a clínica (auditoria de 08/10/2026). */
+function nomeCanal(c){ return c === 'Sem rastreio (pré-CRM)' ? 'Sem ligação com o CRM' : c; }
 function rastroGrupo(l){
   if (PAGO.indexOf(l.canal) >= 0) return 'pago';
   if (NPAGO.indexOf(l.canal) >= 0) return 'naopago';
@@ -2264,7 +2268,7 @@ function pintaTabelaRastro(){
         origem = '<span class="agn ' + (AG_CLASSE[l.ag] || '') + '">' + esc(l.ag || 'Não identificada') + '</span>' +
           (nm ? '<span class="obs">' + esc(nm) + '</span>' : (l.aid ? '<span class="obs">anúncio ' + esc(l.aid) + '</span>' : ''));
       } else {
-        origem = esc(l.canal);
+        origem = esc(nomeCanal(l.canal));
         if (l.via === 'cobranca_ctwa') origem += '<span class="obs">conversa aberta por anúncio, sem o id do anúncio</span>';
       }
       var obs = [];
@@ -2298,18 +2302,25 @@ function pintaTabelaRastro(){
    como "Reativação", com as contas desde o dia do clique. Lido NA HORA do banco
    (painel-canais, action "aberto"); sem nome — o paciente aparece pelo código do
    Feegow. A situação sai dos itens das contas abertas:
-     realizado  algo com valor já foi feito e não foi pago        -> cobrar
-     passou     tinha horário (agendamento) e ele passou sem ser feito -> remarcar / conferir se veio
-     sem_data   conta aberta sem horário marcado                   -> agendar
-     marcado    tem horário de hoje em diante                      -> confirmar presença
+     realizado  algo com valor foi feito, ou o agendamento ligado à conta foi
+                atendido sem baixa no item                          -> cobrar
+     marcado    o paciente tem horário de hoje em diante na agenda -> confirmar presença
+     passou     tinha horário e ele passou sem atendimento          -> remarcar / conferir se veio
+     sem_data   conta aberta sem nenhum horário                     -> agendar
+   v3 (08/10): a agenda vem dos eventos de agendamento do Feegow (os mesmos da
+   v_feegow_agendamento_atual), por paciente — o horário marcado para o resto de um
+   pacote conta, mesmo sem estar ligado ao item da conta.
    Item sem agendamento carrega no Feegow a data da própria conta, que não é
    horário: por isso ele não conta como "passou" (a primeira versão contava, e
    quem nunca teve horário aparecia como falta).
    Linha: [conta, tipo, ag, canal, ref, fechado, pago, aberto, sit, data, uni, aid, reat_ag, reat_d, n_pend] */
 var ABERTO = {}, ABERTO_ATUAL = [], abChave = '', abFiltro = 'pago', abSit = 'todas', abBusca = '', abLimite = 150;
+var AB_ST = {nao_compareceu: 'não compareceu', desmarcado: 'desmarcado pelo paciente',
+  cancelado: 'cancelado', sem_baixa: 'ficou como marcado na agenda: faltou ou ninguém deu baixa'};
 var AB_SIT = {
   realizado: {n: 'Realizado, falta pagar', o: 1, f: 'cobrar'},
   passou:    {n: 'Horário passou sem atendimento', o: 2, f: 'remarcar ou conferir se veio'},
+  /* o que a agenda registra no horário que passou */
   sem_data:  {n: 'Sem horário marcado', o: 3, f: 'agendar'},
   marcado:   {n: 'Marcado', o: 4, f: 'confirmar presença'}
 };
@@ -2347,7 +2358,8 @@ function abertoCarrega(){
       (r.j.aberto || []).forEach(function(x){
         ABERTO_ATUAL.push({m: r.m.id, conta: x[0], tipo: x[1] || 'c', ag: x[2] || '', canal: x[3] || '',
           ref: x[4] || '', v: x[5] || 0, pg: x[6] || 0, ab: x[7] || 0, sit: x[8] || 'sem_data', data: x[9] || '',
-          uni: x[10] || '', aid: x[11] || '', reat_ag: x[12] || '', reat_d: x[13] || '', pend: x[14] || 0});
+          uni: x[10] || '', aid: x[11] || '', reat_ag: x[12] || '', reat_d: x[13] || '', pend: x[14] || 0,
+          st: x[15] || ''});
       });
     });
     pintaAberto();
@@ -2426,12 +2438,14 @@ function pintaAberto(){
     'cartões) e tem conta aberta no Feegow desde o dia em que chegou: <b>em aberto = fechado − pago</b>. Somando as ' +
     'linhas de uma agência dá o &ldquo;Falta pagar&rdquo; do cartão dela. Em <b>Reativação</b> está quem já conhecia a ' +
     'Doctor e clicou no anúncio no período; as contas contam desde o dia do clique. ' +
-    '<b>A situação vem dos itens das contas abertas, nesta ordem:</b> &ldquo;realizado&rdquo; — algo com valor já foi ' +
-    'feito e não foi pago (cobrar); &ldquo;marcado&rdquo; — tem horário de hoje em diante (confirmar presença); ' +
-    '&ldquo;horário passou&rdquo; — tinha agendamento e a data passou sem o item ser feito (faltou, ou a recepção não ' +
-    'marcou como realizado no Feegow); &ldquo;sem horário&rdquo; — conta aberta sem nenhum horário marcado (agendar: ' +
-    'é orçamento fechado esperando a pessoa marcar, ou o resto de um pacote). A data de item sem agendamento é a da ' +
-    'conta, não um horário, e por isso não vira falta. Sem nome: procure o código no Feegow.';
+    '<b>A situação vem das contas abertas e da agenda do Feegow, nesta ordem:</b> &ldquo;realizado&rdquo; — algo com valor ' +
+    'já foi feito, ou o agendamento ligado à conta teve check-in/atendimento, e não foi pago (cobrar); &ldquo;marcado&rdquo; ' +
+    '— o paciente tem horário de hoje em diante na agenda, inclusive o resto de um pacote (confirmar presença); ' +
+    '&ldquo;horário passou&rdquo; — tinha agendamento e a data passou sem atendimento; embaixo aparece o que a agenda ' +
+    'registra (não compareceu, desmarcou, ou ficou como marcado — aí faltou ou ninguém deu baixa); &ldquo;sem horário&rdquo; ' +
+    '— conta aberta sem nenhum horário na agenda (agendar: orçamento fechado esperando a pessoa marcar). A data de item ' +
+    'sem agendamento é a da conta, não um horário, e por isso não vira falta nem horário marcado. ' +
+    'Sem nome: procure o código no Feegow.';
 }
 function pintaTabelaAberto(){
   var tb = document.getElementById('tAberto'); if (!tb) return;
@@ -2474,12 +2488,13 @@ function pintaTabelaAberto(){
             fmtBR(l.ref) + '</span>' : '') +
           (nm ? '<span class="obs">' + esc(nm) + '</span>' : (l.aid ? '<span class="obs">anúncio ' + esc(l.aid) + '</span>' : ''));
       } else {
-        origem = esc(l.canal);
+        origem = esc(nomeCanal(l.canal));
       }
       if (l.reat_ag) origem += '<span class="obs">clicou em anúncio da ' + esc(l.reat_ag) + ' em ' + fmtBR(l.reat_d) + '</span>';
       return cab + '<tr><td><span class="cod">' + esc(l.conta) + '</span>' +
           (duas ? '<span class="obs">' + (l.m === 'doctor' ? 'Doctor+' : 'Acesso') + '</span>' : '') + '</td>' +
         '<td><span class="sit ' + esc(l.sit) + '">' + esc((AB_SIT[l.sit] || {n: l.sit}).n) + '</span>' +
+          (l.sit === 'passou' && AB_ST[l.st] ? '<span class="obs">' + esc(AB_ST[l.st]) + '</span>' : '') +
           (l.pend > 1 ? '<span class="obs">' + N(l.pend) + ' itens pendentes</span>' : '') + '</td>' +
         '<td>' + data + '</td>' +
         '<td>' + esc(l.uni || '—') + '</td>' +
@@ -2550,11 +2565,12 @@ function render(){
       li('Orgânico e direto', org, somaB(NPAGO)) +
       li('Cadastro criado pela equipe — origem não registrada', eq, gB('Criado pela equipe')) +
       li('Base migrada para o CRM — origem não registrada', bs, gB('Base importada')) +
-      li('Nunca passou pelo CRM — origem não registrada', sr, gB('Sem rastreio (pré-CRM)')) +
+      li('Sem ligação com o CRM — telefone ausente, dividido ou sem conversa', sr, gB('Sem rastreio (pré-CRM)')) +
       '<div class="nota" style="margin-top:10px">As três últimas linhas <b>não são origem de paciente</b>. ' +
       'Elas vêm do campo <span style="font-family:monospace">origin</span> do Life CRM, que diz como o <b>cadastro</b> ' +
-      'entrou — importado de planilha, digitado por alguém da equipe, ou inexistente porque o paciente nunca ' +
-      'passou pelo WhatsApp. Um paciente que viu o anúncio e ligou para o call center cai em “criado pela equipe”, ' +
+      'entrou — importado de planilha, digitado por alguém da equipe, ou inexistente: a última linha é o paciente do ' +
+      'Feegow que não se liga a nenhum contato do CRM (sem telefone válido, telefone dividido por mais de 6 cadastros, ' +
+      'ou telefone que nunca conversou com a clínica). Um paciente que viu o anúncio e ligou para o call center cai em “criado pela equipe”, ' +
       'e a origem paga dele se perde aqui. <b>Onde a pessoa foi atendida e de onde ela veio são duas perguntas ' +
       'diferentes</b>, e esta tela só sabe responder bem a segunda para quem entrou por conversa.</div>' +
       '</div>';
