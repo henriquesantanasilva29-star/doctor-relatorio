@@ -247,6 +247,8 @@ pelo `refresh_mvs_jornada()`:
   guarda cada troca em `crm_utm_historico` com a hora — o utm sobrescrito com a data corrigida
   pela mesma regra da `v_jornada_origem`. Na Doctor ele entra na régua pela `v_jornada_origem`
   (via `crm_utm`); na Acesso, direto na `atribuicao_pacientes`. Nada disso escreve no CRM.
+  **Em 09/10 o cron 14 (`evolution_anuncios_coleta`, a cada 15 min) foi pausado** —
+  `cron.alter_job(14, active := false)` no Sentinela; para religar, `active := true`.
 - **Conta 0085 = "Doctor odonto"** (act_3624673681138830, BM OrthoDontic Manaus), confirmada como
   FSX em 08/10. **Coletada desde 09/10:** a BM OrthoDontic tem o portfólio da Doctor
   (709329867800952) como parceiro em "Ver desempenho", e no portfólio da Doctor a conta foi
@@ -260,12 +262,19 @@ pelo `refresh_mvs_jornada()`:
   investimento e sem custo/lead nem retorno (a linha é balaio: junta esse gasto com lead de
   anúncio sem dono) — não vira cartão. Indício: a nota da VX diz que os PDFs dela cobriam a
   "Doctor odonto"; se confirmado, basta trocar a agência do período até 30/09 para VX.
+  **Henrique confirmou em 09/10: era da VX.** A troca (`update meta_agencia_periodo set
+  agencia = 'VX' where sufixo = '0085' and vigente_de = '2000-01-01'`) foi cancelada três
+  vezes na confirmação do assistente e precisa ser rodada à mão no editor SQL; depois,
+  republicar e tirar da nota da VX em `canais.html` o "aparece como Não identificada".
 - **Quem pagou no período** (`rastro_periodo(de, ate)`, até 93 dias): lido na hora pela
   `painel-canais` (`action: "rastro"`), uma linha por paciente e dia, sem nome.
 
 Sobraram sem uso no banco da Doctor, das tentativas da tarde, `mv_atribuicao`,
 `mv_atribuicao_paciente` e `_auditoria_canais_antes` (também na Acesso). Podem ser
-apagadas: a remoção pelo assistente foi recusada pela confirmação de comando destrutivo.
+apagadas: a remoção pelo assistente foi recusada pela confirmação de comando destrutivo
+(de novo em 09/10). Conferido em 09/10: nenhuma view ou função as lê (só um comentário
+na `agencia_procedimentos`), e a última leitura delas foi em 07/10 (as MVs) e 08/10 (a
+auditoria), com a publicação rodando várias vezes depois.
 
 ## O que não sai daqui
 
