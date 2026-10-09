@@ -248,9 +248,18 @@ pelo `refresh_mvs_jornada()`:
   pela mesma regra da `v_jornada_origem`. Na Doctor ele entra na régua pela `v_jornada_origem`
   (via `crm_utm`); na Acesso, direto na `atribuicao_pacientes`. Nada disso escreve no CRM.
 - **Conta 0085 = "Doctor odonto"** (act_3624673681138830, BM OrthoDontic Manaus), confirmada como
-  FSX em 08/10. Para o investimento entrar, alguém com admin na BM precisa atribuir o portfólio da
-  Doctor (709329867800952) como parceiro em "Ver desempenho" e, no portfólio da Doctor, atribuir a
-  conta ao usuário do sistema da coleta (como foi feito com a FarMelhor em 25/08).
+  FSX em 08/10. **Coletada desde 09/10:** a BM OrthoDontic tem o portfólio da Doctor
+  (709329867800952) como parceiro em "Ver desempenho", e no portfólio da Doctor a conta foi
+  atribuída aos dois "Conversions API System User" (só "Ver desempenho" — os mesmos que leem a
+  FarMelhor; é por eles que o token da `coleta-meta` enxerga as contas, via `me/adaccounts`).
+  A coleta de 40 dias trouxe 197 linhas desde 01/09. O cartão da FSX deixou de ser "parcial".
+- **A odonto gastou em setembro** (R$ 1.317,77 de 01 a 27/09, os mesmos anúncios, campanha hoje
+  chamada "FSX | WHATSAPP | 01.10.26"; parada de 28/09 a 01/10). Quem operava não foi
+  confirmado (09/10), então `meta_agencia_periodo` tem 0085 = "Não identificada" até 30/09 e FSX
+  desde 01/10. "Não identificada" aparece só como linha da tabela de agências, com o
+  investimento e sem custo/lead nem retorno (a linha é balaio: junta esse gasto com lead de
+  anúncio sem dono) — não vira cartão. Indício: a nota da VX diz que os PDFs dela cobriam a
+  "Doctor odonto"; se confirmado, basta trocar a agência do período até 30/09 para VX.
 - **Quem pagou no período** (`rastro_periodo(de, ate)`, até 93 dias): lido na hora pela
   `painel-canais` (`action: "rastro"`), uma linha por paciente e dia, sem nome.
 

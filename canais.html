@@ -1333,8 +1333,12 @@ function pintaAgencias(){
      R$ 6.220 de leads da VX de setembro para tras. O cartao dizia "recebido" e a
      tabela de campanhas, na mesma tela, dizia R$ 100. Agora o grande e a mesma
      regua da tabela, e o caixa de paciente antigo aparece numa linha propria. */
+  /* 09/10/2026: "Não identificada" passou a ter conta cadastrada (a odonto 0085 em
+     setembro, antes da FSX, com R$ 1.317,77 de investimento coletado e operador não
+     confirmado). Por isso agRef dela tem `suf` — e mesmo assim não vira cartão:
+     fica como linha da tabela, com o investimento, sem parecer uma terceira agência. */
   duelo.innerHTML = linhas.filter(function(o){
-    return AG_CONHECIDAS[o.ag] || agRef(o.ag).suf;
+    return o.ag !== 'Não identificada' && (AG_CONHECIDAS[o.ag] || agRef(o.ag).suf);
   }).map(function(o){
     var ref = agRef(o.ag), b = mB && mB[o.ag];
     /* so caixa: a MARCA nao tem jornada por anuncio desta agencia (a Acesso), entao
@@ -1442,8 +1446,10 @@ function pintaAgencias(){
              : ref.parcial ? BRL0(o.inv) + ' <span style="color:var(--red)">+ conta não coletada</span>'
              : '<span style="color:var(--red)">' +
              (ref.ger ? 'não compartilhado' : 'não identificada') + '</span>')) +
-        td((ref.coletada && o.r) ? BRL(o.inv / o.r) : '—') +
-        td((ref.coletada && o.inv) ? (o.v / o.inv).toFixed(1).replace('.', ',') + '×' : '—') +
+        /* "Não identificada" é balaio: o investimento é da odonto em setembro e o
+           lead é de qualquer anúncio sem dono. Dividir um pelo outro inventa custo. */
+        td((ref.coletada && o.r && o.ag !== 'Não identificada') ? BRL(o.inv / o.r) : '—') +
+        td((ref.coletada && o.inv && o.ag !== 'Não identificada') ? (o.v / o.inv).toFixed(1).replace('.', ',') + '×' : '—') +
         '</tr>';
     }).join('') + '</tbody>' +
     /* o caixa que o canal chama de pago mas cujo anuncio os espelhos nao
@@ -1520,7 +1526,9 @@ function pintaAgencias(){
     'de lead — o que existe é conta de fora do relatório.' +
     ' · <b>A VX aqui é a conta &ldquo;Farmelhor - Djalma Batista&rdquo;, e ela não entra na prestação de ' +
     'contas que a agência entrega.</b> Os relatórios que a VX manda cobrem outras duas contas ' +
-    '(&ldquo;Doctor Acesso&rdquo;, que é da Acesso Saúde, e &ldquo;Doctor odonto&rdquo;, que ninguém coleta). ' +
+    '(&ldquo;Doctor Acesso&rdquo;, que é da Acesso Saúde, e &ldquo;Doctor odonto&rdquo;, final 0085, coletada desde ' +
+    '09/10 — de 01/10 em diante ela é da FSX; o gasto de setembro aparece como &ldquo;Não identificada&rdquo; ' +
+    'até alguém confirmar quem operava). ' +
     'Comparar este quadro com o PDF da agência sem saber disso faz parecer que o BI está inflado. ' +
     'O confronto conta a conta está no <b>BI do grupo</b>, em &ldquo;Quem está rodando mídia&rdquo;.';
 
