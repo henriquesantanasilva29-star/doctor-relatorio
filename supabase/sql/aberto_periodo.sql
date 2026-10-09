@@ -1,10 +1,15 @@
--- Aplicada nas duas bases (Doctor myiqdeonxuznvhtsvfxg e Acesso dfvmuqxjdcvwskrrdbfm) em 08/10/2026 (v3).
+-- Aplicada nas duas bases (Doctor myiqdeonxuznvhtsvfxg e Acesso dfvmuqxjdcvwskrrdbfm) em 09/10/2026 (v4).
 CREATE OR REPLACE FUNCTION public.aberto_periodo(p_de date, p_ate date)
  RETURNS jsonb
  LANGUAGE sql
  STABLE
  SET search_path TO 'public'
 AS $function$
+-- v4, 09/10/2026 — NOME do paciente no fim da linha (decisão do Henrique: a aba só abre com login
+--   de administrador, e cobrar exige saber quem é). Fonte, nesta ordem: feegow_pacientes,
+--   feegow_paciente, CRM pela identidade do Feegow (mv_conta_paciente -> patients) e CRM pelo
+--   feegow_patient_id do cadastro. Na Acesso o feegow_paciente só tem quem passou pela agenda;
+--   o CRM cobre o resto. Nada disso vai para o dados.json publicado.
 -- v3, 08/10/2026 — "Em aberto, paciente por paciente" da aba Canais (lido na hora pela painel-canais).
 -- Uma linha por paciente com conta aberta no Feegow, pela MESMA régua do cartão:
 --   'c' = chegou no período (mv_atribuicao_unica.dia), qualquer canal; contas desde o dia em que chegou.
@@ -26,7 +31,7 @@ AS $function$
 --               da própria conta, que NÃO é horário — v1 contava como falta; v2 contava como "marcado"
 --               quando a conta era de hoje.
 -- [conta, tipo, agencia, canal, dia_ref, fechado, pago, aberto, situacao, data, unidade, anuncio,
---  reat_agencia, reat_dia, itens_pendentes, st]
+--  reat_agencia, reat_dia, itens_pendentes, st, nome]
 with hoje as (select (now() at time zone 'America/Manaus')::date as d),
 c as (
   select m.conta_id conta, 'c'::text tipo, m.agencia ag, m.canal, m.dia ref, m.anuncio_id aid,
@@ -56,6 +61,25 @@ tot as (
   select conta, round(sum(v),2) v, round(sum(pg),2) pg, round(sum(v - pg),2) ab,
          min(unidade_id::text) filter (where v - pg > 0.005) uni
   from inv group by 1
+),
+-- nome: uma leitura por fonte, só das contas que ficam na lista
+alvo as (select conta from tot where ab > 0.005),
+n_fp as (select p.feegow_patient_id conta, min(nullif(btrim(p.nome),'')) nome
+         from feegow_pacientes p where p.feegow_patient_id in (select conta from alvo) group by 1),
+n_f1 as (select p.paciente_id conta, min(nullif(btrim(p.nome),'')) nome
+         from feegow_paciente p where p.paciente_id in (select conta from alvo) group by 1),
+n_cp as (select cp.conta_id conta, min(nullif(btrim(pt.full_name),'')) nome
+         from mv_conta_paciente cp join patients pt on pt.id::text = cp.patient_id
+         where cp.conta_id in (select conta from alvo) group by 1),
+n_pc as (select (pt.custom->>'feegow_patient_id') fid, min(nullif(btrim(pt.full_name),'')) nome
+         from patients pt where pt.custom->>'feegow_patient_id' in (select conta::text from alvo) group by 1),
+nm as (
+  select a.conta, coalesce(fp.nome, f1.nome, cp.nome, pc.nome) nome
+  from alvo a
+  left join n_fp fp on fp.conta = a.conta
+  left join n_f1 f1 on f1.conta = a.conta
+  left join n_cp cp on cp.conta = a.conta
+  left join n_pc pc on pc.fid = a.conta::text
 ),
 it as (
   select i.conta, i.data_invoice, x.agendamento_id::text ag_id, x.valor_brl valor,
@@ -138,11 +162,13 @@ select coalesce(jsonb_agg(jsonb_build_array(
                else s.aberta_em end,'YYYY-MM-DD'),
   coalesce(regexp_replace(u.nome, '^Unidade\s+', ''), t.uni, ''),
   b.aid, b.rag, to_char(b.rdia,'YYYY-MM-DD'), coalesce(s.n_pend,0),
-  case when coalesce(s.n_real,0) = 0 and s.prox is null and s.falta is not null then s.st_falta end
+  case when coalesce(s.n_real,0) = 0 and s.prox is null and s.falta is not null then s.st_falta end,
+  nm.nome
 ) order by t.ab desc, b.conta), '[]'::jsonb)
 from base b
 join tot t on t.conta = b.conta
 left join sit s on s.conta = b.conta
+left join nm on nm.conta = b.conta
 left join feegow_dim_unidade u on u.unidade_id::text = t.uni
 where t.ab > 0.005;
 $function$;

@@ -228,7 +228,12 @@ pelo `refresh_mvs_jornada()`:
   sem baixa (cobrar), horário de hoje em diante (confirmar), horário que passou sem atendimento
   (remarcar — com o que a agenda registra: não compareceu, desmarcou ou ficou como marcado) e
   sem nenhum horário (agendar). Item sem agendamento carrega a data da conta, não um horário.
-  Lido na hora pela `painel-canais` v5 (`action: "aberto"`), sem nome; a soma por agência
+  Lido na hora pela `painel-canais` v5 (`action: "aberto"`), **com o nome do paciente desde
+  09/10** (v4 — decisão do Henrique: a aba só abre com login de administrador ou com a aba
+  Canais liberada, e cobrar exige saber quem é; o nome não vai para o `dados.json`). Nome do
+  Feegow (`feegow_pacientes`, depois `feegow_paciente`) e, na falta, do CRM pela identidade do
+  Feegow (`mv_conta_paciente` → `patients`, e `patients.custom.feegow_patient_id`) — 100% da
+  lista com nome nas duas bases; busca por nome (sem acento) ou código. A soma por agência
   confere com o cartão (08/10: FSX R$ 1.350,64, Vanguarda R$ 5.860,21). SQL em
   `supabase/sql/aberto_periodo.sql`.
 - **Auditoria de 08/10** (agente separado, só leitura): cartões = agências = campanhas = rastro =

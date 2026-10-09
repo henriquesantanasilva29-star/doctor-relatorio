@@ -353,6 +353,7 @@ tfoot td{padding:8px 10px;font-weight:700;border-top:2px solid var(--dark)}
 #tAberto td{vertical-align:top}
 #tAberto .obs{display:block;font-size:11px;color:var(--gray-text);margin-top:2px;line-height:1.35}
 #tAberto .cod{font-family:monospace;font-size:12.5px;white-space:nowrap}
+#tAberto .nomepac{display:block;font-weight:600;min-width:150px;max-width:260px;line-height:1.3}
 #tAberto .mais td{text-align:center;padding:12px}
 #tAberto .mais button{font:inherit;font-size:13px;border:1px solid var(--border);background:#fff;
   border-radius:999px;padding:6px 14px;cursor:pointer}
@@ -2309,8 +2310,9 @@ function pintaTabelaRastro(){
    quem chegou no período (régua única) e tem conta aberta no Feegow desde o dia
    em que chegou. Quem chegou antes e foi reativado por anúncio no período entra
    como "Reativação", com as contas desde o dia do clique. Lido NA HORA do banco
-   (painel-canais, action "aberto"); sem nome — o paciente aparece pelo código do
-   Feegow. A situação sai dos itens das contas abertas:
+   (painel-canais, action "aberto"). Desde 09/10 com o NOME do paciente (decisão do
+   Sant'Ana: a aba só abre com login de administrador, e cobrar exige saber quem é);
+   antes, só o código do Feegow. A situação sai dos itens das contas abertas:
      realizado  algo com valor foi feito, ou o agendamento ligado à conta foi
                 atendido sem baixa no item                          -> cobrar
      marcado    o paciente tem horário de hoje em diante na agenda -> confirmar presença
@@ -2322,7 +2324,7 @@ function pintaTabelaRastro(){
    Item sem agendamento carrega no Feegow a data da própria conta, que não é
    horário: por isso ele não conta como "passou" (a primeira versão contava, e
    quem nunca teve horário aparecia como falta).
-   Linha: [conta, tipo, ag, canal, ref, fechado, pago, aberto, sit, data, uni, aid, reat_ag, reat_d, n_pend] */
+   Linha: [conta, tipo, ag, canal, ref, fechado, pago, aberto, sit, data, uni, aid, reat_ag, reat_d, n_pend, st, nome] */
 var ABERTO = {}, ABERTO_ATUAL = [], abChave = '', abFiltro = 'pago', abSit = 'todas', abBusca = '', abLimite = 150;
 var AB_ST = {nao_compareceu: 'não compareceu', desmarcado: 'desmarcado pelo paciente',
   cancelado: 'cancelado', sem_baixa: 'ficou como marcado na agenda: faltou ou ninguém deu baixa'};
@@ -2368,7 +2370,7 @@ function abertoCarrega(){
         ABERTO_ATUAL.push({m: r.m.id, conta: x[0], tipo: x[1] || 'c', ag: x[2] || '', canal: x[3] || '',
           ref: x[4] || '', v: x[5] || 0, pg: x[6] || 0, ab: x[7] || 0, sit: x[8] || 'sem_data', data: x[9] || '',
           uni: x[10] || '', aid: x[11] || '', reat_ag: x[12] || '', reat_d: x[13] || '', pend: x[14] || 0,
-          st: x[15] || ''});
+          st: x[15] || '', nome: x[16] || ''});
       });
     });
     pintaAberto();
@@ -2401,7 +2403,7 @@ function pintaAberto(){
   fil.innerHTML = opc.map(function(o){
     return '<button type="button" data-f="' + esc(o[0]) + '" class="' + (o[0] === abFiltro ? 'on' : '') + '">' +
       esc(o[1]) + ' · ' + BRL0(tot(o[0])) + '</button>';
-  }).join('') + '<input id="abBusca" type="search" placeholder="código do paciente" value="' + esc(abBusca) + '">';
+  }).join('') + '<input id="abBusca" type="search" placeholder="nome ou código do paciente" value="' + esc(abBusca) + '">';
   Array.prototype.forEach.call(fil.querySelectorAll('button'), function(b){
     b.onclick = function(){ abFiltro = b.getAttribute('data-f'); abLimite = 150; pintaAberto(); };
   });
@@ -2454,15 +2456,17 @@ function pintaAberto(){
     'registra (não compareceu, desmarcou, ou ficou como marcado — aí faltou ou ninguém deu baixa); &ldquo;sem horário&rdquo; ' +
     '— conta aberta sem nenhum horário na agenda (agendar: orçamento fechado esperando a pessoa marcar). A data de item ' +
     'sem agendamento é a da conta, não um horário, e por isso não vira falta nem horário marcado. ' +
-    'Sem nome: procure o código no Feegow.';
+    '<b>O nome</b> vem do cadastro do Feegow; quando o Feegow não tem, do cadastro do CRM ligado pelo código do ' +
+    'paciente no Feegow. A lista é lida na hora, só para quem entrou com login de administrador, e não fica no ' +
+    'arquivo publicado.';
 }
 function pintaTabelaAberto(){
   var tb = document.getElementById('tAberto'); if (!tb) return;
-  var b = (abBusca || '').trim();
+  var b = semAcento((abBusca || '').trim()).toLowerCase();
   var L = (ABERTO_ATUAL || []).filter(function(l){
     if (!abNoRecorte(l)) return false;
     if (abSit !== 'todas' && l.sit !== abSit) return false;
-    if (b && String(l.conta).indexOf(b) < 0) return false;
+    if (b && String(l.conta).indexOf(b) < 0 && semAcento(l.nome || '').toLowerCase().indexOf(b) < 0) return false;
     return true;
   }).sort(function(x, y){
     return ((AB_SIT[x.sit] || {o: 9}).o - (AB_SIT[y.sit] || {o: 9}).o) || (y.ab - x.ab) || (x.conta - y.conta);
@@ -2500,8 +2504,9 @@ function pintaTabelaAberto(){
         origem = esc(nomeCanal(l.canal));
       }
       if (l.reat_ag) origem += '<span class="obs">clicou em anúncio da ' + esc(l.reat_ag) + ' em ' + fmtBR(l.reat_d) + '</span>';
-      return cab + '<tr><td><span class="cod">' + esc(l.conta) + '</span>' +
-          (duas ? '<span class="obs">' + (l.m === 'doctor' ? 'Doctor+' : 'Acesso') + '</span>' : '') + '</td>' +
+      return cab + '<tr><td>' + (l.nome ? '<b class="nomepac">' + esc(l.nome) + '</b>' : '') +
+          '<span class="' + (l.nome ? 'obs ' : '') + 'cod">' + (l.nome ? 'código ' : '') + esc(l.conta) +
+          (duas ? ' · ' + (l.m === 'doctor' ? 'Doctor+' : 'Acesso') : '') + '</span></td>' +
         '<td><span class="sit ' + esc(l.sit) + '">' + esc((AB_SIT[l.sit] || {n: l.sit}).n) + '</span>' +
           (l.sit === 'passou' && AB_ST[l.st] ? '<span class="obs">' + esc(AB_ST[l.st]) + '</span>' : '') +
           (l.pend > 1 ? '<span class="obs">' + N(l.pend) + ' itens pendentes</span>' : '') + '</td>' +
