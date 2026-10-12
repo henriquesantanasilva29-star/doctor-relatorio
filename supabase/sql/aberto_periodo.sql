@@ -1,10 +1,16 @@
--- Aplicada nas duas bases (Doctor myiqdeonxuznvhtsvfxg e Acesso dfvmuqxjdcvwskrrdbfm) em 09/10/2026 (v4).
+-- Aplicada nas duas bases (Doctor myiqdeonxuznvhtsvfxg e Acesso dfvmuqxjdcvwskrrdbfm) em 12/10/2026 (v5).
 CREATE OR REPLACE FUNCTION public.aberto_periodo(p_de date, p_ate date)
  RETURNS jsonb
  LANGUAGE sql
  STABLE
  SET search_path TO 'public'
 AS $function$
+-- v5, 12/10/2026 — ITEM SEM AGENDAMENTO LIGADO casa com a agenda pelo PROCEDIMENTO: o agendamento do
+--   mesmo paciente, com o mesmo procedimento do item e data a partir da conta. Prioridade: atendido
+--   (-> realizado, cobrar), marcado adiante, e o último que passou (-> passou, com o que a agenda
+--   registra). Na Doctor, dos 42 "sem horário" não pagos de 01-12/10 (R$ 20.943), só 15 nunca
+--   tiveram o procedimento agendado (R$ 12.107); 7 já tinham sido atendidos nele (R$ 1.578) e 24
+--   tinham horário que passou (R$ 5.028). Valores não mudam, só a situação.
 -- v4, 09/10/2026 — NOME do paciente no fim da linha (decisão do Henrique: a aba só abre com login
 --   de administrador, e cobrar exige saber quem é). Fonte, nesta ordem: feegow_pacientes,
 --   feegow_paciente, CRM pela identidade do Feegow (mv_conta_paciente -> patients) e CRM pelo
@@ -82,8 +88,8 @@ nm as (
   left join n_pc pc on pc.fid = a.conta::text
 ),
 it as (
-  select i.conta, i.data_invoice, x.agendamento_id::text ag_id, x.valor_brl valor,
-         coalesce(x.is_executado,false) feito, x.data_execucao::date dex
+  select i.conta, i.data_invoice, x.item_id, x.agendamento_id::text ag_id, x.procedimento_id::text proc,
+         x.valor_brl valor, coalesce(x.is_executado,false) feito, x.data_execucao::date dex
   from inv i
   join feegow_invoice_items x on x.invoice_id = i.invoice_id and not coalesce(x.is_cancelado,false)
   where i.v - i.pg > 0.005
@@ -101,7 +107,8 @@ ag_ids as (
 ev as (
   select distinct on (e.payload->>'agendamento_id')
          e.payload->>'agendamento_id' ag_id, e.payload->>'status_id' st,
-         parse_feegow_date(e.payload->>'data') dt
+         parse_feegow_date(e.payload->>'data') dt,
+         e.payload->>'paciente_id' pac, e.payload->>'procedimento_id' proc
   from events e join ag_ids a on a.ag_id = e.payload->>'agendamento_id'
   where e.type in ('appointment_created','appointment_canceled','consultation_done','check_in_done')
   order by e.payload->>'agendamento_id', e.occurred_at desc
@@ -118,34 +125,59 @@ prox_ag as (
   where v2.dt >= h.d and v2.st in ('1','7','15','208','2','4','5')
   group by 1
 ),
+-- v5: item sem agendamento ligado -> agendamento do mesmo paciente e procedimento, desde a conta.
+-- Agendamento já ligado a item de QUALQUER conta não entra: ele é daquela conta (ex.: sessão paga à parte).
+ag_ligado as (
+  select distinct x.agendamento_id::text ag_id from feegow_invoice_items x
+  where x.agendamento_id in (select ag_id::bigint from ev where ag_id ~ '^\d+$')
+),
+cand as (
+  select t.item_id, v2.st, v2.dt,
+         row_number() over (partition by t.item_id order by
+           case when v2.st in ('2','3','4','5') then 0
+                when v2.dt >= (select d from hoje) and v2.st in ('1','7','15','208') then 1
+                when v2.dt < (select d from hoje) then 2 else 3 end,
+           case when v2.dt >= (select d from hoje) then v2.dt end asc nulls last,
+           v2.dt desc) rn
+  from it t
+  join ev v2 on t.ag_id is null and t.proc is not null and v2.pac = t.conta::text
+            and v2.proc = t.proc and v2.dt >= t.data_invoice
+            and v2.ag_id not in (select ag_id from ag_ligado)
+),
+itv as (
+  select t.*, coalesce(v.st, c.st) st, coalesce(v.dt, c.dt) vdt,
+         (t.ag_id is not null or c.st is not null) tem_ag
+  from it t
+  left join ev v on v.ag_id = t.ag_id
+  left join cand c on c.item_id = t.item_id and c.rn = 1
+),
 sit as (
   select a.conta,
     count(*) filter (where (t.feito and t.valor > 0)
-                        or (not t.feito and v.st in ('2','3','4','5'))) n_real,
+                        or (not t.feito and t.st in ('2','3','4','5'))) n_real,
     max(case when t.feito and t.valor > 0 then t.dex
-             when not t.feito and v.st in ('2','3','4','5') then coalesce(v.dt, t.dex) end) dt_real,
+             when not t.feito and t.st in ('2','3','4','5') then coalesce(t.vdt, t.dex) end) dt_real,
     count(*) filter (where not t.feito and t.valor > 0) n_pend,
     -- horário de hoje em diante: na agenda (qualquer agendamento do paciente) ou no item agendado
     least(
       pa.dt,
-      min(t.dex) filter (where not t.feito and t.ag_id is not null and t.dex >= (select d from hoje)
-                           and coalesce(v.st,'1') in ('1','7','15','208','2','4','5'))
+      min(coalesce(t.vdt, t.dex)) filter (where not t.feito and t.tem_ag and coalesce(t.vdt, t.dex) >= (select d from hoje)
+                           and coalesce(t.st,'1') in ('1','7','15','208','2','4','5'))
     ) prox,
-    max(coalesce(v.dt, t.dex)) filter (where not t.feito and t.valor > 0 and t.ag_id is not null
-                                         and coalesce(v.dt, t.dex) < (select d from hoje)
-                                         and coalesce(v.st,'') not in ('2','3','4','5')) falta,
-    (array_agg(case when v.st = '6' then 'nao_compareceu'
-                    when v.st = '11' then 'desmarcado'
-                    when v.st in ('22','900') then 'cancelado'
+    max(coalesce(t.vdt, t.dex)) filter (where not t.feito and t.valor > 0 and t.tem_ag
+                                         and coalesce(t.vdt, t.dex) < (select d from hoje)
+                                         and coalesce(t.st,'') not in ('2','3','4','5')) falta,
+    (array_agg(case when t.st = '6' then 'nao_compareceu'
+                    when t.st = '11' then 'desmarcado'
+                    when t.st in ('22','900') then 'cancelado'
                     else 'sem_baixa' end
-               order by coalesce(v.dt, t.dex) desc)
-       filter (where not t.feito and t.valor > 0 and t.ag_id is not null
-                 and coalesce(v.dt, t.dex) < (select d from hoje)
-                 and coalesce(v.st,'') not in ('2','3','4','5')))[1] st_falta,
+               order by coalesce(t.vdt, t.dex) desc)
+       filter (where not t.feito and t.valor > 0 and t.tem_ag
+                 and coalesce(t.vdt, t.dex) < (select d from hoje)
+                 and coalesce(t.st,'') not in ('2','3','4','5')))[1] st_falta,
     min(t.data_invoice) aberta_em
   from abertas a
-  join it t on t.conta = a.conta
-  left join ev v on v.ag_id = t.ag_id
+  join itv t on t.conta = a.conta
   left join prox_ag pa on pa.pac = a.conta::text
   group by a.conta, pa.dt
 )

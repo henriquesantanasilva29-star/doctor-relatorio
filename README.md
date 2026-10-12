@@ -271,8 +271,43 @@ pelo `refresh_mvs_jornada()`:
   agencia = 'VX' where sufixo = '0085' and vigente_de = '2000-01-01'`) foi cancelada três
   vezes na confirmação do assistente e precisa ser rodada à mão no editor SQL; depois,
   republicar e tirar da nota da VX em `canais.html` o "aparece como Não identificada".
+  (12/10: cancelada pela 4ª vez.)
 - **Quem pagou no período** (`rastro_periodo(de, ate)`, até 93 dias): lido na hora pela
-  `painel-canais` (`action: "rastro"`), uma linha por paciente e dia, sem nome.
+  `painel-canais` (`action: "rastro"`), uma linha por paciente e dia, **com o nome desde 12/10**
+  (mesma fonte do Em aberto; 99,9% com nome). As duas versões estão em
+  `supabase/sql/rastro_periodo_doctor.sql` e `_acesso.sql` (diferem só na unidade). Na Acesso,
+  93 dias levam ~10 s (o nome custa 0,3 s; o resto já era assim); 30 dias, ~2 s.
+
+### Auditoria de 12/10 (como analista)
+
+- **"Sem horário" do Em aberto estava inflado.** Item de conta sem agendamento ligado era
+  tratado como "sem horário" mesmo quando o paciente tinha o procedimento na agenda. Dos 42
+  não pagos de 01-12/10 na Doctor (R$ 20.943), só 15 nunca tiveram o procedimento agendado
+  (R$ 12.107). `aberto_periodo` v5 casa pelo procedimento (mesmo paciente, mesmo
+  procedimento, data a partir da conta; agendamento ligado a outra conta não conta). Totais
+  idênticos à v4 nas duas bases (Doctor 125 pacientes / R$ 45.469,97; Acesso 803 / R$ 208.910,55);
+  na Doctor, "sem horário" caiu de 48 para 12 pacientes, "realizado" subiu de 9 para 15,
+  "passou" de 15 para 45. 37 dos 42 tinham proposta executada (fechamento real), nenhum
+  pagamento parcial, nenhum convênio (tipo_conta 3 é a conta de paciente comum).
+- **A venda da odonto (0085) não passa pelo Feegow da Doctor.** Não há especialidade nem
+  procedimento odontológico cobrado nele. "0 paciente, retorno 0,0×" era falta de dado. O
+  cartão da agência passou a calcular custo por paciente e retorno só com as contas medíveis
+  (`AG_VENDA_FORA` em `canais.html`), com nota; na tabela, o retorno leva "*".
+- **Atendimento da odonto (7899, setor "Odonto Doctor")**, 01-11/10, primeiro contato humano
+  (mensagem `origin = DEFAULT` com `userId`): 32% dos leads nunca falaram com humano (19 de 59;
+  hiperbárica 3 de 141, Vanguarda 6 de 468); em horário comercial, 43% em até 15 min (68% e
+  70%); fora do horário, 50% em 24 h (95% e 99%). 14 sessões em PENDING sem atendente,
+  abertas de 09 a 12/10. 20 dos 60 leads nem ganharam card no CRM; 38 dos 40 cards em
+  "Follow up". O canal 7899 não está em `helena_channels`.
+- **Final 0261 não é conta de anúncio:** são posts da página da Doctor com botão de WhatsApp
+  (padrão "…270261"). 8 leads de junho a outubro, 1 paciente, R$ 0. Fica fora do aviso de
+  "conta sem agência" (`AG_POST_PAGINA`); a régua não foi mexida por 1 paciente.
+- **Parceiros da conta odonto:** a S10 (3713901038830275) tem controle total nas DUAS BMs que
+  a FSX opera — FarMelhor (conta 0397 e a página da drogaria) e OrthoDontic (Doctor odonto,
+  página "Aparelhos Ortho Manaus", catálogos). A Mídia Real 4 - Brenno (100798669679831) só
+  está na OrthoDontic, com a conta própria "Orthodontic Manaus (Av. Japurá) - Bruno" e as
+  páginas "Odontologia em Manaus" e "Dentista - Manaus": é a mídia da própria OrthoDontic.
+  Como a VX também passou pelas duas contas até 30/09, confirmar com a FSX que a S10 é ela.
 
 Sobraram sem uso no banco da Doctor, das tentativas da tarde, `mv_atribuicao`,
 `mv_atribuicao_paciente` e `_auditoria_canais_antes` (também na Acesso). Podem ser
@@ -283,6 +318,8 @@ auditoria), com a publicação rodando várias vezes depois.
 
 ## O que não sai daqui
 
-Fora do NPS, nenhum dado é pessoal: só agregados por dia, campanha, anúncio e
-unidade. O nome e o texto do paciente aparecem **apenas** na aba de NPS, e
-apenas para quem abriu com chave.
+Fora do NPS, nenhum dado publicado é pessoal: só agregados por dia, campanha, anúncio e
+unidade. O nome e o texto do paciente aparecem na aba de NPS, para quem abriu com chave,
+e — desde 09/10, por decisão do Henrique — o **nome** aparece também nas listas "Em aberto"
+e "Quem pagou" da aba Canais, que são lidas na hora pela `painel-canais` só para
+administrador logado (ou quem tem a aba Canais liberada) e não entram no `dados.json`.
