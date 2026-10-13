@@ -318,15 +318,19 @@ pelo `refresh_mvs_jornada()`:
   TOTAL só na FarMelhor (página da drogaria, conta 0397, catálogos e o Instagram
   "doctormaisresgate") e na OrthoDontic — exatamente as duas BMs que a VX usava — e não está na
   Mercadão, onde a FSX também roda (odonto da Acesso). Então a S10 não é o caminho da FSX; o
-  mais provável é ser empresa da VX ou de agência anterior. Não foi removida: tirar parceiro é
-  decisão do Henrique (se for da FSX, para a operação dela).
+  mais provável é ser empresa da VX ou de agência anterior. **Removida das duas BMs em 13/10, por
+  decisão do Henrique** (FarMelhor e OrthoDontic, "Remover do portfólio empresarial"). Antes,
+  conferido que a FSX não dependia dela: o Felipe Santos tem acesso total próprio às contas 0397
+  e 0085. O portfólio da Doctor (parceiro que dá a coleta) não foi mexido.
 - **Sistema da odonto (13/10):** nenhum rastro de sistema nas 1.169 mensagens do WhatsApp 7899
   (nenhum link, nenhum nome de software). A odonto da Doctor atende na unidade São José
   Operário (Av. Autaz Mirim, 5959), que não existe no Feegow da Doctor (só Centro, Grande
   Circular e Vieiralves); as dentistas (Gabriela Gomes, Abda Sakamoto, Ana Gaspar) também não. A
   confirmação de horário é texto digitado no WhatsApp ("Informamos a confirmação da reserva de
   horário…") e o contrato "é feito diretamente na clínica". Para medir venda da odonto falta a
-  fonte: perguntar à recepção (Lília Siqueira) onde ficam agenda e contrato. Em outubro, 16
+  fonte: o Henrique disse em 13/10 que a odonto usa outro sistema (nome a confirmar). A conta de
+  anúncios 0085 está no nome comercial MEDINT MEDICINA INTENSIVA LTDA, com o endereço da unidade
+  São José Operário. Em outubro, 16
   contatos receberam essa confirmação de horário; só 1 deles veio de anúncio (64 leads da 0085).
 
 **Apagadas em 13/10 pelo Henrique, no editor SQL** (conferido: não existem mais nas duas bases).
