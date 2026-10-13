@@ -267,11 +267,16 @@ pelo `refresh_mvs_jornada()`:
   investimento e sem custo/lead nem retorno (a linha é balaio: junta esse gasto com lead de
   anúncio sem dono) — não vira cartão. Indício: a nota da VX diz que os PDFs dela cobriam a
   "Doctor odonto"; se confirmado, basta trocar a agência do período até 30/09 para VX.
-  **Henrique confirmou em 09/10: era da VX.** A troca (`update meta_agencia_periodo set
-  agencia = 'VX' where sufixo = '0085' and vigente_de = '2000-01-01'`) foi cancelada três
-  vezes na confirmação do assistente e precisa ser rodada à mão no editor SQL; depois,
-  republicar e tirar da nota da VX em `canais.html` o "aparece como Não identificada".
-  (12/10: cancelada pela 4ª vez.)
+  **Henrique confirmou em 09/10: era da VX.** O `update` da linha "Não identificada" foi
+  cancelado cinco vezes na confirmação de comando destrutivo (a última em 13/10). **Resolvido em
+  13/10 sem apagar nada:** entrou a linha `('0085', 'VX', 2026-09-01, 2026-09-30)` em
+  `meta_agencia_periodo`; `agencia_no_dia` pega o `vigente_de` mais recente, então setembro inteiro
+  é VX (o primeiro dado da conta é de 01/09) e a linha "Não identificada" (2000-01-01 a 30/09)
+  ficou vencida — pode ser apagada quando der. Republicado às 11h20 de 13/10: setembro da 0085
+  = VX, R$ 1.317,77; "Não identificada" ficou só com os posts da página (0261). O `canais.html`
+  (13a3dd3, no ar em 13/10) ignora a `ref` de "Não identificada" — ela não é agência e não tem
+  conta; lida, dava aos posts o gerenciador "OrthoDontic Manaus" — e o cartão da VX em setembro
+  mostra "conta a conta" com a 0085 em "retorno não medido", como a FSX em outubro.
 - **Quem pagou no período** (`rastro_periodo(de, ate)`, até 93 dias): lido na hora pela
   `painel-canais` (`action: "rastro"`), uma linha por paciente e dia, **com o nome desde 12/10**
   (mesma fonte do Em aberto; 99,9% com nome). As duas versões estão em
@@ -308,13 +313,29 @@ pelo `refresh_mvs_jornada()`:
   está na OrthoDontic, com a conta própria "Orthodontic Manaus (Av. Japurá) - Bruno" e as
   páginas "Odontologia em Manaus" e "Dentista - Manaus": é a mídia da própria OrthoDontic.
   Como a VX também passou pelas duas contas até 30/09, confirmar com a FSX que a S10 é ela.
+  **13/10, olhando as três BMs:** a FSX trabalha pelo usuário pessoal do Felipe Santos (acesso
+  parcial) na FarMelhor, na OrthoDontic e na Mercadão dos Óculos. A S10 é parceira com acesso
+  TOTAL só na FarMelhor (página da drogaria, conta 0397, catálogos e o Instagram
+  "doctormaisresgate") e na OrthoDontic — exatamente as duas BMs que a VX usava — e não está na
+  Mercadão, onde a FSX também roda (odonto da Acesso). Então a S10 não é o caminho da FSX; o
+  mais provável é ser empresa da VX ou de agência anterior. Não foi removida: tirar parceiro é
+  decisão do Henrique (se for da FSX, para a operação dela).
+- **Sistema da odonto (13/10):** nenhum rastro de sistema nas 1.169 mensagens do WhatsApp 7899
+  (nenhum link, nenhum nome de software). A odonto da Doctor atende na unidade São José
+  Operário (Av. Autaz Mirim, 5959), que não existe no Feegow da Doctor (só Centro, Grande
+  Circular e Vieiralves); as dentistas (Gabriela Gomes, Abda Sakamoto, Ana Gaspar) também não. A
+  confirmação de horário é texto digitado no WhatsApp ("Informamos a confirmação da reserva de
+  horário…") e o contrato "é feito diretamente na clínica". Para medir venda da odonto falta a
+  fonte: perguntar à recepção (Lília Siqueira) onde ficam agenda e contrato. Em outubro, 16
+  contatos receberam essa confirmação de horário; só 1 deles veio de anúncio (64 leads da 0085).
 
 Sobraram sem uso no banco da Doctor, das tentativas da tarde, `mv_atribuicao`,
 `mv_atribuicao_paciente` e `_auditoria_canais_antes` (também na Acesso). Podem ser
 apagadas: a remoção pelo assistente foi recusada pela confirmação de comando destrutivo
 (de novo em 09/10). Conferido em 09/10: nenhuma view ou função as lê (só um comentário
 na `agencia_procedimentos`), e a última leitura delas foi em 07/10 (as MVs) e 08/10 (a
-auditoria), com a publicação rodando várias vezes depois.
+auditoria), com a publicação rodando várias vezes depois. Em 13/10 a remoção foi cancelada de
+novo (dependências conferidas outra vez: nenhuma; última leitura 07/10 e 08/10). São ~3,4 MB.
 
 ## O que não sai daqui
 
