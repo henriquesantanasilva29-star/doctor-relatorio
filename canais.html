@@ -741,7 +741,11 @@ function carrega(){
           vexec:x.vexec||0, ne:x.ne||0, vne:x.vne||0, nf:x.nf||0, v:x.v||0, pg:x.pg||0,
           ab:x.ab||0, inv:x.inv||0, imp:x.imp||0, cli:x.cli||0, conv:x.conv||0,
           suf:x.suf||'', xp:x.xp||0, xc:x.xc||0, xv:x.xv||0, xpg:x.xpg||0}); });
-        ((d.agencias && d.agencias.ref) || []).forEach(function(x){ AGREF.push({m:m.id,
+        /* 13/10/2026: "Não identificada" não é agência e não tem conta. A linha de
+           meta_agencia_periodo que punha a 0085 nela até 30/09 ficou vencida pela da VX
+           (01-30/09), mas continua publicada; lida aqui, ela dava a "Não identificada"
+           (hoje só posts da página, final 0261) o gerenciador "OrthoDontic Manaus". */
+        ((d.agencias && d.agencias.ref) || []).forEach(function(x){ if (x.ag === 'Não identificada') return; AGREF.push({m:m.id,
           ag:x.ag, suf:x.suf||'', conta:x.conta||'', ger:x.ger||'', coletada:!!x.coletada,
           vig_de:x.vig_de||'', vig_ate:x.vig_ate||'',
           nota:x.nota||''}); });
@@ -1286,7 +1290,7 @@ function agContasHtml(o){
     var rf = agRefAnuncio(c.suf, o.ag), fech = c.v + c.xv, fora = AG_VENDA_FORA[c.suf];
     return '<div class="conta-ag"><b>' + esc(rf.ger || 'conta') + '</b> · final ' + esc(c.suf) + '<br>' +
       (rf.coletada ? '<b>' + BRL0(c.inv) + '</b> investidos' : 'investimento não coletado') +
-      ' · ' + N(c.r) + ' leads' + (fora ? '' : ' · ' + N(c.p) + (c.p === 1 ? ' paciente' : ' pacientes')) + '<br>' +
+      ' · ' + N(c.r) + (c.r === 1 ? ' lead' : ' leads') + (fora ? '' : ' · ' + N(c.p) + (c.p === 1 ? ' paciente' : ' pacientes')) + '<br>' +
       (fora
         ? '<b>retorno não medido</b>: ' + esc(fora)
         : 'fechado <b>' + BRL0(c.v) + '</b>' +
