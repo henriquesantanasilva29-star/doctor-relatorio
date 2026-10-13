@@ -271,8 +271,8 @@ pelo `refresh_mvs_jornada()`:
   cancelado cinco vezes na confirmação de comando destrutivo (a última em 13/10). **Resolvido em
   13/10 sem apagar nada:** entrou a linha `('0085', 'VX', 2026-09-01, 2026-09-30)` em
   `meta_agencia_periodo`; `agencia_no_dia` pega o `vigente_de` mais recente, então setembro inteiro
-  é VX (o primeiro dado da conta é de 01/09) e a linha "Não identificada" (2000-01-01 a 30/09)
-  ficou vencida — pode ser apagada quando der. Republicado às 11h20 de 13/10: setembro da 0085
+  é VX (o primeiro dado da conta é de 01/09); a linha "Não identificada" (2000-01-01 a 30/09)
+  ficou vencida e o Henrique a apagou no editor SQL em 13/10. Republicado às 11h20 de 13/10: setembro da 0085
   = VX, R$ 1.317,77; "Não identificada" ficou só com os posts da página (0261). O `canais.html`
   (13a3dd3, no ar em 13/10) ignora a `ref` de "Não identificada" — ela não é agência e não tem
   conta; lida, dava aos posts o gerenciador "OrthoDontic Manaus" — e o cartão da VX em setembro
@@ -329,6 +329,7 @@ pelo `refresh_mvs_jornada()`:
   fonte: perguntar à recepção (Lília Siqueira) onde ficam agenda e contrato. Em outubro, 16
   contatos receberam essa confirmação de horário; só 1 deles veio de anúncio (64 leads da 0085).
 
+**Apagadas em 13/10 pelo Henrique, no editor SQL** (conferido: não existem mais nas duas bases).
 Sobraram sem uso no banco da Doctor, das tentativas da tarde, `mv_atribuicao`,
 `mv_atribuicao_paciente` e `_auditoria_canais_antes` (também na Acesso). Podem ser
 apagadas: a remoção pelo assistente foi recusada pela confirmação de comando destrutivo
