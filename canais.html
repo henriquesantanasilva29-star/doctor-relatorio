@@ -1356,7 +1356,9 @@ function pintaAgencias(){
   /* 09/10/2026: "Não identificada" passou a ter conta cadastrada (a odonto 0085 em
      setembro, antes da FSX, com R$ 1.317,77 de investimento coletado e operador não
      confirmado). Por isso agRef dela tem `suf` — e mesmo assim não vira cartão:
-     fica como linha da tabela, com o investimento, sem parecer uma terceira agência. */
+     fica como linha da tabela, com o investimento, sem parecer uma terceira agência.
+     13/10/2026: setembro da 0085 passou para a VX (meta_agencia_periodo, confirmação do
+     Henrique); "Não identificada" volta a ser só lead de anúncio sem dono (posts 0261). */
   duelo.innerHTML = linhas.filter(function(o){
     return o.ag !== 'Não identificada' && (AG_CONHECIDAS[o.ag] || agRef(o.ag).suf);
   }).map(function(o){
@@ -1471,8 +1473,8 @@ function pintaAgencias(){
              : ref.parcial ? BRL0(o.inv) + ' <span style="color:var(--red)">+ conta não coletada</span>'
              : '<span style="color:var(--red)">' +
              (ref.ger ? 'não compartilhado' : 'não identificada') + '</span>')) +
-        /* "Não identificada" é balaio: o investimento é da odonto em setembro e o
-           lead é de qualquer anúncio sem dono. Dividir um pelo outro inventa custo. */
+        /* "Não identificada" é balaio: lead de qualquer anúncio sem dono (até 13/10/2026
+           também levava o investimento da odonto de setembro). Dividir um pelo outro inventa custo. */
         td((ref.coletada && o.r && o.ag !== 'Não identificada') ? BRL(o.inv / o.r) : '—') +
         td((ref.coletada && agMedivel(o).inv && o.ag !== 'Não identificada')
              ? (o.v / agMedivel(o).inv).toFixed(1).replace('.', ',') + '×' + (agMedivel(o).fora.length ? '*' : '') : '—') +
@@ -1553,8 +1555,7 @@ function pintaAgencias(){
     ' · <b>A VX aqui é a conta &ldquo;Farmelhor - Djalma Batista&rdquo;, e ela não entra na prestação de ' +
     'contas que a agência entrega.</b> Os relatórios que a VX manda cobrem outras duas contas ' +
     '(&ldquo;Doctor Acesso&rdquo;, que é da Acesso Saúde, e &ldquo;Doctor odonto&rdquo;, final 0085, coletada desde ' +
-    '09/10 — de 01/10 em diante ela é da FSX; o gasto de setembro aparece como &ldquo;Não identificada&rdquo; ' +
-    'até alguém confirmar quem operava). ' +
+    '09/10 — até 30/09 operada pela VX, de 01/10 em diante pela FSX). ' +
     'Comparar este quadro com o PDF da agência sem saber disso faz parecer que o BI está inflado. ' +
     'O confronto conta a conta está no <b>BI do grupo</b>, em &ldquo;Quem está rodando mídia&rdquo;.' +
     ' · <b>* Retorno sem a conta da odonto (final 0085).</b> A odonto agenda e cobra fora do Feegow da ' +
