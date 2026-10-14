@@ -241,13 +241,17 @@ function pede(marca, corpo){
 /* ---------- regras fixas ---------- */
 var MARCAS = [{id: 'doctor', nome: 'Doctor'}, {id: 'acesso', nome: 'Acesso'}];
 var GRUPOS = [
-  {id: 'pago',    nome: 'Anúncio',               cor: 'var(--g-pago)',    canais: ['Meta Ads', 'Meta sem id do anúncio', 'Google Ads']},
+  {id: 'pago',    nome: 'Anúncio',               cor: 'var(--g-pago)',    canais: ['Meta Ads', 'Meta sem id do anúncio', 'Google Ads', 'Reativado por anúncio']},
   {id: 'naopago', nome: 'Não pago',              cor: 'var(--g-naopago)', canais: ['Direto / sem origem', 'Social orgânico', 'Site e busca']},
   {id: 'fora',    nome: 'Equipe e base',         cor: 'var(--g-fora)',    canais: ['Criado pela equipe', 'Base importada']},
   {id: 'sem',     nome: 'Sem ligação com o CRM', cor: 'var(--g-sem)',     canais: ['Sem rastreio (pré-CRM)']}
 ];
 var GRUPO_DO = {}; GRUPOS.forEach(function(g){ g.canais.forEach(function(c){ GRUPO_DO[c] = g; }); });
 var META = {'Meta Ads': 1, 'Meta sem id do anúncio': 1};
+/* Regra do Henrique (14/10): chegou pelo anúncio da agência no período e fechou = paciente da agência,
+   mesmo que já estivesse na base. O pagamento desse paciente a partir do clique sai do canal por onde
+   ele tinha chegado e entra aqui (agencia_caixa v4, linhas com `reat`). */
+var REAT_CANAL = 'Reativado por anúncio';
 var NOME_CANAL = {'Sem rastreio (pré-CRM)': 'Sem ligação com o CRM', 'Direto / sem origem': 'Direto / sem origem',
                   'Meta sem id do anúncio': 'Meta (anúncio sem código)'};
 var AG_COR = {'Vanguarda': 'var(--ag-vanguarda)', 'FSX': 'var(--ag-fsx)', 'VX': 'var(--ag-vx)'};
@@ -334,7 +338,8 @@ function absorve(m, d){
     if (!NOME_AD[id] || r[0] > NOME_AD[id].d) NOME_AD[id] = {d: r[0], nome: r[2] || r[1] || id, camp: r[1] || ''};
   });
   (d.agencia_caixa || []).forEach(function(x){
-    CX.push({m: m, d: x.d, ag: x.ag === 'Anúncio não identificado' ? SEM_AG : x.ag, dc: x.dc || '', v: (x.pgd || 0) + (x.fora || 0)}); });
+    CX.push({m: m, d: x.d, ag: x.ag === 'Anúncio não identificado' ? SEM_AG : x.ag, dc: x.dc || '', v: (x.pgd || 0) + (x.fora || 0),
+             reat: !!x.reat, ch: x.ch || ''}); });
   if (m === 'doctor') {
     ((d.agencias && d.agencias.ref) || []).forEach(function(r){
       if (r.ag === SEM_AG) return;
@@ -342,9 +347,11 @@ function absorve(m, d){
     ((d.agencias && d.agencias.serie) || []).forEach(function(x){
       if (x.ag === SEM_AG) return;
       SER.push({m: m, d: x.d, ag: x.ag, suf: x.suf || '', r: x.r || 0, p: x.p || 0, v: x.v || 0, pg: x.pg || 0, ab: x.ab || 0,
-                inv: x.inv || 0, xp: x.xp || 0, xc: x.xc || 0, xv: x.xv || 0}); });
+                inv: x.inv || 0, xp: x.xp || 0, xc: x.xc || 0, xv: x.xv || 0, xpg: x.xpg || 0, sv: x.sv || 0, spg: x.spg || 0}); });
     (d.agencia_ads || []).forEach(function(x){
-      ADS.push({m: m, d: x.d, a: String(x.a), r: x.r || 0, p: x.p || 0, v: x.v || 0, pg: x.pg || 0, ab: x.ab || 0}); });
+      /* linha `reat` (agencia_anuncios v4): quem já era da base e voltou por este anúncio — conta como dele */
+      ADS.push({m: m, d: x.d, a: String(x.a), r: (x.r || 0) + (x.xp || 0), p: (x.p || 0) + (x.xc || 0),
+                v: (x.v || 0) + (x.xv || 0), pg: (x.pg || 0) + (x.xpg || 0), ab: (x.ab || 0) + (x.xv || 0) - (x.xpg || 0)}); });
   } else {
     CONTAS_ACESSO.forEach(function(c){ REF.push({m: m, ag: c.ag, suf: c.suf, ger: c.ger, de: c.de || '', ate: c.ate || ''}); });
     /* sem série de agência publicada: monta a mesma série pela jornada (funil por anúncio) e pela mídia */
@@ -352,7 +359,7 @@ function absorve(m, d){
     function linha(dia, suf){
       var ag = agDe(m, suf, dia); if (ag === SEM_AG) return null;
       var c = dia + '|' + suf;
-      return k[c] || (k[c] = {m: m, d: dia, ag: ag, suf: suf, r: 0, p: 0, v: 0, pg: 0, ab: 0, inv: 0, xp: 0, xc: 0, xv: 0});
+      return k[c] || (k[c] = {m: m, d: dia, ag: ag, suf: suf, r: 0, p: 0, v: 0, pg: 0, ab: 0, inv: 0, xp: 0, xc: 0, xv: 0, xpg: 0, sv: 0, spg: 0});
     }
     (d.jornada || []).forEach(function(x){
       var a = String(x.a), o = linha(x.d, a.slice(-4));
@@ -450,41 +457,64 @@ function porCanal(){
   CAN.forEach(function(x){ if (!noPer(x)) return;
     var o = m[x.c] || (m[x.c] = {c: x.c, ch: 0, ct: 0, p: 0, v: 0, pg: 0, ab: 0, pgd: 0});
     ['ch', 'ct', 'p', 'v', 'pg', 'ab', 'pgd'].forEach(function(k){ o[k] += x[k]; }); });
+  function linha(c){ return m[c] || (m[c] = {c: c, ch: 0, ct: 0, p: 0, v: 0, pg: 0, ab: 0, pgd: 0}); }
+  CX.forEach(function(x){ if (!x.reat || !noPer(x)) return;
+    linha(x.ch || 'Direto / sem origem').pgd -= x.v; linha(REAT_CANAL).pgd += x.v; });
   return m;
 }
 function soma(lista, k){ return lista.reduce(function(a, x){ return a + (x[k] || 0); }, 0); }
-function zeroAg(){ return {r: 0, p: 0, v: 0, pg: 0, ab: 0, inv: 0, invMed: 0, xp: 0, xc: 0, xv: 0, caixa: 0, antes: 0, contas: {}}; }
+function zeroAg(){ return {r: 0, p: 0, v: 0, pg: 0, ab: 0, inv: 0, invMed: 0, xp: 0, xc: 0, xv: 0, xpg: 0, sv: 0, spg: 0,
+  pChe: 0, vChe: 0, pgChe: 0, abChe: 0, caixa: 0, cxReat: 0, antes: 0, contas: {}}; }
+function zeroConta(m, suf){ return {m: m, suf: suf, r: 0, p: 0, v: 0, pg: 0, ab: 0, inv: 0, xp: 0, xc: 0, xv: 0}; }
+/* r/p/v/pg/ab já somam quem chegou pela agência + quem já era da base e voltou pelo anúncio dela
+   (xp/xc/xv/xpg da agencia_serie). *Che = quem chegou pela agência, contando também o que depois
+   saiu para outra agência (sv/spg) — é a mesma régua dos canais, para fechar a linha de sobra. */
+function somaSerie(o, x){
+  o.r += x.r + x.xp; o.p += x.p + x.xc; o.v += x.v + x.xv; o.pg += x.pg + x.xpg; o.ab += x.ab + (x.xv - x.xpg);
+  o.inv += x.inv; o.xp += x.xp; o.xc += x.xc; o.xv += x.xv;
+  if ('pChe' in o) { o.xpg += x.xpg; o.sv += x.sv; o.spg += x.spg; o.pChe += x.p;
+    o.vChe += x.v + x.sv; o.pgChe += x.pg + x.spg; o.abChe += x.ab + (x.sv - x.spg); }
+}
 function porAgencia(){
   var m = {};
   SER.forEach(function(x){ if (!noPer(x)) return;
     var o = m[x.ag] || (m[x.ag] = zeroAg());
-    var kc = x.m + '|' + x.suf, c = o.contas[kc] || (o.contas[kc] = {m: x.m, suf: x.suf, r: 0, p: 0, v: 0, pg: 0, ab: 0, inv: 0, xp: 0, xc: 0, xv: 0});
-    ['r', 'p', 'v', 'pg', 'ab', 'inv', 'xp', 'xc', 'xv'].forEach(function(k){ o[k] += x[k]; c[k] += x[k]; });
+    var kc = x.m + '|' + x.suf, c = o.contas[kc] || (o.contas[kc] = zeroConta(x.m, x.suf));
+    somaSerie(o, x); somaSerie(c, x);
     if (!VENDA_FORA[x.suf]) o.invMed += x.inv; });
   CX.forEach(function(x){ if (!noPer(x) || x.ag === SEM_AG) return;   /* sem agência: vai para a linha de sobra */
     var o = m[x.ag] || (m[x.ag] = zeroAg());
-    o.caixa += x.v; if (x.dc && x.dc < S.de) o.antes += x.v; });
+    o.caixa += x.v; if (x.reat) o.cxReat += x.v; if (x.dc && x.dc < S.de) o.antes += x.v; });
   return m;
 }
 function pacMed(o){ /* pacientes das contas que vendem pelo Feegow (odonto fora) */
   return Object.keys(o.contas).reduce(function(a, k){ return a + (VENDA_FORA[o.contas[k].suf] ? 0 : o.contas[k].p); }, 0);
 }
 /* Resumo do anúncio — o mesmo número nos indicadores e na linha Total das agências.
-   Leads = telefones que chegaram pelo anúncio de cada agência + leads do Google e do Meta sem código.
-   Pacientes, faturado, recebido e em aberto = canais pagos (a sobra vira "Sem agência identificada"). */
+   Leads = telefones que chegaram pelo anúncio de cada agência (+ quem já era da base e voltou pelo anúncio)
+   + leads do Google e do Meta sem código. Pacientes, faturado, recebido e em aberto = canais pagos
+   (quem chegou) + os que voltaram pelo anúncio; a sobra dos canais vira "Sem agência identificada". */
 function resumoPago(can, ags){
-  var R = {inv: 0, invMed: 0, rAg: 0, rRes: 0, p: 0, pAg: 0, pFora: 0, v: 0, vAg: 0, vMeta: 0, pg: 0, pgAg: 0, ab: 0, abAg: 0,
-           caixa: 0, cxAg: 0, cxSem: 0, xv: 0};
+  var R = {inv: 0, invMed: 0, rAg: 0, rRes: 0, p0: 0, v0: 0, pg0: 0, ab0: 0, vMeta: 0,
+           pChe: 0, vChe: 0, pgChe: 0, abChe: 0, xc: 0, xv: 0, xpg: 0, sv: 0, spg: 0, pFora: 0, cxAg: 0, cxSem: 0};
   Object.keys(can).forEach(function(c){ var o = can[c]; if (!GRUPO_DO[c] || GRUPO_DO[c].id !== 'pago') return;
-    R.p += o.p; R.v += o.v; R.pg += o.pg; R.ab += o.ab; R.caixa += o.pgd;
+    R.p0 += o.p; R.v0 += o.v; R.pg0 += o.pg; R.ab0 += o.ab;
     if (META[c]) R.vMeta += o.v;
-    if (c !== 'Meta Ads') R.rRes += o.ct; });
+    if (c !== 'Meta Ads' && c !== REAT_CANAL) R.rRes += o.ct; });
   MID.forEach(function(x){ if (!noPer(x)) return; R.inv += x.inv; if (!VENDA_FORA[x.suf]) R.invMed += x.inv; });
   Object.keys(ags).forEach(function(a){ var o = ags[a];
-    R.rAg += o.r; R.pAg += o.p; R.vAg += o.v; R.pgAg += o.pg; R.abAg += o.ab; R.cxAg += o.caixa; R.xv += o.xv;
+    R.rAg += o.r; R.pChe += o.pChe; R.vChe += o.vChe; R.pgChe += o.pgChe; R.abChe += o.abChe;
+    R.xc += o.xc; R.xv += o.xv; R.xpg += o.xpg; R.sv += o.sv; R.spg += o.spg; R.cxAg += o.caixa;
     R.pFora += o.p - pacMed(o); });
   R.cxSem = soma(CX.filter(function(x){ return noPer(x) && x.ag === SEM_AG; }), 'v');
-  R.r = R.rAg + R.rRes; R.pMed = R.p - R.pFora;
+  R.r = R.rAg + R.rRes;
+  /* o que saiu da agência de chegada (sv) entra na do clique (xv): conta uma vez só */
+  R.p = R.p0 + R.xc; R.v = R.v0 + R.xv - R.sv; R.pg = R.pg0 + R.xpg - R.spg;
+  R.ab = R.ab0 + (R.xv - R.xpg) - (R.sv - R.spg);
+  R.vMeta += R.xv - R.sv; R.pMed = R.p - R.pFora;
+  R.caixa = R.cxAg + R.cxSem;
+  /* sobra: o que os canais pagos têm e nenhuma agência explica (só quem chegou) */
+  R.res = {p: R.p0 - R.pChe, v: R.v0 - R.vChe, pg: R.pg0 - R.pgChe, ab: R.ab0 - R.abChe};
   return R;
 }
 
@@ -512,23 +542,25 @@ function pintaKpis(can, ags){
     var tot = 0, R = resumoPago(can, ags);
     Object.keys(can).forEach(function(c){ tot += can[c].pgd; });
     h += kpi('Caixa no período', brl(tot), 'pagamentos no Feegow', 'Tudo o que entrou no Feegow no período, de todas as origens');
-    h += kpi('Caixa de anúncio', brl(R.caixa), pct(R.caixa, tot) + ' do caixa', 'Pagamentos no período de pacientes que chegaram por anúncio (em qualquer data)');
+    h += kpi('Caixa de anúncio', brl(R.caixa), pct(R.caixa, tot) + ' do caixa', 'Pagamentos no período de quem chegou por anúncio, ou já era da base e voltou pelo anúncio (a partir do clique)');
     h += kpi('Investimento', brl(R.inv), 'custo por lead ' + (R.r ? brl(R.inv / R.r, 1) : '—'), 'Meta Ads no período');
     h += kpi('Leads de anúncio', n0(R.r), '', 'Telefones que chegaram por anúncio no período');
-    h += kpi('Pacientes novos', n0(R.p), pct(R.p, R.r) + ' dos leads', 'Leads de anúncio do período que viraram paciente no Feegow');
-    h += kpi('Faturado', brl(R.v), 'recebido ' + brl(R.pg), 'Contas abertas no Feegow por quem chegou por anúncio no período');
+    h += kpi('Pacientes de anúncio', n0(R.p), pct(R.p, R.r) + ' dos leads' + (R.xc ? ' · ' + n0(R.xc) + ' já eram da base' : ''), 'Chegaram pelo anúncio no período e fecharam no Feegow — inclui quem já era da base e voltou pelo anúncio');
+    h += kpi('Faturado', brl(R.v), 'recebido ' + brl(R.pg), 'Contas abertas no Feegow por quem chegou pelo anúncio no período (de quem já era da base, só a partir do clique)');
     h += kpi('Retorno', vezes(R.vMeta, R.invMed), 'custo por paciente ' + (R.pMed ? brl(R.invMed / R.pMed, 1) : '—'), 'Faturado do Meta ÷ investimento (sem as contas de odonto, que vendem fora do Feegow)');
-    h += kpi('Em aberto', brl(R.ab), pct(R.ab, R.v) + ' do faturado', 'Faturado e ainda não pago, de quem chegou por anúncio no período');
+    h += kpi('Em aberto', brl(R.ab), pct(R.ab, R.v) + ' do faturado', 'Faturado e ainda não pago, de quem chegou pelo anúncio no período');
   } else {
     var o = ags[S.ag] || zeroAg(), cor = agCor(S.ag), pm = pacMed(o);
-    h += kpi('Caixa da agência', brl(o.caixa), brl(o.antes) + ' de quem chegou antes', 'Pagamentos no período de pacientes que esta agência trouxe', cor);
+    h += kpi('Caixa da agência', brl(o.caixa), o.cxReat > 0.5 ? brl(o.cxReat) + ' de quem já era da base' : brl(o.antes) + ' de quem chegou antes',
+      'Pagamentos no período de pacientes que chegaram pelo anúncio desta agência (de quem já era da base, a partir do clique)', cor);
     h += kpi('Investimento', brl(o.inv), 'custo por lead ' + (o.r ? brl(o.inv / o.r, 1) : '—'), 'Meta Ads das contas desta agência', cor);
-    h += kpi('Leads', n0(o.r), '', 'Telefones que chegaram por anúncio desta agência no período', cor);
-    h += kpi('Pacientes novos', n0(o.p), pct(o.p, o.r) + ' dos leads', '', cor);
+    h += kpi('Leads', n0(o.r), '', 'Telefones que chegaram pelo anúncio desta agência no período (inclui quem já era da base)', cor);
+    h += kpi('Pacientes', n0(o.p), pct(o.p, o.r) + ' dos leads' + (o.xc ? ' · ' + n0(o.xc) + ' já eram da base' : ''), 'Chegaram pelo anúncio desta agência no período e fecharam', cor);
     h += kpi('Faturado', brl(o.v), 'recebido ' + brl(o.pg), '', cor);
     h += kpi('Retorno', vezes(o.v, o.invMed), 'custo por paciente ' + (pm ? brl(o.invMed / pm, 1) : '—'), 'Faturado ÷ investimento, sem as contas de odonto', cor);
     h += kpi('Em aberto', brl(o.ab), pct(o.ab, o.v) + ' do faturado', '', cor);
-    h += kpi('Reativação', brl(o.xv), n0(o.xc) + ' de ' + n0(o.xp) + ' compraram', 'Quem já conhecia a clínica e comprou depois de clicar no anúncio — fora do faturado acima', cor);
+    h += o.xp ? kpi('Já eram da base', brl(o.xv), n0(o.xc) + ' de ' + n0(o.xp) + ' fecharam · já no faturado', 'Pacientes que já eram da clínica, clicaram no anúncio desta agência e fecharam — contam como dela', cor)
+              : kpi('Já eram da base', brl(o.cxReat), 'pagos a partir do clique', 'Pagamentos de quem já era da clínica e voltou pelo anúncio desta agência', cor);
   }
   el.innerHTML = h;
 }
@@ -546,6 +578,9 @@ function pintaOrigem(can){
   var T = {ch: 0, ct: 0, p: 0, v: 0, pg: 0, ab: 0, pgd: 0};
   var corpo = lin.map(function(o){ Object.keys(T).forEach(function(k){ T[k] += o[k]; });
     var g = GRUPO_DO[o.c] || GRUPOS[1];
+    if (o.c === REAT_CANAL) return '<tr title="Já eram da base e voltaram pelo anúncio: o que pagaram depois do clique sai do canal de origem e entra aqui">' +
+      '<td><span class="dot" style="background:' + g.cor + '"></span>' + esc(o.c) + '</td><td class="num dim" colspan="6">já eram da base · caixa a partir do clique</td>' +
+      '<td class="num b">' + brl(o.pgd) + '</td></tr>';
     return '<tr><td><span class="dot" style="background:' + g.cor + '"></span>' + esc(NOME_CANAL[o.c] || o.c) + '</td>' +
       '<td class="num">' + n0(o.ch) + '</td><td class="num">' + n0(o.ct) + '</td><td class="num">' + n0(o.p) + '</td>' +
       '<td class="num">' + brl(o.v) + '</td><td class="num">' + brl(o.pg) + '</td><td class="num">' + brl(o.ab) + '</td>' +
@@ -558,27 +593,26 @@ function pintaOrigem(can){
     '</td><td class="num">' + brl(T.v) + '</td><td class="num">' + brl(T.pg) + '</td><td class="num">' + brl(T.ab) + '</td><td class="num">' + brl(T.pgd) + '</td></tr></tfoot>';
 }
 
-function celsAg(x){ /* x: inv, r, p, v, pg, ab, cpp, ret, xv, caixa (null = "—") */
+function celsAg(x){ /* x: inv, r, p, v, pg, ab, cpp, ret, caixa (null = "—") */
   function f(v, fn){ return v == null ? '—' : fn(v); }
   return '<td class="num">' + f(x.inv, brl) + '</td><td class="num">' + f(x.r, n0) + '</td><td class="num">' + n0(x.p) + '</td>' +
     '<td class="num">' + (x.r ? pct(x.p, x.r) : '—') + '</td><td class="num">' + brl(x.v) + '</td><td class="num">' + brl(x.pg) + '</td>' +
     '<td class="num">' + brl(x.ab) + '</td><td class="num">' + f(x.cpp, brl) + '</td><td class="num b">' + (x.ret || '—') + '</td>' +
-    '<td class="num">' + (x.xv > 0.5 ? brl(x.xv) : '—') + '</td><td class="num">' + (x.caixa > 0.5 ? brl(x.caixa) : '—') + '</td>';
+    '<td class="num">' + (x.caixa > 0.5 ? brl(x.caixa) : '—') + '</td>';
 }
 function linhaAg(o, classe, attrs, rotulo){
   var pm = pacMed(o);
   return '<tr class="' + classe + '" ' + (attrs || '') + '><td>' + rotulo + '</td>' + celsAg({inv: o.inv, r: o.r, p: o.p, v: o.v, pg: o.pg, ab: o.ab,
-    cpp: pm && o.invMed ? o.invMed / pm : null, ret: vezes(o.v, o.invMed), xv: o.xv, caixa: o.caixa}) + '</tr>';
+    cpp: pm && o.invMed ? o.invMed / pm : null, ret: vezes(o.v, o.invMed), caixa: o.caixa}) + '</tr>';
 }
 function linhaConta(c){
   var fora = VENDA_FORA[c.suf];
   var rot = (S.marca === 'todas' ? (c.m === 'doctor' ? 'Doctor · ' : 'Acesso · ') : '') + esc(gerDe(c.m, c.suf)) + ' <span class="dim">' + esc(c.suf) + '</span>';
   if (fora) return '<tr class="conta"><td>' + rot + '</td><td class="num">' + brl(c.inv) + '</td><td class="num">' + n0(c.r) + '</td>' +
-    '<td class="num">' + n0(c.p) + '</td><td class="num">' + pct(c.p, c.r) + '</td><td colspan="6" class="fora" title="A odonto agenda e cobra fora do Feegow">venda fora do Feegow</td><td class="num">—</td></tr>';
+    '<td class="num">' + n0(c.p) + '</td><td class="num">' + pct(c.p, c.r) + '</td><td colspan="5" class="fora" title="A odonto agenda e cobra fora do Feegow">venda fora do Feegow</td><td class="num">—</td></tr>';
   return '<tr class="conta"><td>' + rot + '</td><td class="num">' + brl(c.inv) + '</td><td class="num">' + n0(c.r) + '</td><td class="num">' + n0(c.p) + '</td>' +
     '<td class="num">' + pct(c.p, c.r) + '</td><td class="num">' + brl(c.v) + '</td><td class="num">' + brl(c.pg) + '</td><td class="num">' + brl(c.ab) + '</td>' +
-    '<td class="num">' + (c.p && c.inv ? brl(c.inv / c.p) : '—') + '</td><td class="num">' + vezes(c.v, c.inv) + '</td>' +
-    '<td class="num">' + (c.xv > 0.5 ? brl(c.xv) : '—') + '</td><td class="num">—</td></tr>';
+    '<td class="num">' + (c.p && c.inv ? brl(c.inv / c.p) : '—') + '</td><td class="num">' + vezes(c.v, c.inv) + '</td><td class="num">—</td></tr>';
 }
 function pintaAgencias(can, ags){
   var nomes = agenciasAtivas().filter(function(a){ return S.ag === 'todas' || a === S.ag; });
@@ -596,18 +630,17 @@ function pintaAgencias(can, ags){
     /* o que o canal chama de anúncio e não tem agência (anúncio sem código, Google, posts da página):
        fecha a tabela com os mesmos totais dos indicadores lá de cima */
     var R = resumoPago(can, ags);
-    var res = {inv: null, r: R.rRes || null, p: R.p - R.pAg, v: R.v - R.vAg, pg: R.pg - R.pgAg, ab: R.ab - R.abAg, cpp: null, ret: '', xv: 0, caixa: R.cxSem};
+    var res = {inv: null, r: R.rRes || null, p: R.res.p, v: R.res.v, pg: R.res.pg, ab: R.res.ab, cpp: null, ret: '', caixa: R.cxSem};
     if (res.p > 0 || res.v > 0.5 || res.caixa > 0.5 || res.r)
       corpo += '<tr class="residuo"><td title="Anúncio sem código, Google Ads e posts da página">Sem agência identificada</td>' + celsAg(res).replace('<td class="num">' + pct(res.p, res.r) + '</td>', '<td class="num">—</td>') + '</tr>';
     pe = '<tfoot><tr><td>Total</td>' + celsAg({inv: R.inv, r: R.r, p: R.p, v: R.v, pg: R.pg, ab: R.ab, cpp: R.pMed ? R.invMed / R.pMed : null,
-      ret: vezes(R.vMeta, R.invMed), xv: R.xv, caixa: R.cxAg + R.cxSem}) + '</tr></tfoot>';
+      ret: vezes(R.vMeta, R.invMed), caixa: R.caixa}) + '</tr></tfoot>';
   }
   var cab = '<thead><tr><th>Agência</th><th class="num">Investimento</th><th class="num" title="Telefones que chegaram pelo anúncio da agência">Leads</th>' +
-    '<th class="num">Pacientes</th><th class="num">Conversão</th><th class="num">Faturado</th><th class="num">Recebido</th><th class="num">Em aberto</th>' +
+    '<th class="num" title="Chegaram pelo anúncio da agência e fecharam — inclui quem já era da base">Pacientes</th><th class="num">Conversão</th><th class="num">Faturado</th><th class="num">Recebido</th><th class="num">Em aberto</th>' +
     '<th class="num" title="Sem as contas de odonto">Custo/paciente</th><th class="num" title="Faturado ÷ investimento, sem as contas de odonto">Retorno</th>' +
-    '<th class="num" title="Quem já conhecia a clínica e comprou depois do clique (fora do faturado)">Reativação</th>' +
     '<th class="num" title="Pagamentos no período de pacientes que a agência trouxe">Caixa</th></tr></thead>';
-  document.getElementById('tAg').innerHTML = cab + '<tbody>' + (corpo || '<tr><td colspan="12" class="vazio">Sem agência neste período.</td></tr>') + '</tbody>' + pe;
+  document.getElementById('tAg').innerHTML = cab + '<tbody>' + (corpo || '<tr><td colspan="11" class="vazio">Sem agência neste período.</td></tr>') + '</tbody>' + pe;
   Array.prototype.forEach.call(document.querySelectorAll('#tAg tr.ag'), function(tr){
     tr.addEventListener('click', function(){ if (S.ag !== 'todas') return; var a = tr.getAttribute('data-ag');
       S.agAbertas[a] = !S.agAbertas[a]; pintaAgencias(porCanal(), porAgencia()); }); });
@@ -694,15 +727,19 @@ function abLinha(m, l){
 }
 /* rastro: [d, conta, pago, fat, canal, ag, aid, dc, via, reat_ag, reat_d, procs, uni, desde, base, nome] */
 function pgLinha(m, l){
-  return {m: m, d: l[0], conta: l[1], pago: +l[2] || 0, canal: l[4], ag: l[5] || '', dc: l[7] || '', reatAg: l[9] || '', procs: l[11] || '',
-          uni: l[12] || '', nome: l[15] || '', g: grupoDe(l[4])};
+  var ag = l[5] || '', reatAg = l[9] || '', reatD = l[10] || '';
+  /* mesma regra da agencia_caixa v4: pago a partir do clique, por quem já era da base e voltou pelo
+     anúncio de outra agência, é dessa agência */
+  var reat = !!reatAg && !!reatD && l[0] >= reatD && reatAg !== ag && reatAg !== SEM_AG && l[4] !== 'Meta sem id do anúncio';
+  return {m: m, d: l[0], conta: l[1], pago: +l[2] || 0, canal: l[4], ag: reat ? reatAg : ag, dc: reat ? reatD : (l[7] || ''),
+          procs: l[11] || '', uni: l[12] || '', nome: l[15] || '', g: reat ? 'reat' : grupoDe(l[4])};
 }
 function origemTxt(g, canal, ag){
-  if (g === 'reat') return 'Reativação' + (ag ? ' · ' + esc(ag) : '');
+  if (g === 'reat') return agTag(ag) + ' <span class="dim">já era da base</span>';
   if (g === 'pago') return ag ? agTag(ag) : esc(NOME_CANAL[canal] || canal);
   return esc(NOME_CANAL[canal] || canal || '—');
 }
-var ORIG = [{id: 'pago', nome: 'Anúncio'}, {id: 'naopago', nome: 'Não pago'}, {id: 'fora', nome: 'Equipe e base'}, {id: 'sem', nome: 'Sem ligação'}, {id: 'reat', nome: 'Reativação'}];
+var ORIG = [{id: 'pago', nome: 'Anúncio'}, {id: 'naopago', nome: 'Não pago'}, {id: 'fora', nome: 'Equipe e base'}, {id: 'sem', nome: 'Sem ligação'}, {id: 'reat', nome: 'Já eram da base'}];
 
 function pintaAberto(){
   var t = document.getElementById('tAb');
@@ -739,15 +776,13 @@ function pintaPagou(){
   var t = document.getElementById('tPg');
   if (PG === null) return;
   if (PG.erro && !PG.length) { t.innerHTML = '<tbody><tr><td class="vazio">Não consegui ler: ' + esc(PG.erro) + '</td></tr></tbody>'; return; }
-  /* com uma agência escolhida: quem ela trouxe conta pela origem; quem só reativou fica em "Reativação" */
-  var base = PG.filter(function(l){ return S.ag === 'todas' || l.ag === S.ag || l.reatAg === S.ag; }).map(function(l){
-    l.gv = S.ag !== 'todas' && l.ag !== S.ag ? 'reat' : l.g; return l; });
-  var gT = {}; base.forEach(function(l){ gT[l.gv] = (gT[l.gv] || 0) + l.pago; });
+  var base = PG.filter(function(l){ return S.ag === 'todas' || l.ag === S.ag; });
+  var gT = {}; base.forEach(function(l){ gT[l.g] = (gT[l.g] || 0) + l.pago; });
   document.getElementById('pgOrig').innerHTML = [chip('Toda origem', S.pgOrig === 'todas', 'data-o="todas"')].concat(ORIG.filter(function(o){ return gT[o.id]; })
     .map(function(o){ return chip(o.nome, S.pgOrig === o.id, 'data-o="' + o.id + '"', null, brl(gT[o.id])); })).join(' ');
   liga('pgOrig', 'data-o', function(o){ S.pgOrig = o; S.pgN = 40; pintaPagou(); });
   var q = semAcento(S.pgBusca).trim();
-  var lis = base.filter(function(l){ return (S.pgOrig === 'todas' || l.gv === S.pgOrig) &&
+  var lis = base.filter(function(l){ return (S.pgOrig === 'todas' || l.g === S.pgOrig) &&
     (!q || semAcento(l.nome).indexOf(q) >= 0 || String(l.conta).indexOf(q) >= 0 || semAcento(l.procs).indexOf(q) >= 0); })
     .sort(function(a, b){ return a.d < b.d ? 1 : a.d > b.d ? -1 : b.pago - a.pago; });
   var pac = {}; lis.forEach(function(l){ pac[l.m + l.conta] = 1; });
@@ -756,7 +791,7 @@ function pintaPagou(){
   t.innerHTML = '<thead><tr><th>Data</th><th>Paciente</th><th>Origem</th><th>Chegou</th><th class="num">Pago</th><th>Procedimentos</th><th>Unidade</th></tr></thead><tbody>' +
     (mostra.map(function(l){
       return '<tr><td>' + br(l.d) + '</td><td><span class="nome">' + esc(l.nome || '—') + '</span><span class="sub">' + esc(l.conta) + '</span></td>' +
-        '<td>' + (l.gv === 'reat' ? origemTxt('reat', l.canal, l.reatAg) : origemTxt(l.g, l.canal, l.ag) + (l.reatAg ? ' <span class="dim">· reativ. ' + esc(l.reatAg) + '</span>' : '')) + '</td>' +
+        '<td>' + origemTxt(l.g, l.canal, l.ag) + '</td>' +
         '<td>' + (l.dc ? br4(l.dc) : '—') + '</td><td class="num b">' + brl(l.pago, 1) + '</td><td><span class="sub" style="color:var(--ink-2)">' + esc(l.procs) + '</span></td>' +
         '<td class="dim">' + esc(l.uni) + '</td></tr>';
     }).join('') || '<tr><td colspan="7" class="vazio">Ninguém nesta seleção.</td></tr>') + '</tbody>';

@@ -214,6 +214,36 @@ portal (Arasys, claro/escuro por `rel_tema`), **só indicadores**, explicação 
   "Quem pagou" na Acesso difere ~R$ 700 da Origem do caixa porque um é lido na hora e o
   outro é a foto das 05:30 (pacientes "sem ligação" que ganharam ligação no dia).
 
+### Quem já era da base e voltou pelo anúncio conta para a agência — 14/10/2026
+
+Regra do Henrique: **chegou pelo anúncio da agência dentro do período e fechou = paciente
+daquela agência**, mesmo que já estivesse na base. Até aqui esses pacientes eram
+"reativação", mostrada à parte, e a FSX aparecia com R$ 799 de caixa em 01-14/10 quando os
+pacientes dela tinham pago R$ 12.794 (hiperbárica: 4 pacientes que já eram da clínica,
+clicaram no anúncio 0397 em outubro e fecharam R$ 19.145).
+
+- **`agencia_caixa` v4** (Doctor e Acesso, `supabase/sql/agencia_caixa.sql`): o pagamento
+  feito a partir do dia do clique por quem voltou pelo anúncio de OUTRA agência passa a ser
+  da agência do clique (linha com `reat: true`, `ch` = canal por onde tinha chegado) e sai da
+  agência de chegada. Clique em post da página ("Não identificada") e quem chegou por "Meta sem
+  id do anúncio" não contam; pago antes do clique também não.
+- **`agencia_serie` v6.2** (Doctor): o fechado do paciente na agência de chegada vai só até a
+  véspera desse clique; o resto já estava em `xp/xc/xv/xpg` da agência do clique. Novos
+  `sv/spg` = o que saiu, para a aba fechar a sobra dos canais (que contam pela chegada) sem
+  contar o mesmo dinheiro duas vezes. Ex.: VX em setembro caiu de R$ 33.120 para R$ 20.594
+  de faturado — R$ 12.525 eram hiperbárica fechada em outubro depois do clique na FSX.
+- **`agencia_anuncios` v4** (Doctor): o mesmo por anúncio (linhas `reat`).
+- **Aba:** agência = quem chegou + quem voltou pelo anúncio (pacientes, faturado, recebido,
+  em aberto, caixa, retorno). A coluna "Reativação" saiu; o cartão "Já eram da base" mostra a
+  parte deles. Na Origem do caixa, o pagamento deles sai do canal de chegada e entra em
+  "Reativado por anúncio" (grupo Anúncio) — o total continua = Feegow. Conferido em 01-14/10 e
+  em 01/09-14/10: Total das agências = indicadores = barra "Anúncio".
+- **Acesso:** sem `agencia_serie`; lá a regra vale só para o caixa (a `jornada` não tem a volta).
+- **Não entra (sem rastro de anúncio):** em 01-14/10, 8 pacientes compraram hiperbárica
+  (R$ 27.190 pagos) sem nenhum anúncio no telefone — 5 chegaram em outubro direto no WhatsApp
+  2125 sem utm e 3 foram criados pela equipe. Ficam em "Direto" e "Equipe" até alguém dizer
+  de onde vieram.
+
 ### Régua única de origem — 07/10/2026
 
 Até 07/10 a aba tinha três réguas de "paciente de tráfego pago", cada uma com o seu
