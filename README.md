@@ -183,6 +183,37 @@ pasta do subdomínio `relatorio.arasys.software`. **Antes de subir, baixe o que 
 ar e compare**: outras conversas também publicam esse arquivo (login único e modo
 escuro entraram assim em 07/10).
 
+### Canais v2 — refeito do zero em 14/10/2026
+
+O Henrique achou a aba "totalmente quebrada" (tema antigo do Life CRM, texto demais,
+~300 KB). O `canais.html` foi reescrito do zero (~53 KB) com os tokens e as fontes do
+portal (Arasys, claro/escuro por `rel_tema`), **só indicadores**, explicação apenas no
+`title` (passar o mouse). Mesmo backend: `painel-canais` `dados` / `aberto` / `rastro`.
+
+- **Filtros:** período (7 dias, 30 dias, os 3 últimos meses, Tudo, de/até), marca (as
+  duas, Doctor, Acesso) e agência (Todas, Vanguarda, FSX, VX). Sem comparação de período.
+  Quadro de vendas por equipe saiu (decisão do Henrique).
+- **Indicadores (Todas):** caixa no período, caixa de anúncio, investimento, leads de
+  anúncio, pacientes novos, faturado, retorno, em aberto. **Com uma agência:** caixa da
+  agência (e quanto veio de quem chegou antes), investimento, leads, pacientes, faturado,
+  retorno, em aberto e reativação.
+- **Blocos:** Origem do caixa (barra de 4 grupos + tabela por canal; só com agência =
+  Todas), Agências (abre conta a conta; odonto 0085/0279 = "venda fora do Feegow"; linha
+  "Sem agência identificada" = canais pagos − agências), Anúncios (ordenável, 15 + ver
+  todos), Fechado e não pago e Quem pagou (lidos na hora, até 93 dias).
+- **Uma conta só:** `resumoPago()` alimenta os indicadores e a linha Total das agências.
+  Leads = telefones das agências + leads do Google e do Meta sem código; custo por paciente
+  e retorno sem as contas de odonto; retorno = faturado do Meta ÷ investimento medível.
+- **Acesso sem bloco `agencias`:** a série é montada na página pela `jornada` + `midia`,
+  com a vigência em `CONTAS_ACESSO` (0418 Vanguarda; 0279 VX até 30/09, FSX desde 01/10).
+- **Quem pagou com agência escolhida:** quem a agência trouxe conta pela origem; quem ela
+  só reativou fica no chip "Reativação" (antes somava no anúncio).
+- **Conferência (dados de 14/10, 01–12/10):** caixa Doctor R$ 162.731,52 e Acesso
+  R$ 321.191,80 (= Feegow e = soma do Quem pagou); Total das agências = indicadores nas
+  duas marcas (caixa de anúncio R$ 64.240, 193 pacientes, retorno 4,2×). A origem do
+  "Quem pagou" na Acesso difere ~R$ 700 da Origem do caixa porque um é lido na hora e o
+  outro é a foto das 05:30 (pacientes "sem ligação" que ganharam ligação no dia).
+
 ### Régua única de origem — 07/10/2026
 
 Até 07/10 a aba tinha três réguas de "paciente de tráfego pago", cada uma com o seu
