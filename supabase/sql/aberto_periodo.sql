@@ -1,10 +1,15 @@
--- Aplicada nas duas bases (Doctor myiqdeonxuznvhtsvfxg e Acesso dfvmuqxjdcvwskrrdbfm) em 12/10/2026 (v5).
+-- Aplicada nas duas bases (Doctor myiqdeonxuznvhtsvfxg e Acesso dfvmuqxjdcvwskrrdbfm) em 12/10/2026 (v5)
+-- e em 15/10/2026 (v6, trechos da v_atribuicao_segmento).
 CREATE OR REPLACE FUNCTION public.aberto_periodo(p_de date, p_ate date)
  RETURNS jsonb
  LANGUAGE sql
  STABLE
  SET search_path TO 'public'
 AS $function$
+-- v6, 15/10/2026 — os trechos saem da v_atribuicao_segmento (a regra de origem do dash em um lugar
+--   só): 'c' = chegou no período, com as contas até a véspera do clique de reativação (se houve);
+--   'r' = voltou pelo anúncio no período, com as contas do clique em diante. O mesmo paciente pode
+--   ter as duas linhas, cada uma com o seu dinheiro (antes o 'c' levava tudo e o 'r' sumia).
 -- v5, 12/10/2026 — ITEM SEM AGENDAMENTO LIGADO casa com a agenda pelo PROCEDIMENTO: o agendamento do
 --   mesmo paciente, com o mesmo procedimento do item e data a partir da conta. Prioridade: atendido
 --   (-> realizado, cobrar), marcado adiante, e o último que passou (-> passou, com o que a agenda
@@ -40,36 +45,31 @@ AS $function$
 --  reat_agencia, reat_dia, itens_pendentes, st, nome]
 with hoje as (select (now() at time zone 'America/Manaus')::date as d),
 c as (
-  select m.conta_id conta, 'c'::text tipo, m.agencia ag, m.canal, m.dia ref, m.anuncio_id aid,
-         case when m.reat_dia between p_de and p_ate and m.reat_agencia is distinct from m.agencia
-                   and m.canal is distinct from 'Meta sem id do anúncio'
-              then m.reat_agencia end rag,
-         case when m.reat_dia between p_de and p_ate and m.reat_agencia is distinct from m.agencia
-                   and m.canal is distinct from 'Meta sem id do anúncio'
-              then m.reat_dia end rdia
-  from mv_atribuicao_unica m where m.dia between p_de and p_ate
+  select s.conta_id conta, 'c'::text tipo, s.agencia ag, s.canal, s.dia ref, s.anuncio_id aid,
+         case when s.ate between p_de and p_ate then m.reat_agencia end rag,
+         case when s.ate between p_de and p_ate then m.reat_dia end rdia, s.ate
+  from v_atribuicao_segmento s join mv_atribuicao_unica m on m.conta_id = s.conta_id
+  where not s.reat and s.dia between p_de and p_ate
 ),
 r as (
-  select m.conta_id, 'r'::text, m.reat_agencia, m.canal, m.reat_dia, m.reat_anuncio, m.reat_agencia, m.reat_dia
-  from mv_atribuicao_unica m
-  where m.reat_agencia is not null and m.reat_agencia is distinct from m.agencia
-    and m.canal is distinct from 'Meta sem id do anúncio'
-    and m.reat_dia between p_de and p_ate
-    and m.conta_id not in (select conta from c)
+  select s.conta_id, 'r'::text, s.agencia, s.canal, s.dia, s.anuncio_id, s.agencia, s.dia, s.ate
+  from v_atribuicao_segmento s
+  where s.reat and s.dia between p_de and p_ate
 ),
 base as (select * from c union all select * from r),
 inv as (
-  select b.conta, f.invoice_id, f.unidade_id, f.data_invoice, f.valor_brl v,
+  select b.conta, b.tipo, f.invoice_id, f.unidade_id, f.data_invoice, f.valor_brl v,
          least(coalesce(f.valor_pago_brl,0), f.valor_brl) pg
   from base b join feegow_invoices f on f.conta_id = b.conta and f.data_invoice >= b.ref
+       and (b.ate is null or f.data_invoice < b.ate)
 ),
 tot as (
-  select conta, round(sum(v),2) v, round(sum(pg),2) pg, round(sum(v - pg),2) ab,
+  select conta, tipo, round(sum(v),2) v, round(sum(pg),2) pg, round(sum(v - pg),2) ab,
          min(unidade_id::text) filter (where v - pg > 0.005) uni
-  from inv group by 1
+  from inv group by 1,2
 ),
 -- nome: uma leitura por fonte, só das contas que ficam na lista
-alvo as (select conta from tot where ab > 0.005),
+alvo as (select distinct conta from tot where ab > 0.005),
 n_fp as (select p.feegow_patient_id conta, min(nullif(btrim(p.nome),'')) nome
          from feegow_pacientes p where p.feegow_patient_id in (select conta from alvo) group by 1),
 n_f1 as (select p.paciente_id conta, min(nullif(btrim(p.nome),'')) nome
@@ -198,7 +198,7 @@ select coalesce(jsonb_agg(jsonb_build_array(
   nm.nome
 ) order by t.ab desc, b.conta), '[]'::jsonb)
 from base b
-join tot t on t.conta = b.conta
+join tot t on t.conta = b.conta and t.tipo = b.tipo
 left join sit s on s.conta = b.conta
 left join nm on nm.conta = b.conta
 left join feegow_dim_unidade u on u.unidade_id::text = t.uni

@@ -214,35 +214,52 @@ portal (Arasys, claro/escuro por `rel_tema`), **só indicadores**, explicação 
   "Quem pagou" na Acesso difere ~R$ 700 da Origem do caixa porque um é lido na hora e o
   outro é a foto das 05:30 (pacientes "sem ligação" que ganharam ligação no dia).
 
-### Quem já era da base e voltou pelo anúncio conta para a agência — 14/10/2026
+### Regra de origem em um lugar só: `v_atribuicao_segmento` — 14 e 15/10/2026
 
-Regra do Henrique: **chegou pelo anúncio da agência dentro do período e fechou = paciente
-daquela agência**, mesmo que já estivesse na base. Até aqui esses pacientes eram
-"reativação", mostrada à parte, e a FSX aparecia com R$ 799 de caixa em 01-14/10 quando os
-pacientes dela tinham pago R$ 12.794 (hiperbárica: 4 pacientes que já eram da clínica,
-clicaram no anúncio 0397 em outubro e fecharam R$ 19.145).
+Regra do Henrique (14/10): **chegou pelo anúncio da agência dentro do período e fechou = paciente
+daquela agência**, mesmo que já estivesse na base. E (15/10): **uma mudança de lógica vale para o
+dash inteiro** — não pode haver um bloco com a regra nova e outro com a velha.
 
-- **`agencia_caixa` v4** (Doctor e Acesso, `supabase/sql/agencia_caixa.sql`): o pagamento
-  feito a partir do dia do clique por quem voltou pelo anúncio de OUTRA agência passa a ser
-  da agência do clique (linha com `reat: true`, `ch` = canal por onde tinha chegado) e sai da
-  agência de chegada. Clique em post da página ("Não identificada") e quem chegou por "Meta sem
-  id do anúncio" não contam; pago antes do clique também não.
-- **`agencia_serie` v6.2** (Doctor): o fechado do paciente na agência de chegada vai só até a
-  véspera desse clique; o resto já estava em `xp/xc/xv/xpg` da agência do clique. Novos
-  `sv/spg` = o que saiu, para a aba fechar a sobra dos canais (que contam pela chegada) sem
-  contar o mesmo dinheiro duas vezes. Ex.: VX em setembro caiu de R$ 33.120 para R$ 20.594
-  de faturado — R$ 12.525 eram hiperbárica fechada em outubro depois do clique na FSX.
-- **`agencia_anuncios` v4** (Doctor): o mesmo por anúncio (linhas `reat`).
-- **Aba:** agência = quem chegou + quem voltou pelo anúncio (pacientes, faturado, recebido,
-  em aberto, caixa, retorno). A coluna "Reativação" saiu; o cartão "Já eram da base" mostra a
-  parte deles. Na Origem do caixa, o pagamento deles sai do canal de chegada e entra em
-  "Reativado por anúncio" (grupo Anúncio) — o total continua = Feegow. Conferido em 01-14/10 e
-  em 01/09-14/10: Total das agências = indicadores = barra "Anúncio".
-- **Acesso:** sem `agencia_serie`; lá a regra vale só para o caixa (a `jornada` não tem a volta).
-- **Não entra (sem rastro de anúncio):** em 01-14/10, 8 pacientes compraram hiperbárica
-  (R$ 27.190 pagos) sem nenhum anúncio no telefone — 5 chegaram em outubro direto no WhatsApp
-  2125 sem utm e 3 foram criados pela equipe. Ficam em "Direto" e "Equipe" até alguém dizer
-  de onde vieram.
+Por isso a regra saiu das funções e foi para uma view, igual nas duas bases
+(`supabase/sql/v_atribuicao_segmento.sql`). Cada paciente do Feegow (`mv_atribuicao_unica`) vira
+um ou dois trechos:
+
+- **chegada** — canal/anúncio/agência por onde chegou, do dia da chegada até a véspera do clique
+  de reativação (`ate`);
+- **reat** — canal `Meta Ads`, anúncio e agência do clique, do clique em diante. Conta como
+  paciente (`paciente`) só se fechou conta no Feegow depois do clique.
+
+Reativa só anúncio de OUTRA agência; não reativa clique em post da página ("Não identificada")
+nem quem chegou por "Meta sem id do anúncio". Fatura, proposta e agenda entram no trecho pela
+data; pagamento entra pela data do pagamento. Limite: a mv guarda só a primeira reativação.
+
+**Quem lê a view** (mudou a regra, muda só a view):
+
+| Função | Base | Bloco / uso |
+|---|---|---|
+| `canal_serie` v3 | as duas | `canais` (origem do caixa, cartões) |
+| `agencia_serie` v7 | Doctor | `agencias.serie` — r/p/v/pg já somam quem voltou; xp/xc/xv/xpg = quanto disso |
+| `agencia_anuncios` v5 | Doctor | `agencia_ads` |
+| `agencia_caixa` v5 | as duas | `agencia_caixa` (linha `reat` = pago a partir do clique) |
+| `jornada_anuncio` v7 (Doctor) / v6 (Acesso) | as duas | `jornada` — na Acesso saiu da régua antiga `mv_paciente_anuncio` |
+| `crm_procedimentos` v5 | as duas | `crmproc` e `agencia_proc` — na Acesso também saiu da régua antiga |
+| `rastro_periodo` | as duas | "Quem pagou" — dono do dia; quem voltou vem com via `reativacao` |
+| `aberto_periodo` v6 | as duas | "Fechado e não pago" — linha `c` até o clique, linha `r` dali em diante |
+
+Conferido em 01-14/10 depois da troca: na Doctor, canais pagos = soma de `agencia_caixa` =
+"Quem pagou" de anúncio (R$ 50.672,87); canal Meta Ads = série das agências = tabela de
+anúncios (128 pacientes, R$ 47.105,78 de faturado); caixa total = Feegow (R$ 185.906,65, igual
+antes). Na Acesso, canal Meta Ads = `jornada` (128 pacientes, R$ 17.090,42) e caixa de anúncio =
+`agencia_caixa` (R$ 32.989,17). FSX em outubro: 24 pacientes (20 chegaram, 4 já eram da base), e o
+caixa dela passou de R$ 799 para R$ 14.294.
+
+A aba Canais não soma mais nada por conta própria: lê r/p/v/pg prontos. Em 15/10 uma versão antiga
+da aba (layout de cartões por agência, ~254 KB) foi subida por cima da v2 por outra sessão; a v2 foi
+reposta e a largura dentro do portal passou a acompanhar o portal, que era o que a outra versão trazia.
+
+**Não entra (sem rastro de anúncio):** em 01-14/10, 8 pacientes compraram hiperbárica (R$ 27.190
+pagos) sem nenhum anúncio no telefone — 5 chegaram em outubro direto no WhatsApp 2125 sem utm e 3
+foram criados pela equipe. Ficam em "Direto" e "Equipe" até alguém dizer de onde vieram.
 
 ### Régua única de origem — 07/10/2026
 

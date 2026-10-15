@@ -8,6 +8,7 @@ CREATE OR REPLACE FUNCTION public.rastro_periodo(p_de date, p_ate date)
  SET search_path TO 'public'
 AS $function$
 -- 12/10/2026: NOME do paciente no fim (mesma fonte do aberto_periodo v4: Feegow e, na falta, CRM pela identidade do Feegow).
+-- 15/10/2026: canal/ag/aid/dc/via pela v_atribuicao_segmento (quem voltou pelo anúncio: via 'reativacao').
 -- [d, conta, pago, fat, canal, ag, aid, dc, via, reat_ag, reat_d, procs, uni, desde, base, nome]
 with pag as (
   select f.conta_id, p.data_pagamento d, sum(p.valor_brl) pago,
@@ -29,9 +30,15 @@ dia as (
   from pag p full join fat f on f.conta_id = p.conta_id and f.d = p.d
 ),
 sel as (
-  select x.*, m.canal, m.agencia, m.anuncio_id, m.dia dc, m.via, m.reat_agencia, m.reat_dia, m.era_da_base
-  from dia x left join mv_atribuicao_unica m on m.conta_id = x.conta
-  where x.pago > 0 or (x.fat > 0 and m.canal in ('Meta Ads','Meta sem id do anúncio','Google Ads'))
+  -- 15/10/2026: dono do dia pela v_atribuicao_segmento (a regra de origem do dash em um lugar só):
+  -- a partir do clique de reativação, canal 'Meta Ads' e a agência do clique, via 'reativacao' e
+  -- dc = dia do clique; antes dele, por onde o paciente chegou.
+  select x.*, s.canal, s.agencia, s.anuncio_id, s.dia dc, s.via, m.reat_agencia, m.reat_dia, m.era_da_base
+  from dia x
+  left join v_atribuicao_segmento s on s.conta_id = x.conta
+       and ((not s.reat and (s.ate is null or x.d < s.ate)) or (s.reat and x.d >= s.dia))
+  left join mv_atribuicao_unica m on m.conta_id = x.conta
+  where x.pago > 0 or (x.fat > 0 and s.canal in ('Meta Ads','Meta sem id do anúncio','Google Ads'))
 ),
 procs as (
   select s.conta, s.d, string_agg(distinct coalesce(classifica_procedimento(o.nome),'Outros'), ', ') cats

@@ -4,6 +4,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="robots" content="noindex,nofollow">
 <title>Canais · Grupo Job</title>
+<script>/* dentro do portal, a largura é a do portal (acompanha o monitor) */
+try { if (window.parent !== window && window.parent.location.origin === location.origin) document.documentElement.classList.add('em-portal'); } catch (e) {}
+</script>
 <script>/* tema do portal (claro/escuro) */
 (function(){ var d = document.documentElement;
   function aplica(){ var t = null; try{ t = localStorage.getItem("rel_tema"); }catch(e){}
@@ -37,6 +40,7 @@
 body{margin:0; background:var(--ground); color:var(--ink); font-family:"Saira",system-ui,-apple-system,"Segoe UI",sans-serif;
   font-size:14px; line-height:1.45; -webkit-font-smoothing:antialiased}
 .wrap{max-width:1400px; margin:0 auto; padding:4px 16px 48px}
+html.em-portal .wrap{max-width:none}
 h2{font-family:"Saira Semi Condensed","Saira",sans-serif; font-size:19px; font-weight:700; margin:0}
 button,input{font:inherit}
 .num{font-variant-numeric:tabular-nums}
@@ -241,7 +245,7 @@ function pede(marca, corpo){
 /* ---------- regras fixas ---------- */
 var MARCAS = [{id: 'doctor', nome: 'Doctor'}, {id: 'acesso', nome: 'Acesso'}];
 var GRUPOS = [
-  {id: 'pago',    nome: 'Anúncio',               cor: 'var(--g-pago)',    canais: ['Meta Ads', 'Meta sem id do anúncio', 'Google Ads', 'Reativado por anúncio']},
+  {id: 'pago',    nome: 'Anúncio',               cor: 'var(--g-pago)',    canais: ['Meta Ads', 'Meta sem id do anúncio', 'Google Ads']},
   {id: 'naopago', nome: 'Não pago',              cor: 'var(--g-naopago)', canais: ['Direto / sem origem', 'Social orgânico', 'Site e busca']},
   {id: 'fora',    nome: 'Equipe e base',         cor: 'var(--g-fora)',    canais: ['Criado pela equipe', 'Base importada']},
   {id: 'sem',     nome: 'Sem ligação com o CRM', cor: 'var(--g-sem)',     canais: ['Sem rastreio (pré-CRM)']}
@@ -249,9 +253,9 @@ var GRUPOS = [
 var GRUPO_DO = {}; GRUPOS.forEach(function(g){ g.canais.forEach(function(c){ GRUPO_DO[c] = g; }); });
 var META = {'Meta Ads': 1, 'Meta sem id do anúncio': 1};
 /* Regra do Henrique (14/10): chegou pelo anúncio da agência no período e fechou = paciente da agência,
-   mesmo que já estivesse na base. O pagamento desse paciente a partir do clique sai do canal por onde
-   ele tinha chegado e entra aqui (agencia_caixa v4, linhas com `reat`). */
-var REAT_CANAL = 'Reativado por anúncio';
+   mesmo que já estivesse na base. A regra mora no banco (v_atribuicao_segmento) e vale para todos os
+   blocos: canais, agências, anúncios, caixa, quem pagou e em aberto. A página só lê. */
+
 var NOME_CANAL = {'Sem rastreio (pré-CRM)': 'Sem ligação com o CRM', 'Direto / sem origem': 'Direto / sem origem',
                   'Meta sem id do anúncio': 'Meta (anúncio sem código)'};
 var AG_COR = {'Vanguarda': 'var(--ag-vanguarda)', 'FSX': 'var(--ag-fsx)', 'VX': 'var(--ag-vx)'};
@@ -347,11 +351,9 @@ function absorve(m, d){
     ((d.agencias && d.agencias.serie) || []).forEach(function(x){
       if (x.ag === SEM_AG) return;
       SER.push({m: m, d: x.d, ag: x.ag, suf: x.suf || '', r: x.r || 0, p: x.p || 0, v: x.v || 0, pg: x.pg || 0, ab: x.ab || 0,
-                inv: x.inv || 0, xp: x.xp || 0, xc: x.xc || 0, xv: x.xv || 0, xpg: x.xpg || 0, sv: x.sv || 0, spg: x.spg || 0}); });
+                inv: x.inv || 0, xp: x.xp || 0, xc: x.xc || 0, xv: x.xv || 0}); });
     (d.agencia_ads || []).forEach(function(x){
-      /* linha `reat` (agencia_anuncios v4): quem já era da base e voltou por este anúncio — conta como dele */
-      ADS.push({m: m, d: x.d, a: String(x.a), r: (x.r || 0) + (x.xp || 0), p: (x.p || 0) + (x.xc || 0),
-                v: (x.v || 0) + (x.xv || 0), pg: (x.pg || 0) + (x.xpg || 0), ab: (x.ab || 0) + (x.xv || 0) - (x.xpg || 0)}); });
+      ADS.push({m: m, d: x.d, a: String(x.a), r: x.r || 0, p: x.p || 0, v: x.v || 0, pg: x.pg || 0, ab: x.ab || 0}); });
   } else {
     CONTAS_ACESSO.forEach(function(c){ REF.push({m: m, ag: c.ag, suf: c.suf, ger: c.ger, de: c.de || '', ate: c.ate || ''}); });
     /* sem série de agência publicada: monta a mesma série pela jornada (funil por anúncio) e pela mídia */
@@ -359,7 +361,7 @@ function absorve(m, d){
     function linha(dia, suf){
       var ag = agDe(m, suf, dia); if (ag === SEM_AG) return null;
       var c = dia + '|' + suf;
-      return k[c] || (k[c] = {m: m, d: dia, ag: ag, suf: suf, r: 0, p: 0, v: 0, pg: 0, ab: 0, inv: 0, xp: 0, xc: 0, xv: 0, xpg: 0, sv: 0, spg: 0});
+      return k[c] || (k[c] = {m: m, d: dia, ag: ag, suf: suf, r: 0, p: 0, v: 0, pg: 0, ab: 0, inv: 0, xp: 0, xc: 0, xv: 0});
     }
     (d.jornada || []).forEach(function(x){
       var a = String(x.a), o = linha(x.d, a.slice(-4));
@@ -457,23 +459,15 @@ function porCanal(){
   CAN.forEach(function(x){ if (!noPer(x)) return;
     var o = m[x.c] || (m[x.c] = {c: x.c, ch: 0, ct: 0, p: 0, v: 0, pg: 0, ab: 0, pgd: 0});
     ['ch', 'ct', 'p', 'v', 'pg', 'ab', 'pgd'].forEach(function(k){ o[k] += x[k]; }); });
-  function linha(c){ return m[c] || (m[c] = {c: c, ch: 0, ct: 0, p: 0, v: 0, pg: 0, ab: 0, pgd: 0}); }
-  CX.forEach(function(x){ if (!x.reat || !noPer(x)) return;
-    linha(x.ch || 'Direto / sem origem').pgd -= x.v; linha(REAT_CANAL).pgd += x.v; });
   return m;
 }
 function soma(lista, k){ return lista.reduce(function(a, x){ return a + (x[k] || 0); }, 0); }
-function zeroAg(){ return {r: 0, p: 0, v: 0, pg: 0, ab: 0, inv: 0, invMed: 0, xp: 0, xc: 0, xv: 0, xpg: 0, sv: 0, spg: 0,
-  pChe: 0, vChe: 0, pgChe: 0, abChe: 0, caixa: 0, cxReat: 0, antes: 0, contas: {}}; }
+function zeroAg(){ return {r: 0, p: 0, v: 0, pg: 0, ab: 0, inv: 0, invMed: 0, xp: 0, xc: 0, xv: 0, caixa: 0, cxReat: 0, antes: 0, contas: {}}; }
 function zeroConta(m, suf){ return {m: m, suf: suf, r: 0, p: 0, v: 0, pg: 0, ab: 0, inv: 0, xp: 0, xc: 0, xv: 0}; }
-/* r/p/v/pg/ab já somam quem chegou pela agência + quem já era da base e voltou pelo anúncio dela
-   (xp/xc/xv/xpg da agencia_serie). *Che = quem chegou pela agência, contando também o que depois
-   saiu para outra agência (sv/spg) — é a mesma régua dos canais, para fechar a linha de sobra. */
+/* r/p/v/pg/ab chegam do banco já com quem voltou pelo anúncio (v_atribuicao_segmento);
+   xp/xc/xv só dizem quanto disso é de quem já era da base. A página não soma nada por conta própria. */
 function somaSerie(o, x){
-  o.r += x.r + x.xp; o.p += x.p + x.xc; o.v += x.v + x.xv; o.pg += x.pg + x.xpg; o.ab += x.ab + (x.xv - x.xpg);
-  o.inv += x.inv; o.xp += x.xp; o.xc += x.xc; o.xv += x.xv;
-  if ('pChe' in o) { o.xpg += x.xpg; o.sv += x.sv; o.spg += x.spg; o.pChe += x.p;
-    o.vChe += x.v + x.sv; o.pgChe += x.pg + x.spg; o.abChe += x.ab + (x.sv - x.spg); }
+  ['r', 'p', 'v', 'pg', 'ab', 'inv', 'xp', 'xc', 'xv'].forEach(function(k){ o[k] += x[k] || 0; });
 }
 function porAgencia(){
   var m = {};
@@ -491,30 +485,24 @@ function pacMed(o){ /* pacientes das contas que vendem pelo Feegow (odonto fora)
   return Object.keys(o.contas).reduce(function(a, k){ return a + (VENDA_FORA[o.contas[k].suf] ? 0 : o.contas[k].p); }, 0);
 }
 /* Resumo do anúncio — o mesmo número nos indicadores e na linha Total das agências.
-   Leads = telefones que chegaram pelo anúncio de cada agência (+ quem já era da base e voltou pelo anúncio)
-   + leads do Google e do Meta sem código. Pacientes, faturado, recebido e em aberto = canais pagos
-   (quem chegou) + os que voltaram pelo anúncio; a sobra dos canais vira "Sem agência identificada". */
+   Leads = telefones que chegaram pelo anúncio de cada agência + leads do Google e do Meta sem código.
+   Pacientes, faturado, recebido, em aberto e caixa = canais pagos (mesma regra do banco que as
+   agências); a sobra dos canais vira "Sem agência identificada". */
 function resumoPago(can, ags){
-  var R = {inv: 0, invMed: 0, rAg: 0, rRes: 0, p0: 0, v0: 0, pg0: 0, ab0: 0, vMeta: 0,
-           pChe: 0, vChe: 0, pgChe: 0, abChe: 0, xc: 0, xv: 0, xpg: 0, sv: 0, spg: 0, pFora: 0, cxAg: 0, cxSem: 0};
+  var R = {inv: 0, invMed: 0, rAg: 0, rRes: 0, p: 0, v: 0, pg: 0, ab: 0, vMeta: 0,
+           pAg: 0, vAg: 0, pgAg: 0, abAg: 0, xc: 0, pFora: 0, cxAg: 0, cxSem: 0};
   Object.keys(can).forEach(function(c){ var o = can[c]; if (!GRUPO_DO[c] || GRUPO_DO[c].id !== 'pago') return;
-    R.p0 += o.p; R.v0 += o.v; R.pg0 += o.pg; R.ab0 += o.ab;
+    R.p += o.p; R.v += o.v; R.pg += o.pg; R.ab += o.ab;
     if (META[c]) R.vMeta += o.v;
-    if (c !== 'Meta Ads' && c !== REAT_CANAL) R.rRes += o.ct; });
+    if (c !== 'Meta Ads') R.rRes += o.ct; });
   MID.forEach(function(x){ if (!noPer(x)) return; R.inv += x.inv; if (!VENDA_FORA[x.suf]) R.invMed += x.inv; });
   Object.keys(ags).forEach(function(a){ var o = ags[a];
-    R.rAg += o.r; R.pChe += o.pChe; R.vChe += o.vChe; R.pgChe += o.pgChe; R.abChe += o.abChe;
-    R.xc += o.xc; R.xv += o.xv; R.xpg += o.xpg; R.sv += o.sv; R.spg += o.spg; R.cxAg += o.caixa;
+    R.rAg += o.r; R.pAg += o.p; R.vAg += o.v; R.pgAg += o.pg; R.abAg += o.ab; R.xc += o.xc; R.cxAg += o.caixa;
     R.pFora += o.p - pacMed(o); });
   R.cxSem = soma(CX.filter(function(x){ return noPer(x) && x.ag === SEM_AG; }), 'v');
-  R.r = R.rAg + R.rRes;
-  /* o que saiu da agência de chegada (sv) entra na do clique (xv): conta uma vez só */
-  R.p = R.p0 + R.xc; R.v = R.v0 + R.xv - R.sv; R.pg = R.pg0 + R.xpg - R.spg;
-  R.ab = R.ab0 + (R.xv - R.xpg) - (R.sv - R.spg);
-  R.vMeta += R.xv - R.sv; R.pMed = R.p - R.pFora;
+  R.r = R.rAg + R.rRes; R.pMed = R.p - R.pFora;
   R.caixa = R.cxAg + R.cxSem;
-  /* sobra: o que os canais pagos têm e nenhuma agência explica (só quem chegou) */
-  R.res = {p: R.p0 - R.pChe, v: R.v0 - R.vChe, pg: R.pg0 - R.pgChe, ab: R.ab0 - R.abChe};
+  R.res = {p: R.p - R.pAg, v: R.v - R.vAg, pg: R.pg - R.pgAg, ab: R.ab - R.abAg};
   return R;
 }
 
@@ -578,9 +566,6 @@ function pintaOrigem(can){
   var T = {ch: 0, ct: 0, p: 0, v: 0, pg: 0, ab: 0, pgd: 0};
   var corpo = lin.map(function(o){ Object.keys(T).forEach(function(k){ T[k] += o[k]; });
     var g = GRUPO_DO[o.c] || GRUPOS[1];
-    if (o.c === REAT_CANAL) return '<tr title="Já eram da base e voltaram pelo anúncio: o que pagaram depois do clique sai do canal de origem e entra aqui">' +
-      '<td><span class="dot" style="background:' + g.cor + '"></span>' + esc(o.c) + '</td><td class="num dim" colspan="6">já eram da base · caixa a partir do clique</td>' +
-      '<td class="num b">' + brl(o.pgd) + '</td></tr>';
     return '<tr><td><span class="dot" style="background:' + g.cor + '"></span>' + esc(NOME_CANAL[o.c] || o.c) + '</td>' +
       '<td class="num">' + n0(o.ch) + '</td><td class="num">' + n0(o.ct) + '</td><td class="num">' + n0(o.p) + '</td>' +
       '<td class="num">' + brl(o.v) + '</td><td class="num">' + brl(o.pg) + '</td><td class="num">' + brl(o.ab) + '</td>' +
@@ -727,11 +712,9 @@ function abLinha(m, l){
 }
 /* rastro: [d, conta, pago, fat, canal, ag, aid, dc, via, reat_ag, reat_d, procs, uni, desde, base, nome] */
 function pgLinha(m, l){
-  var ag = l[5] || '', reatAg = l[9] || '', reatD = l[10] || '';
-  /* mesma regra da agencia_caixa v4: pago a partir do clique, por quem já era da base e voltou pelo
-     anúncio de outra agência, é dessa agência */
-  var reat = !!reatAg && !!reatD && l[0] >= reatD && reatAg !== ag && reatAg !== SEM_AG && l[4] !== 'Meta sem id do anúncio';
-  return {m: m, d: l[0], conta: l[1], pago: +l[2] || 0, canal: l[4], ag: reat ? reatAg : ag, dc: reat ? reatD : (l[7] || ''),
+  /* o banco já diz o dono do dia (v_atribuicao_segmento): quem voltou pelo anúncio vem com via 'reativacao' */
+  var reat = l[8] === 'reativacao';
+  return {m: m, d: l[0], conta: l[1], pago: +l[2] || 0, canal: l[4], ag: l[5] || '', dc: l[7] || '',
           procs: l[11] || '', uni: l[12] || '', nome: l[15] || '', g: reat ? 'reat' : grupoDe(l[4])};
 }
 function origemTxt(g, canal, ag){

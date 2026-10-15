@@ -5,6 +5,11 @@ CREATE OR REPLACE FUNCTION public.agencia_serie(dias integer DEFAULT 400)
  STABLE
  SET search_path TO 'public'
 AS $function$
+-- v7, 15/10/2026 — paciente e dinheiro pela v_atribuicao_segmento (a regra de origem do dash em um
+--   lugar só). r/p/v/pg/ab/propostas JÁ SOMAM quem chegou pela agência + quem já era da base e
+--   voltou pelo anúncio dela (a partir do clique); xp/xc/xv/xpg dizem quanto disso é desses que
+--   voltaram (xp = voltaram, xc = fecharam). Quem lê não soma mais nada: soma direto r/p/v/pg.
+--   Sai sv/spg da v6.2 (a sobra dos canais agora fecha porque a canal_serie usa a mesma regra).
 -- v6.2, 14/10/2026 — regra do Henrique: quem chegou pelo anúncio da agência e fechou é paciente
 --   daquela agência. Paciente reativado por anúncio de OUTRA agência leva o que fechou a partir
 --   do dia do clique para a agência do clique (xp/xc/xv/xpg, como já era) e esse valor sai da
@@ -43,64 +48,43 @@ lead as (
   from prim p, janela w where p.dia >= w.de group by 1,2,3
 ),
 pac as (
-  select m.conta_id, m.dia, m.agencia, right(m.anuncio_id, 4) as suf,
-         case when m.reat_agencia is not null and m.reat_agencia <> 'Não identificada'
-                   and m.reat_agencia is distinct from m.agencia
-              then m.reat_dia end as corte
-  from mv_atribuicao_unica m, janela w
-  where m.canal = 'Meta Ads' and m.agencia is not null and m.dia >= w.de
+  -- trechos da v_atribuicao_segmento que são de anúncio com agência: chegada por anúncio (até a
+  -- véspera da reativação, se houve) e reativação (do clique em diante)
+  select s.conta_id, s.dia, s.agencia, right(s.anuncio_id, 4) as suf, s.ate, s.reat, s.paciente
+  from v_atribuicao_segmento s, janela w
+  where s.canal = 'Meta Ads' and s.agencia is not null and s.dia >= w.de
 ),
 prop as (
-  select pc.conta_id, count(*)::int o,
+  select pc.conta_id, pc.reat, count(*)::int o,
          count(*) filter (where pr.status_categoria = 'executada')::int e,
          round(coalesce(sum(pr.value) filter (where pr.status_categoria = 'executada'),0),2) vexec,
          count(*) filter (where pr.status_categoria = 'aguardando')::int ne,
          round(coalesce(sum(pr.value) filter (where pr.status_categoria = 'aguardando'),0),2) vne
   from pac pc join feegow_proposals pr on pr.feegow_patient_id = pc.conta_id and pr.proposal_date >= pc.dia
-       and (pc.corte is null or pr.proposal_date < pc.corte)
-  group by 1
+       and (pc.ate is null or pr.proposal_date < pc.ate)
+  group by 1,2
 ),
 fat as (
-  select pc.conta_id,
-         (count(distinct i.invoice_id) filter (where pc.corte is null or i.data_invoice < pc.corte))::int nf,
-         round(coalesce(sum(i.valor_brl) filter (where pc.corte is null or i.data_invoice < pc.corte),0),2) v,
-         round(coalesce(sum(least(coalesce(i.valor_pago_brl,0), i.valor_brl))
-                        filter (where pc.corte is null or i.data_invoice < pc.corte),0),2) pg,
-         round(coalesce(sum(i.valor_brl) filter (where i.data_invoice >= pc.corte),0),2) sv,
-         round(coalesce(sum(least(coalesce(i.valor_pago_brl,0), i.valor_brl))
-                        filter (where i.data_invoice >= pc.corte),0),2) spg
+  select pc.conta_id, pc.reat, count(distinct i.invoice_id)::int nf,
+         round(sum(i.valor_brl),2) v, round(sum(least(coalesce(i.valor_pago_brl,0), i.valor_brl)),2) pg
   from pac pc join feegow_invoices i on i.conta_id = pc.conta_id and i.data_invoice >= pc.dia
-  group by 1
+       and (pc.ate is null or i.data_invoice < pc.ate)
+  group by 1,2
 ),
 din as (
-  select pc.dia, pc.agencia, pc.suf, count(*)::int p,
+  select pc.dia, pc.agencia, pc.suf,
+         count(*) filter (where pc.paciente)::int p,
+         count(*) filter (where pc.reat)::int xp,
+         count(*) filter (where pc.reat and pc.paciente)::int xc,
          coalesce(sum(pp.o),0)::int o, coalesce(sum(pp.e),0)::int e,
          round(coalesce(sum(pp.vexec),0),2)::float8 vexec,
          coalesce(sum(pp.ne),0)::int ne, round(coalesce(sum(pp.vne),0),2)::float8 vne,
          coalesce(sum(ff.nf),0)::int nf,
          round(coalesce(sum(ff.v),0),2)::float8 v, round(coalesce(sum(ff.pg),0),2)::float8 pg,
-         round(coalesce(sum(ff.sv),0),2)::float8 sv, round(coalesce(sum(ff.spg),0),2)::float8 spg
-  from pac pc left join prop pp on pp.conta_id = pc.conta_id left join fat ff on ff.conta_id = pc.conta_id
-  group by 1,2,3
-),
-reat as (
-  select m.conta_id, m.reat_dia as dia, m.reat_agencia as agencia, right(m.reat_anuncio, 4) as suf
-  from mv_atribuicao_unica m, janela w
-  where m.reat_agencia is not null and m.reat_dia >= w.de
-    and m.reat_agencia <> 'Não identificada'
-    and m.reat_agencia is distinct from m.agencia
-    and m.canal is distinct from 'Meta sem id do anúncio'
-),
-rfat as (
-  select r.conta_id, round(sum(i.valor_brl),2) v, round(sum(least(coalesce(i.valor_pago_brl,0), i.valor_brl)),2) pg
-  from reat r join feegow_invoices i on i.conta_id = r.conta_id and i.data_invoice >= r.dia
-  group by 1
-),
-rdin as (
-  select r.dia, r.agencia, r.suf, count(*)::int xp,
-         count(*) filter (where f.v > 0)::int xc,
-         round(coalesce(sum(f.v),0),2)::float8 xv, round(coalesce(sum(f.pg),0),2)::float8 xpg
-  from reat r left join rfat f on f.conta_id = r.conta_id
+         round(coalesce(sum(ff.v) filter (where pc.reat),0),2)::float8 xv,
+         round(coalesce(sum(ff.pg) filter (where pc.reat),0),2)::float8 xpg
+  from pac pc left join prop pp on pp.conta_id = pc.conta_id and pp.reat = pc.reat
+       left join fat ff on ff.conta_id = pc.conta_id and ff.reat = pc.reat
   group by 1,2,3
 ),
 mid as (
@@ -115,7 +99,6 @@ mid as (
 chave as (
   select dia, agencia, suf from lead
   union select dia, agencia, suf from din
-  union select dia, agencia, suf from rdin
   union select dia, agencia, suf from mid
 ),
 visto as (
@@ -127,20 +110,18 @@ visto as (
 serie as (
   select coalesce(jsonb_agg(jsonb_build_object(
     'd', to_char(k.dia,'YYYY-MM-DD'), 'ag', k.agencia, 'suf', k.suf,
-    'r', coalesce(l.r,0), 'rev', coalesce(l.rev,0), 'k', coalesce(l.k,0), 'p', coalesce(d.p,0),
+    'r', coalesce(l.r,0) + coalesce(d.xp,0), 'rev', coalesce(l.rev,0), 'k', coalesce(l.k,0), 'p', coalesce(d.p,0),
     'o', coalesce(d.o,0), 'e', coalesce(d.e,0), 'vexec', coalesce(d.vexec,0),
     'ne', coalesce(d.ne,0), 'vne', coalesce(d.vne,0), 'nf', coalesce(d.nf,0),
     'v', coalesce(d.v,0), 'pg', coalesce(d.pg,0),
     'ab', round((coalesce(d.v,0) - coalesce(d.pg,0))::numeric,2)::float8,
-    'xp', coalesce(x.xp,0), 'xc', coalesce(x.xc,0), 'xv', coalesce(x.xv,0), 'xpg', coalesce(x.xpg,0),
-    'sv', coalesce(d.sv,0), 'spg', coalesce(d.spg,0),
+    'xp', coalesce(d.xp,0), 'xc', coalesce(d.xc,0), 'xv', coalesce(d.xv,0), 'xpg', coalesce(d.xpg,0),
     'inv', coalesce(m.inv,0), 'imp', coalesce(m.imp,0),
     'cli', coalesce(m.cli,0), 'conv', coalesce(m.conv,0)
   ) order by k.dia, k.agencia, k.suf), '[]'::jsonb) as j
   from chave k
   left join lead l on l.dia = k.dia and l.agencia = k.agencia and l.suf is not distinct from k.suf
   left join din  d on d.dia = k.dia and d.agencia = k.agencia and d.suf is not distinct from k.suf
-  left join rdin x on x.dia = k.dia and x.agencia = k.agencia and x.suf is not distinct from k.suf
   left join mid  m on m.dia = k.dia and m.agencia = k.agencia and m.suf is not distinct from k.suf
 ),
 periodos as (
