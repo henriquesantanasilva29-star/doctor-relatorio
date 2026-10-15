@@ -204,34 +204,54 @@ footer { border-top: 1px solid var(--line); color: var(--ink-2); font-size: 12px
 
   const estado = { dia: 'todos', unidade: '', prof: '', soLivres: false };
   try { estado.soLivres = localStorage.getItem('oft_solivres') === '1'; } catch (e) {}
-  let dados = { horarios: [], unidades: [], profs: new Map(), falhas: [], dias: [] };
+  let dados = { horarios: [], unidades: [], profs: new Map(), falhas: [], dias: [], carregando: [] };
   let atualizadoEm = null;
 
   const dataLocal = (iso) => { const [y, m, d] = iso.split('-').map(Number); return new Date(y, m - 1, d); };
   const hojeManaus = () => new Date(Date.now() - 4 * 3600e3).toISOString().slice(0, 10);
 
+  // Cada marca entra na tela assim que responde (a Acesso pode levar ~20 s).
+  // Numa atualização, a marca que ainda não respondeu continua com o último dado bom.
+  const ultimo = FONTES.map(() => null);
+  let pendentes = new Set();
+
   async function carregar() {
     $('fresh').textContent = 'Atualizando…';
-    const res = await Promise.all(FONTES.map(async (f) => {
+    pendentes = new Set(FONTES.map((f) => f.marca));
+    combinar();
+    await Promise.all(FONTES.map(async (f, i) => {
       try {
         const r = await fetch(f.url, { cache: 'no-store' });
         const j = await r.json();
         if (!j.ok) throw new Error(j.erro || 'erro');
-        return { f, j };
-      } catch (e) { return { f, erro: true }; }
+        ultimo[i] = { f, j, em: new Date() };
+      } catch (e) {
+        ultimo[i] = ultimo[i] && ultimo[i].j ? { ...ultimo[i], velho: true } : { f, erro: true };
+      }
+      pendentes.delete(f.marca);
+      combinar();
     }));
+  }
+
+  function combinar() {
     const horarios = [], unidades = [], profs = new Map(), falhas = [];
-    let de = null, ate = null;
-    for (const { f, j, erro } of res) {
-      if (erro) { falhas.push(`${f.marca} não respondeu`); continue; }
-      if (!j.leitura_completa) falhas.push(`${f.marca}: parte da agenda não carregou`);
+    let de = null, ate = null, algum = false;
+    ultimo.forEach((x, i) => {
+      const marca = FONTES[i].marca;
+      if (!x) return;
+      if (x.erro) { if (!pendentes.has(marca)) falhas.push(`${marca} não respondeu`); return; }
+      const j = x.j; algum = true;
+      if (x.velho) falhas.push(`${marca} não respondeu agora; mostrando os dados das ${x.em.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`);
+      else if (!j.leitura_completa) falhas.push(`${marca}: parte da agenda não carregou`);
       de = de && de < j.periodo.de ? de : j.periodo.de;
       ate = ate && ate > j.periodo.ate ? ate : j.periodo.ate;
       for (const u of j.unidades) unidades.push({ key: j.marca + ':' + u.id, nome: u.nome, marca: j.marca_nome });
       for (const p of j.profissionais) profs.set(j.marca + ':' + p.id, p.nome);
       for (const h of j.horarios) horarios.push({ ...h, uk: j.marca + ':' + h.unidade_id, pk: j.marca + ':' + h.profissional_id });
-    }
-    if (!res.some((x) => !x.erro)) {
+    });
+    const carregando = FONTES.filter((f, i) => pendentes.has(f.marca) && !(ultimo[i] && ultimo[i].j)).map((f) => f.marca);
+    if (!algum) {
+      if (carregando.length) return; // primeira carga: o esqueleto continua na tela
       $('agenda').replaceChildren(el('div', 'state'));
       const s = $('agenda').firstChild;
       s.append(el('strong', '', 'Não foi possível carregar as agendas agora.'), el('span', '', 'Confira a internet e toque em Atualizar. Se continuar, avise a TI.'));
@@ -241,14 +261,15 @@ footer { border-top: 1px solid var(--line); color: var(--ink-2); font-size: 12px
     }
     const dias = [];
     const hoje = hojeManaus();
-    let d = de || hoje;
-    while (d <= (ate || hoje)) { dias.push(d); const x = dataLocal(d); x.setDate(x.getDate() + 1); d = x.getFullYear() + '-' + String(x.getMonth() + 1).padStart(2, '0') + '-' + String(x.getDate()).padStart(2, '0'); }
-    dados = { horarios, unidades, profs, falhas, dias };
-    atualizadoEm = new Date();
-    $('dot').classList.toggle('stale', falhas.length > 0);
+    let d = de < hoje ? hoje : de;
+    while (d <= ate) { dias.push(d); const x = dataLocal(d); x.setDate(x.getDate() + 1); d = x.getFullYear() + '-' + String(x.getMonth() + 1).padStart(2, '0') + '-' + String(x.getDate()).padStart(2, '0'); }
+    dados = { horarios, unidades, profs, falhas, dias, carregando };
+    if (!pendentes.size) atualizadoEm = new Date();
+    $('dot').classList.toggle('stale', falhas.length > 0 || carregando.length > 0);
     if (estado.dia !== 'todos' && !dias.includes(estado.dia)) estado.dia = 'todos';
     montarFiltros();
     render();
+    if (pendentes.size) $('fresh').textContent = 'Atualizando…';
   }
 
   function filtra(h, ignorar) {
@@ -315,6 +336,7 @@ footer { border-top: 1px solid var(--line); color: var(--ink-2); font-size: 12px
     document.body.classList.toggle('hidebusy', estado.soLivres);
 
     const w = $('warn'); w.replaceChildren();
+    if (dados.carregando && dados.carregando.length) w.append(el('div', 'warn', 'Carregando a agenda da ' + dados.carregando.join(' e da ') + '… as unidades dela aparecem aqui em instantes.'));
     if (dados.falhas.length) w.append(el('div', 'warn', 'Atenção: ' + dados.falhas.join('; ') + '. Os números abaixo podem estar incompletos.'));
 
     const ag = $('agenda'); ag.replaceChildren();
