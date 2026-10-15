@@ -34,6 +34,7 @@
   color-scheme: light;
 }
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 html, body { margin: 0; }
 html { -webkit-font-smoothing: antialiased; }
 body { background: var(--surface-page); color: var(--text-body); font: 400 15px/1.6 var(--font); text-wrap: pretty; padding-bottom: env(safe-area-inset-bottom, 0px); }
@@ -121,7 +122,21 @@ main { padding-block: 4px 56px; }
 .slots { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
 .slot { font-size: 13px; font-weight: 500; padding: 4px 10px; border-radius: var(--radius-sm); font-variant-numeric: tabular-nums; background: var(--blue-100); border: 1px solid var(--blue-300); color: var(--slate-800); }
 .slot.busy { background: var(--surface-sunken); border-color: transparent; color: var(--grey-400); font-weight: 400; text-decoration: line-through; text-decoration-thickness: 1px; }
-.hidebusy .slot.busy { display: none; }
+.hidebusy .slot.busy, .hidebusy .pacs { display: none; }
+.pacs { list-style: none; margin: 4px 0 0; padding: 0; display: grid; }
+.pac { display: grid; grid-template-columns: 46px minmax(0, 1fr) auto; gap: 10px; align-items: start; padding-block: 9px; border-top: 1px solid var(--border-subtle); }
+.phora { font-size: 13px; font-weight: 500; color: var(--slate-500); font-variant-numeric: tabular-nums; padding-top: 1px; }
+.pinfo { min-width: 0; display: grid; gap: 3px; }
+.pnome { font-size: 14px; font-weight: 500; color: var(--text-heading); overflow-wrap: anywhere; }
+.pmeta { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; font-size: 12px; color: var(--text-muted); }
+.ptipo { font-size: 11px; font-weight: 500; padding: 1px 8px; border-radius: 6px; color: var(--slate-700); }
+.ptipo.consulta { background: var(--blue-100); }
+.ptipo.retorno { background: var(--nude-100); }
+.ptipo.exame { background: var(--surface-sunken); }
+.penc { font-size: 11px; color: var(--nude-500); font-weight: 500; }
+.pval { font-size: 13px; font-weight: 500; color: var(--slate-700); font-variant-numeric: tabular-nums; white-space: nowrap; padding-top: 1px; }
+.modo { display: flex; align-items: center; gap: 8px; background: var(--nude-100); color: var(--slate-800); border-radius: var(--radius-md); padding: 10px 16px; font-size: 13px; margin-top: 16px; }
+.modo strong { font-weight: 600; }
 
 .state { text-align: center; padding: 64px 16px; color: var(--text-muted); }
 .state strong { display: block; color: var(--text-heading); font-size: 18px; font-weight: 600; margin-bottom: 4px; }
@@ -180,17 +195,21 @@ footer .wrap { padding-block: 22px 30px; }
     <div><b id="s-uni">0</b>unidades atendendo</div>
     <div class="legend"><span><i class="l"></i>livre</span><span><i class="o"></i>ocupado</span></div>
   </div>
+  <div class="modo" id="modo" hidden><strong>Link da recepção.</strong> Mostra nome de paciente: não encaminhe este link nem tire print.</div>
   <div id="warn"></div>
   <div id="agenda"><div class="cards" style="margin-top:28px"><div class="skel"></div><div class="skel"></div><div class="skel"></div></div></div>
   <div class="nosched" id="nosched"></div>
 </main>
 
 <footer>
-  <div class="wrap">Dados lidos do Feegow de cada clínica, sem nenhum dado de paciente. A tela se atualiza sozinha a cada 5 minutos.</div>
+  <div class="wrap">Dados lidos do Feegow de cada clínica. Sem o link da recepção, a tela não mostra nenhum dado de paciente. Atualiza sozinha a cada 5 minutos.</div>
 </footer>
 
 <script>
 (() => {
+  // Link da recepção: ...oftalmo.html#k=CHAVE. O que vem depois do # não sai do navegador;
+  // a chave só vai, num header, para as funções das clínicas, que conferem antes de mostrar paciente.
+  const CHAVE = ((location.hash || '').match(/k=([0-9a-f]{48})/) || [])[1] || '';
   const FONTES = [
     { marca: 'Acesso Saúde', url: 'https://dfvmuqxjdcvwskrrdbfm.supabase.co/functions/v1/agenda-oftalmo-publica?dias=14' },
     { marca: 'Doctor Mais Saúde', url: 'https://myiqdeonxuznvhtsvfxg.supabase.co/functions/v1/agenda-oftalmo-publica?dias=14' },
@@ -203,7 +222,7 @@ footer .wrap { padding-block: 22px 30px; }
 
   const estado = { dia: 'todos', unidade: '', prof: '', soLivres: false };
   try { estado.soLivres = localStorage.getItem('oft_solivres') === '1'; } catch (e) {}
-  let dados = { horarios: [], unidades: [], profs: new Map(), falhas: [], dias: [], carregando: [] };
+  let dados = { horarios: [], unidades: [], profs: new Map(), falhas: [], dias: [], carregando: [], detalhes: false, recusada: false };
   let atualizadoEm = null;
 
   const dataLocal = (iso) => { const [y, m, d] = iso.split('-').map(Number); return new Date(y, m - 1, d); };
@@ -220,7 +239,7 @@ footer .wrap { padding-block: 22px 30px; }
     combinar();
     await Promise.all(FONTES.map(async (f, i) => {
       try {
-        const r = await fetch(f.url, { cache: 'no-store' });
+        const r = await fetch(f.url, { cache: 'no-store', headers: CHAVE ? { 'x-chave': CHAVE } : {} });
         const j = await r.json();
         if (!j.ok) throw new Error(j.erro || 'erro');
         ultimo[i] = { f, j, em: new Date() };
@@ -234,12 +253,14 @@ footer .wrap { padding-block: 22px 30px; }
 
   function combinar() {
     const horarios = [], unidades = [], profs = new Map(), falhas = [];
-    let de = null, ate = null, algum = false;
+    let de = null, ate = null, algum = false, detalhes = false, recusada = false;
     ultimo.forEach((x, i) => {
       const marca = FONTES[i].marca;
       if (!x) return;
       if (x.erro) { if (!pendentes.has(marca)) falhas.push(`${marca} não respondeu`); return; }
       const j = x.j; algum = true;
+      if (j.detalhes) detalhes = true;
+      if (j.chave_recusada) recusada = true;
       if (x.velho) falhas.push(`${marca} não respondeu agora; mostrando os dados das ${x.em.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`);
       else if (!j.leitura_completa) falhas.push(`${marca}: parte da agenda não carregou`);
       de = de && de < j.periodo.de ? de : j.periodo.de;
@@ -262,7 +283,7 @@ footer .wrap { padding-block: 22px 30px; }
     const hoje = hojeManaus();
     let d = de < hoje ? hoje : de;
     while (d <= ate) { dias.push(d); const x = dataLocal(d); x.setDate(x.getDate() + 1); d = x.getFullYear() + '-' + String(x.getMonth() + 1).padStart(2, '0') + '-' + String(x.getDate()).padStart(2, '0'); }
-    dados = { horarios, unidades, profs, falhas, dias, carregando };
+    dados = { horarios, unidades, profs, falhas, dias, carregando, detalhes, recusada };
     if (!pendentes.size) atualizadoEm = new Date();
     $('dot').classList.toggle('stale', falhas.length > 0 || carregando.length > 0);
     if (estado.dia !== 'todos' && !dias.includes(estado.dia)) estado.dia = 'todos';
@@ -335,6 +356,9 @@ footer .wrap { padding-block: 22px 30px; }
     document.body.classList.toggle('hidebusy', estado.soLivres);
 
     const w = $('warn'); w.replaceChildren();
+    document.body.classList.toggle('recepcao', dados.detalhes);
+    $('modo').hidden = !dados.detalhes;
+    if (CHAVE && dados.recusada) w.append(el('div', 'warn', 'Este link não tem permissão para ver os pacientes: a chave foi desligada ou está errada. Peça um link novo à gestão. Abaixo, só os horários.'));
     if (dados.carregando && dados.carregando.length) w.append(el('div', 'warn', 'Carregando a agenda da ' + dados.carregando.join(' e da ') + '… as unidades dela aparecem aqui em instantes.'));
     if (dados.falhas.length) w.append(el('div', 'warn', 'Atenção: ' + dados.falhas.join('; ') + '. Os números abaixo podem estar incompletos.'));
 
@@ -370,8 +394,28 @@ footer .wrap { padding-block: 22px 30px; }
         const cnt = el('div', 'count'); cnt.append(el('i', 'ic ic-clock'), el('strong', '', String(l)), document.createTextNode(` livre${l === 1 ? '' : 's'} · ${gs.length - l} ocupado${gs.length - l === 1 ? '' : 's'} · ${gs[0].hora} às ${gs[gs.length - 1].hora}`));
         c.append(cnt);
         const sl = el('div', 'slots');
-        for (const x of gs) { const s = el('span', 'slot' + (x.situacao === 'ocupado' ? ' busy' : ''), x.hora); s.title = x.situacao === 'livre' ? 'Horário livre' : 'Já agendado'; sl.append(s); }
-        c.append(sl);
+        const comPac = dados.detalhes && gs.some((x) => x.pacientes && x.pacientes.length);
+        for (const x of gs) {
+          if (comPac && x.situacao === 'ocupado' && x.pacientes && x.pacientes.length) continue; // vai para a lista de pacientes
+          const s = el('span', 'slot' + (x.situacao === 'ocupado' ? ' busy' : ''), x.hora); s.title = x.situacao === 'livre' ? 'Horário livre' : 'Já agendado'; sl.append(s);
+        }
+        if (sl.childElementCount) c.append(sl);
+        if (comPac) {
+          const lista = el('ul', 'pacs');
+          for (const x of gs) for (const p of (x.situacao === 'ocupado' && x.pacientes) || []) {
+            const li = el('li', 'pac');
+            const info = el('div', 'pinfo');
+            info.append(el('span', 'pnome', p.nome));
+            const meta = el('span', 'pmeta');
+            meta.append(el('span', 'ptipo ' + p.tipo.toLowerCase(), p.tipo));
+            if (p.tipo === 'Exame' && p.procedimento) meta.append(el('span', '', p.procedimento));
+            if (p.encaixe) meta.append(el('span', 'penc', 'encaixe'));
+            info.append(meta);
+            li.append(el('span', 'phora', x.hora), info, el('span', 'pval', p.valor || '—'));
+            lista.append(li);
+          }
+          c.append(lista);
+        }
         cards.append(c);
       }
       g.append(cards);

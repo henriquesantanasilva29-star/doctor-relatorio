@@ -433,6 +433,34 @@ na `agencia_procedimentos`), e a última leitura delas foi em 07/10 (as MVs) e 0
 auditoria), com a publicação rodando várias vezes depois. Em 13/10 a remoção foi cancelada de
 novo (dependências conferidas outra vez: nenhuma; última leitura 07/10 e 08/10). São ~3,4 MB.
 
+## Agenda de oftalmologia (`oftalmo.html`) — 15/10/2026
+
+**https://henriquesantanasilva29-star.github.io/doctor-relatorio/oftalmo.html**
+
+Agenda de oftalmo das 6 unidades (Acesso: Djalma Batista, Manoa, Compensa; Doctor: Centro,
+Zona Leste, Vieiralves), próximos 14 dias, com a identidade visual da Ótica Mais Visão.
+Lê ao vivo do Feegow pela função `agenda-oftalmo-publica`, publicada igual nos dois projetos
+Supabase (só muda a constante `MARCA`). A chave do Feegow fica na função; nunca vai ao navegador.
+
+**Dois níveis, mesma regra do resto deste repositório:**
+
+- **Link aberto** (sem `#k=`): dia, horário, unidade, médico e livre/ocupado. Nenhum dado de paciente.
+- **Link da recepção** (`oftalmo.html#k=CHAVE`): os horários ocupados mostram também paciente,
+  consulta/retorno/exame e valor. Uso exclusivo das recepções das clínicas — **não é para a ótica**
+  (dado de saúde de paciente da clínica não vai para quem vende óculos: LGPD art. 11 §4º e CFM).
+
+As chaves vivem só no projeto da **Doctor** (`myiqdeonxuznvhtsvfxg`) e valem para as duas marcas:
+a função da Acesso confere a chave em `oftalmo-chave`. Só o hash fica no banco.
+
+```sql
+select abre_chave_oftalmo('Fulano — recepção Manoa');   -- emite (mostra a chave uma vez só)
+select revoga_chave_oftalmo('Fulano — recepção Manoa'); -- desliga
+select * from v_oftalmo_acessos;                         -- quem abriu, quantas vezes, quando
+```
+
+Chave errada ou desligada mostra o aviso na tela e cai para o link aberto (falha fechada).
+Se o banco da Doctor cair, a recepção também perde os nomes até ele voltar; os horários continuam.
+
 ## O que não sai daqui
 
 Fora do NPS, nenhum dado publicado é pessoal: só agregados por dia, campanha, anúncio e
