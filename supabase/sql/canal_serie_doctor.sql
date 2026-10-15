@@ -5,6 +5,9 @@ CREATE OR REPLACE FUNCTION public.canal_serie(dias integer DEFAULT 400)
  STABLE
  SET search_path TO 'public'
 AS $function$
+-- 15/10/2026 (tarde): o pagamento segue a FATURA — fatura aberta antes do clique de reativação é da
+-- chegada, mesmo paga depois (antes contava pela data do pagamento e dava à agência do clique um
+-- dinheiro de venda feita antes dele).
 -- v3, 15/10/2026 — paciente, proposta, faturado, agenda e caixa pela v_atribuicao_segmento (a regra
 -- de origem do dash em um lugar só): quem já era da base e voltou pelo anúncio conta em "Meta Ads"
 -- a partir do clique; antes do clique, no canal por onde tinha chegado.
@@ -71,8 +74,8 @@ caixa as (
   from feegow_invoice_payments p
   join feegow_invoices f on f.invoice_id = p.invoice_id
   left join v_atribuicao_segmento s on s.conta_id = f.conta_id
-       and ((not s.reat and (s.ate is null or p.data_pagamento < s.ate))
-            or (s.reat and p.data_pagamento >= s.dia))
+       and ((not s.reat and (s.ate is null or f.data_invoice < s.ate))
+            or (s.reat and f.data_invoice >= s.dia))
   where p.data_pagamento is not null and p.data_pagamento >= (current_date - dias)
   group by 1,2
 ),

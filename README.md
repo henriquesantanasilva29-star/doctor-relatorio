@@ -231,13 +231,16 @@ um ou dois trechos:
 
 Reativa só anúncio de OUTRA agência; não reativa clique em post da página ("Não identificada")
 nem quem chegou por "Meta sem id do anúncio". Fatura, proposta e agenda entram no trecho pela
-data; pagamento entra pela data do pagamento. Limite: a mv guarda só a primeira reativação.
+data. **Pagamento segue a fatura** (15/10, tarde): fatura aberta antes do clique é da chegada,
+mesmo paga depois; só a fatura aberta a partir do clique é da agência do clique (antes contava
+pela data do pagamento e a FSX levou R$ 1.500 de uma venda feita pela VX dias antes do clique).
+Limite: a mv guarda só a primeira reativação.
 
 **Quem lê a view** (mudou a regra, muda só a view):
 
 | Função | Base | Bloco / uso |
 |---|---|---|
-| `canal_serie` v3 | as duas | `canais` (origem do caixa, cartões) |
+| `canal_serie` v3 | as duas | `canais` (origem do recebido, cartões) |
 | `agencia_serie` v7 | Doctor | `agencias.serie` — r/p/v/pg já somam quem voltou; xp/xc/xv/xpg = quanto disso |
 | `agencia_anuncios` v5 | Doctor | `agencia_ads` |
 | `agencia_caixa` v5 | as duas | `agencia_caixa` (linha `reat` = pago a partir do clique) |
@@ -252,6 +255,16 @@ anúncios (128 pacientes, R$ 47.105,78 de faturado); caixa total = Feegow (R$ 18
 antes). Na Acesso, canal Meta Ads = `jornada` (128 pacientes, R$ 17.090,42) e caixa de anúncio =
 `agencia_caixa` (R$ 32.989,17). FSX em outubro: 24 pacientes (20 chegaram, 4 já eram da base), e o
 caixa dela passou de R$ 799 para R$ 14.294.
+
+Conferido de novo em 01-15/10, já com o pagamento pela fatura: na Doctor, canais pagos = soma de
+`agencia_caixa` = "Quem pagou" de anúncio (R$ 53.154,10) e recebido total = Feegow (R$ 196.085,00);
+na Acesso, R$ 33.838,48 e R$ 418.267,81, os três iguais. FSX: recebido R$ 13.144,71, dos quais
+R$ 12.245,24 de quem já era da base (contas 29181, 30740, 31121, 31152).
+
+**Nome (15/10):** "caixa" virou **Recebido** na aba (Recebido no período, Recebido de anúncio,
+Recebido da agência, coluna Recebido, "Origem do recebido") = pagamentos do Feegow no período.
+O "recebido" da coorte (quanto do faturado de quem chegou no período já foi pago) virou **Já pago**,
+para não ter dois "Recebido" com contas diferentes.
 
 A aba Canais não soma mais nada por conta própria: lê r/p/v/pg prontos. Em 15/10 uma versão antiga
 da aba (layout de cartões por agência, ~254 KB) foi subida por cima da v2 por outra sessão; a v2 foi

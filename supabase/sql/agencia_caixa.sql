@@ -5,6 +5,9 @@ CREATE OR REPLACE FUNCTION public.agencia_caixa(dias integer)
  LANGUAGE sql
  STABLE
 AS $function$
+-- 15/10/2026 (tarde): o pagamento segue a FATURA — fatura aberta antes do clique de reativação é da
+-- chegada, mesmo paga depois (antes contava pela data do pagamento e dava à agência do clique um
+-- dinheiro de venda feita antes dele).
 -- v5, 15/10/2026 — o dono do pagamento sai da v_atribuicao_segmento (a regra de origem do dash em
 -- um lugar só, a mesma da canal_serie): a partir do clique, quem já era da base e voltou pelo
 -- anúncio é da agência do clique (linha com `reat` = true, `dc` = dia do clique); antes do
@@ -24,8 +27,8 @@ z as (
   from feegow_invoice_payments p
   join feegow_invoices f on f.invoice_id = p.invoice_id
   join v_atribuicao_segmento s on s.conta_id = f.conta_id
-       and ((not s.reat and (s.ate is null or p.data_pagamento < s.ate))
-            or (s.reat and p.data_pagamento >= s.dia))
+       and ((not s.reat and (s.ate is null or f.data_invoice < s.ate))
+            or (s.reat and f.data_invoice >= s.dia))
   cross join janela w
   where p.data_pagamento is not null and p.data_pagamento >= w.de
     and s.canal in ('Meta Ads', 'Meta sem id do anúncio', 'Google Ads')

@@ -10,24 +10,29 @@ AS $function$
 -- 12/10/2026: NOME do paciente no fim (mesma fonte do aberto_periodo v4: Feegow e, na falta, CRM pela identidade do Feegow).
 -- 15/10/2026: canal/ag/aid/dc/via pela v_atribuicao_segmento (quem voltou pelo anúncio: via 'reativacao').
 -- [d, conta, pago, fat, canal, ag, aid, dc, via, reat_ag, reat_d, procs, uni, desde, base, nome]
+-- 15/10/2026 (tarde): o pagamento segue a FATURA — fatura aberta a partir do clique de reativação
+-- é do trecho de reativação; a de antes, mesmo paga depois, é da chegada. Uma linha por
+-- (paciente, dia, trecho).
 with pag as (
-  select f.conta_id, p.data_pagamento d, sum(p.valor_brl) pago,
+  select f.conta_id, p.data_pagamento d, (s.conta_id is not null) reat, sum(p.valor_brl) pago,
          array_agg(distinct f.invoice_id) inv, min(f.unidade_id) uni
   from feegow_invoice_payments p join feegow_invoices f on f.invoice_id = p.invoice_id
-  where p.data_pagamento between p_de and p_ate group by 1,2
+  left join v_atribuicao_segmento s on s.conta_id = f.conta_id and s.reat and f.data_invoice >= s.dia
+  where p.data_pagamento between p_de and p_ate group by 1,2,3
 ),
 fat as (
-  select f.conta_id, f.data_invoice d, sum(f.valor_brl) fat,
+  select f.conta_id, f.data_invoice d, (s.conta_id is not null) reat, sum(f.valor_brl) fat,
          array_agg(distinct f.invoice_id) inv, min(f.unidade_id) uni
   from feegow_invoices f
-  where f.data_invoice between p_de and least(p_ate, current_date) group by 1,2
+  left join v_atribuicao_segmento s on s.conta_id = f.conta_id and s.reat and f.data_invoice >= s.dia
+  where f.data_invoice between p_de and least(p_ate, current_date) group by 1,2,3
 ),
 dia as (
-  select coalesce(p.conta_id, f.conta_id) conta, coalesce(p.d, f.d) d,
+  select coalesce(p.conta_id, f.conta_id) conta, coalesce(p.d, f.d) d, coalesce(p.reat, f.reat) reat,
          coalesce(p.pago,0) pago, coalesce(f.fat,0) fat,
          array(select distinct unnest(coalesce(p.inv,'{}') || coalesce(f.inv,'{}'))) inv,
          coalesce(p.uni, f.uni) uni
-  from pag p full join fat f on f.conta_id = p.conta_id and f.d = p.d
+  from pag p full join fat f on f.conta_id = p.conta_id and f.d = p.d and f.reat = p.reat
 ),
 sel as (
   -- 15/10/2026: dono do dia pela v_atribuicao_segmento (a regra de origem do dash em um lugar só):
@@ -35,17 +40,16 @@ sel as (
   -- dc = dia do clique; antes dele, por onde o paciente chegou.
   select x.*, s.canal, s.agencia, s.anuncio_id, s.dia dc, s.via, m.reat_agencia, m.reat_dia, m.era_da_base
   from dia x
-  left join v_atribuicao_segmento s on s.conta_id = x.conta
-       and ((not s.reat and (s.ate is null or x.d < s.ate)) or (s.reat and x.d >= s.dia))
+  left join v_atribuicao_segmento s on s.conta_id = x.conta and s.reat = x.reat
   left join mv_atribuicao_unica m on m.conta_id = x.conta
   where x.pago > 0 or (x.fat > 0 and s.canal in ('Meta Ads','Meta sem id do anúncio','Google Ads'))
 ),
 procs as (
-  select s.conta, s.d, string_agg(distinct coalesce(classifica_procedimento(o.nome),'Outros'), ', ') cats
+  select s.conta, s.d, s.reat, string_agg(distinct coalesce(classifica_procedimento(o.nome),'Outros'), ', ') cats
   from sel s
   join feegow_invoice_items it on it.invoice_id = any(s.inv) and not coalesce(it.is_cancelado,false)
   left join feegow_procedures_official o on o.procedimento_id = it.procedimento_id
-  group by 1,2
+  group by 1,2,3
 ),
 desde as (
   select z.conta, min(z.d) d from (
@@ -81,7 +85,7 @@ select coalesce(jsonb_agg(jsonb_build_array(
   to_char(ds.d,'YYYY-MM-DD'), coalesce(s.era_da_base,false), nm.nome
 ) order by s.d desc, s.pago desc), '[]'::jsonb)
 from sel s
-left join procs pc on pc.conta = s.conta and pc.d = s.d
+left join procs pc on pc.conta = s.conta and pc.d = s.d and pc.reat = s.reat
 left join desde ds on ds.conta = s.conta
 left join nm on nm.conta = s.conta;
 $function$
