@@ -1,0 +1,386 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Agenda de Oftalmologia · Mais Visão</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+/* Layout: barra de filtros fixa no topo, uma faixa de dias e, abaixo, um cartão por
+   profissional+unidade com a grade de horários do dia. Cabe em celular de balcão.
+   CORES E FONTES: provisórias até chegar o design system da Ótica Mais Visão.
+   Para aplicar a marca, troque só os tokens deste bloco. */
+:root {
+  --bg: #f5f7fa;
+  --surface: #ffffff;
+  --ink: #142033;
+  --ink-2: #4d5b70;
+  --line: #dde3eb;
+  --brand: #1450b8;        /* cor principal da marca */
+  --brand-ink: #ffffff;    /* texto sobre a cor principal */
+  --brand-soft: #e6eefb;
+  --busy: #eceff3;
+  --busy-ink: #8b96a6;
+  --warn-bg: #fff4e0;
+  --warn-ink: #7a4b00;
+  --font-ui: "Lexend", "Segoe UI", system-ui, sans-serif;
+  --font-num: "IBM Plex Mono", ui-monospace, "SFMono-Regular", monospace;
+  --r: 10px;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0d1420; --surface: #152031; --ink: #e8eef7; --ink-2: #9fb0c6; --line: #263449;
+    --brand: #5b93f0; --brand-ink: #08111f; --brand-soft: #1b2d4a; --busy: #1b2638; --busy-ink: #66768c;
+    --warn-bg: #3a2a0c; --warn-ink: #f5cf8a; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0d1420; --surface: #152031; --ink: #e8eef7; --ink-2: #9fb0c6; --line: #263449;
+  --brand: #5b93f0; --brand-ink: #08111f; --brand-soft: #1b2d4a; --busy: #1b2638; --busy-ink: #66768c;
+  --warn-bg: #3a2a0c; --warn-ink: #f5cf8a; color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--bg); color: var(--ink); font: 400 15px/1.5 var(--font-ui);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+.wrap {
+  max-width: 1180px; margin: 0 auto;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+button, select { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+
+/* topo */
+header.top { background: var(--surface); border-bottom: 1px solid var(--line); padding-top: env(safe-area-inset-top, 0px); }
+header.top .wrap { display: flex; align-items: center; gap: 14px; padding-block: 16px; flex-wrap: wrap; }
+.mark {
+  width: 40px; height: 40px; border-radius: 50%; background: var(--brand); color: var(--brand-ink);
+  display: grid; place-items: center; font-weight: 700; font-size: 20px; flex: none; letter-spacing: -.02em;
+}
+.titles { min-width: 0; flex: 1 1 240px; }
+h1 { margin: 0; font-size: clamp(19px, 2.4vw, 24px); font-weight: 600; letter-spacing: -.01em; text-wrap: balance; }
+.sub { margin: 0; color: var(--ink-2); font-size: 13px; }
+.fresh { font-size: 12px; color: var(--ink-2); display: flex; align-items: center; gap: 8px; }
+.fresh button {
+  border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 5px 12px; cursor: pointer; font-size: 12px;
+}
+.fresh button:hover { border-color: var(--brand); color: var(--brand); }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: #2fa36b; flex: none; }
+.dot.stale { background: #d08a00; }
+
+/* filtros */
+.filters { position: sticky; top: 0; z-index: 5; background: var(--bg); border-bottom: 1px solid var(--line); }
+.filters .wrap { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; padding-block: 12px; }
+.filters .row { min-width: 0; }
+.row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.lbl { font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-2); min-width: 92px; }
+.days { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: thin; padding-bottom: 2px; min-width: 0; flex: 1 1 0; }
+.chip {
+  border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 6px 12px; cursor: pointer;
+  font-size: 13px; white-space: nowrap; display: inline-flex; gap: 6px; align-items: baseline;
+}
+.chip:hover { border-color: var(--brand); }
+.chip[aria-pressed="true"] { background: var(--brand); border-color: var(--brand); color: var(--brand-ink); }
+.chip .n { font-family: var(--font-num); font-size: 11px; opacity: .75; }
+.chip.day { flex-direction: column; align-items: center; gap: 0; border-radius: var(--r); padding: 6px 10px; min-width: 58px; }
+.chip.day .wd { font-size: 11px; text-transform: lowercase; opacity: .8; }
+.chip.day .dd { font-weight: 600; font-size: 15px; }
+.chip.day .n { font-size: 10px; }
+.chip.empty { opacity: .45; }
+select {
+  border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 6px 12px; min-width: 0; max-width: 100%;
+}
+.brandtag { font-size: 10px; letter-spacing: .06em; text-transform: uppercase; opacity: .7; }
+
+/* resumo */
+.summary { display: flex; gap: 22px; flex-wrap: wrap; padding-block: 18px 6px; color: var(--ink-2); font-size: 13px; }
+.summary b { color: var(--ink); font-size: 22px; font-weight: 600; display: block; font-variant-numeric: tabular-nums; }
+.legend { display: flex; gap: 14px; align-items: center; font-size: 12px; color: var(--ink-2); margin-left: auto; align-self: end; }
+.legend i { display: inline-block; width: 14px; height: 14px; border-radius: 4px; vertical-align: -2px; margin-right: 5px; }
+.legend .l { background: var(--brand-soft); border: 1px solid var(--brand); }
+.legend .o { background: var(--busy); }
+
+.warn { background: var(--warn-bg); color: var(--warn-ink); border-radius: var(--r); padding: 10px 14px; font-size: 13px; margin-top: 12px; }
+
+/* agenda */
+main { padding-block: 8px 48px; }
+.daygroup { margin-top: 22px; }
+.daygroup h2 { font-size: 15px; font-weight: 600; margin: 0 0 10px; display: flex; gap: 10px; align-items: baseline; }
+.daygroup h2 small { color: var(--ink-2); font-weight: 400; font-size: 13px; }
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr)); gap: 12px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 14px; min-width: 0; display: grid; gap: 10px; align-content: start; }
+.card .who { font-weight: 600; font-size: 15px; line-height: 1.3; }
+.card .where { font-size: 13px; color: var(--ink-2); display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.pill { font-size: 11px; padding: 2px 8px; border-radius: 999px; background: var(--brand-soft); color: var(--ink); }
+.card .count { font-size: 12px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.card .count strong { color: var(--brand); }
+.slots { display: flex; flex-wrap: wrap; gap: 5px; }
+.slot {
+  font-family: var(--font-num); font-size: 12.5px; padding: 3px 7px; border-radius: 6px; font-variant-numeric: tabular-nums;
+  background: var(--brand-soft); border: 1px solid var(--brand); color: var(--ink);
+}
+.slot.busy { background: var(--busy); border-color: transparent; color: var(--busy-ink); text-decoration: line-through; text-decoration-thickness: 1px; }
+.hidebusy .slot.busy { display: none; }
+
+.state { text-align: center; padding: 60px 16px; color: var(--ink-2); }
+.state strong { display: block; color: var(--ink); font-size: 17px; font-weight: 600; margin-bottom: 4px; }
+.skel { height: 120px; border-radius: var(--r); background: linear-gradient(90deg, var(--surface), var(--busy), var(--surface)); background-size: 200% 100%; animation: sh 1.4s infinite linear; border: 1px solid var(--line); }
+@keyframes sh { to { background-position: -200% 0; } }
+@media (prefers-reduced-motion: reduce) { .skel { animation: none; } }
+
+.nosched { margin-top: 26px; font-size: 13px; color: var(--ink-2); }
+footer { border-top: 1px solid var(--line); color: var(--ink-2); font-size: 12px; padding-block: 18px 28px; }
+@media (max-width: 560px) {
+  .lbl { min-width: 0; width: 100%; }
+  .days { flex-basis: 100%; }
+  .filters { position: static; }
+  .legend { margin-left: 0; }
+}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <div class="mark" aria-hidden="true"><span>E</span></div>
+    <div class="titles">
+      <h1>Agenda de oftalmologia</h1>
+      <p class="sub">Ótica Mais Visão · Acesso Saúde e Doctor Mais Saúde, 6 unidades</p>
+    </div>
+    <div class="fresh" aria-live="polite">
+      <span class="dot" id="dot"></span><span id="fresh">Carregando agendas…</span>
+      <button type="button" id="reload">Atualizar</button>
+    </div>
+  </div>
+</header>
+
+<div class="filters">
+  <div class="wrap">
+    <div class="row"><span class="lbl">Dia</span><div class="days" id="days" role="group" aria-label="Escolher dia"></div></div>
+    <div class="row"><span class="lbl">Unidade</span><div class="row" id="units" role="group" aria-label="Escolher unidade"></div></div>
+    <div class="row">
+      <span class="lbl">Profissional</span>
+      <select id="prof" aria-label="Escolher profissional"><option value="">Todos os oftalmologistas</option></select>
+      <button type="button" class="chip" id="onlyfree" aria-pressed="false">Só horários livres</button>
+    </div>
+  </div>
+</div>
+
+<main class="wrap">
+  <div class="summary" id="summary" hidden>
+    <div><b id="s-livres">0</b>horários livres</div>
+    <div><b id="s-ocup">0</b>já agendados</div>
+    <div><b id="s-prof">0</b>oftalmologistas</div>
+    <div><b id="s-uni">0</b>unidades atendendo</div>
+    <div class="legend"><span><i class="l"></i>livre</span><span><i class="o"></i>ocupado</span></div>
+  </div>
+  <div id="warn"></div>
+  <div id="agenda"><div class="cards" style="margin-top:22px"><div class="skel"></div><div class="skel"></div><div class="skel"></div></div></div>
+  <div class="nosched" id="nosched"></div>
+</main>
+
+<footer>
+  <div class="wrap">Dados lidos do Feegow de cada clínica, sem nenhum dado de paciente. A tela se atualiza sozinha a cada 5 minutos. Mostra os próximos 14 dias.</div>
+</footer>
+
+<script>
+(() => {
+  const FONTES = [
+    { marca: 'Acesso Saúde', url: 'https://dfvmuqxjdcvwskrrdbfm.supabase.co/functions/v1/agenda-oftalmo-publica?dias=14' },
+    { marca: 'Doctor Mais Saúde', url: 'https://myiqdeonxuznvhtsvfxg.supabase.co/functions/v1/agenda-oftalmo-publica?dias=14' },
+  ];
+  const DIAS = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
+  const MESES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+  const DIA_LONGO = ['Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado'];
+  const $ = (id) => document.getElementById(id);
+  const el = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; };
+
+  const estado = { dia: 'todos', unidade: '', prof: '', soLivres: false };
+  try { estado.soLivres = localStorage.getItem('oft_solivres') === '1'; } catch (e) {}
+  let dados = { horarios: [], unidades: [], profs: new Map(), falhas: [], dias: [] };
+  let atualizadoEm = null;
+
+  const dataLocal = (iso) => { const [y, m, d] = iso.split('-').map(Number); return new Date(y, m - 1, d); };
+  const hojeManaus = () => new Date(Date.now() - 4 * 3600e3).toISOString().slice(0, 10);
+
+  async function carregar() {
+    $('fresh').textContent = 'Atualizando…';
+    const res = await Promise.all(FONTES.map(async (f) => {
+      try {
+        const r = await fetch(f.url, { cache: 'no-store' });
+        const j = await r.json();
+        if (!j.ok) throw new Error(j.erro || 'erro');
+        return { f, j };
+      } catch (e) { return { f, erro: true }; }
+    }));
+    const horarios = [], unidades = [], profs = new Map(), falhas = [];
+    let de = null, ate = null;
+    for (const { f, j, erro } of res) {
+      if (erro) { falhas.push(`${f.marca} não respondeu`); continue; }
+      if (!j.leitura_completa) falhas.push(`${f.marca}: parte da agenda não carregou`);
+      de = de && de < j.periodo.de ? de : j.periodo.de;
+      ate = ate && ate > j.periodo.ate ? ate : j.periodo.ate;
+      for (const u of j.unidades) unidades.push({ key: j.marca + ':' + u.id, nome: u.nome, marca: j.marca_nome });
+      for (const p of j.profissionais) profs.set(j.marca + ':' + p.id, p.nome);
+      for (const h of j.horarios) horarios.push({ ...h, uk: j.marca + ':' + h.unidade_id, pk: j.marca + ':' + h.profissional_id });
+    }
+    if (!res.some((x) => !x.erro)) {
+      $('agenda').replaceChildren(el('div', 'state'));
+      const s = $('agenda').firstChild;
+      s.append(el('strong', '', 'Não foi possível carregar as agendas agora.'), el('span', '', 'Confira a internet e toque em Atualizar. Se continuar, avise a TI.'));
+      $('fresh').textContent = 'Sem conexão com as agendas';
+      $('dot').classList.add('stale');
+      return;
+    }
+    const dias = [];
+    const hoje = hojeManaus();
+    let d = de || hoje;
+    while (d <= (ate || hoje)) { dias.push(d); const x = dataLocal(d); x.setDate(x.getDate() + 1); d = x.getFullYear() + '-' + String(x.getMonth() + 1).padStart(2, '0') + '-' + String(x.getDate()).padStart(2, '0'); }
+    dados = { horarios, unidades, profs, falhas, dias };
+    atualizadoEm = new Date();
+    $('dot').classList.toggle('stale', falhas.length > 0);
+    if (estado.dia !== 'todos' && !dias.includes(estado.dia)) estado.dia = 'todos';
+    montarFiltros();
+    render();
+  }
+
+  function filtra(h, ignorar) {
+    if (ignorar !== 'unidade' && estado.unidade && h.uk !== estado.unidade) return false;
+    if (ignorar !== 'prof' && estado.prof && h.pk !== estado.prof) return false;
+    if (ignorar !== 'dia' && estado.dia !== 'todos' && h.data !== estado.dia) return false;
+    return true;
+  }
+
+  function montarFiltros() {
+    // dias, com contagem de livres considerando unidade e profissional
+    const livresDia = new Map();
+    for (const h of dados.horarios) if (h.situacao === 'livre' && filtra(h, 'dia')) livresDia.set(h.data, (livresDia.get(h.data) || 0) + 1);
+    const total = [...livresDia.values()].reduce((a, b) => a + b, 0);
+    const days = $('days'); days.replaceChildren();
+    const todos = el('button', 'chip day'); todos.type = 'button';
+    todos.append(el('span', 'wd', 'próximos'), el('span', 'dd', '14 dias'), el('span', 'n', total + ' livres'));
+    todos.setAttribute('aria-pressed', estado.dia === 'todos');
+    todos.onclick = () => { estado.dia = 'todos'; montarFiltros(); render(); };
+    days.append(todos);
+    const hoje = hojeManaus();
+    for (const d of dados.dias) {
+      const dt = dataLocal(d);
+      const n = livresDia.get(d) || 0;
+      const b = el('button', 'chip day' + (n ? '' : ' empty')); b.type = 'button';
+      b.append(el('span', 'wd', d === hoje ? 'hoje' : DIAS[dt.getDay()]), el('span', 'dd', dt.getDate() + ' ' + MESES[dt.getMonth()]), el('span', 'n', n ? n + ' livres' : '—'));
+      b.setAttribute('aria-pressed', estado.dia === d);
+      b.setAttribute('aria-label', `${DIA_LONGO[dt.getDay()]}, ${dt.getDate()} de ${MESES[dt.getMonth()]}: ${n} horários livres`);
+      b.onclick = () => { estado.dia = d; montarFiltros(); render(); };
+      days.append(b);
+    }
+    // unidades
+    const units = $('units'); units.replaceChildren();
+    const temAgenda = new Set(dados.horarios.map((h) => h.uk));
+    const todas = el('button', 'chip', 'Todas'); todas.type = 'button';
+    todas.setAttribute('aria-pressed', !estado.unidade);
+    todas.onclick = () => { estado.unidade = ''; montarFiltros(); render(); };
+    units.append(todas);
+    for (const u of dados.unidades) {
+      const b = el('button', 'chip' + (temAgenda.has(u.key) ? '' : ' empty')); b.type = 'button';
+      b.append(el('span', '', u.nome), el('span', 'brandtag', u.marca.split(' ')[0]));
+      b.setAttribute('aria-pressed', estado.unidade === u.key);
+      b.onclick = () => { estado.unidade = estado.unidade === u.key ? '' : u.key; montarFiltros(); render(); };
+      units.append(b);
+    }
+    // profissionais
+    const sel = $('prof'); const atual = estado.prof;
+    sel.replaceChildren(new Option('Todos os oftalmologistas', ''));
+    const usados = new Set(dados.horarios.filter((h) => filtra(h, 'prof')).map((h) => h.pk));
+    [...dados.profs.entries()].filter(([k]) => usados.has(k) || k === atual).sort((a, b) => a[1].localeCompare(b[1], 'pt-BR'))
+      .forEach(([k, n]) => sel.append(new Option(n, k)));
+    sel.value = atual;
+    $('onlyfree').setAttribute('aria-pressed', estado.soLivres);
+  }
+
+  function render() {
+    const lista = dados.horarios.filter((h) => filtra(h));
+    const livres = lista.filter((h) => h.situacao === 'livre');
+    $('summary').hidden = false;
+    $('s-livres').textContent = livres.length;
+    $('s-ocup').textContent = lista.length - livres.length;
+    $('s-prof').textContent = new Set(lista.map((h) => h.pk)).size;
+    $('s-uni').textContent = new Set(lista.map((h) => h.uk)).size;
+    document.body.classList.toggle('hidebusy', estado.soLivres);
+
+    const w = $('warn'); w.replaceChildren();
+    if (dados.falhas.length) w.append(el('div', 'warn', 'Atenção: ' + dados.falhas.join('; ') + '. Os números abaixo podem estar incompletos.'));
+
+    const ag = $('agenda'); ag.replaceChildren();
+    const visiveis = estado.soLivres ? livres : lista;
+    if (!visiveis.length) {
+      const s = el('div', 'state');
+      s.append(el('strong', '', estado.soLivres ? 'Nenhum horário livre com esses filtros.' : 'Nenhuma agenda de oftalmologia com esses filtros.'),
+        el('span', '', 'Tente outro dia ou outra unidade.'));
+      ag.append(s);
+    }
+    const porDia = new Map();
+    for (const h of visiveis) { if (!porDia.has(h.data)) porDia.set(h.data, []); porDia.get(h.data).push(h); }
+    const uniNome = new Map(dados.unidades.map((u) => [u.key, u]));
+    for (const [dia, hs] of porDia) {
+      const dt = dataLocal(dia);
+      const g = el('section', 'daygroup');
+      const h2 = el('h2', '', `${DIA_LONGO[dt.getDay()]}, ${dt.getDate()} de ${MESES[dt.getMonth()]}`);
+      const nl = hs.filter((h) => h.situacao === 'livre').length;
+      h2.append(el('small', '', `${nl} ${nl === 1 ? 'livre' : 'livres'}`));
+      g.append(h2);
+      const cards = el('div', 'cards');
+      const grupos = new Map();
+      for (const h of hs) { const k = h.pk + '|' + h.uk; if (!grupos.has(k)) grupos.set(k, []); grupos.get(k).push(h); }
+      const ordenados = [...grupos.values()].sort((a, b) => a[0].hora.localeCompare(b[0].hora));
+      for (const gs of ordenados) {
+        const c = el('article', 'card');
+        const u = uniNome.get(gs[0].uk);
+        c.append(el('div', 'who', dados.profs.get(gs[0].pk) || 'Profissional'));
+        const where = el('div', 'where'); where.append(el('span', '', u ? u.nome : ''), el('span', 'pill', u ? u.marca : ''));
+        c.append(where);
+        const l = gs.filter((x) => x.situacao === 'livre').length;
+        const cnt = el('div', 'count'); cnt.append(el('strong', '', String(l)), document.createTextNode(` livre${l === 1 ? '' : 's'} · ${gs.length - l} ocupado${gs.length - l === 1 ? '' : 's'} · ${gs[0].hora} às ${gs[gs.length - 1].hora}`));
+        c.append(cnt);
+        const sl = el('div', 'slots');
+        for (const x of gs) { const s = el('span', 'slot' + (x.situacao === 'ocupado' ? ' busy' : ''), x.hora); s.title = x.situacao === 'livre' ? 'Horário livre' : 'Já agendado'; sl.append(s); }
+        c.append(sl);
+        cards.append(c);
+      }
+      g.append(cards);
+      ag.append(g);
+    }
+    // unidades sem oftalmo no período
+    const sem = dados.unidades.filter((u) => !dados.horarios.some((h) => h.uk === u.key));
+    $('nosched').textContent = sem.length && !estado.unidade ? 'Sem agenda de oftalmologia nos próximos 14 dias: ' + sem.map((u) => `${u.nome} (${u.marca})`).join(', ') + '.' : '';
+    if (estado.unidade && sem.some((u) => u.key === estado.unidade)) $('nosched').textContent = 'Esta unidade não tem agenda de oftalmologia aberta nos próximos 14 dias.';
+    pinta();
+  }
+
+  function pinta() {
+    if (!atualizadoEm) return;
+    const min = Math.round((Date.now() - atualizadoEm) / 60000);
+    const hh = atualizadoEm.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    $('fresh').textContent = `Atualizado às ${hh}` + (min >= 1 ? ` (há ${min} min)` : '');
+  }
+
+  $('prof').onchange = (e) => { estado.prof = e.target.value; montarFiltros(); render(); };
+  $('onlyfree').onclick = () => {
+    estado.soLivres = !estado.soLivres;
+    try { localStorage.setItem('oft_solivres', estado.soLivres ? '1' : '0'); } catch (e) {}
+    montarFiltros(); render();
+  };
+  $('reload').onclick = () => carregar();
+  setInterval(carregar, 5 * 60e3);
+  setInterval(pinta, 30e3);
+  carregar();
+})();
+</script>
+</body>
+</html>
