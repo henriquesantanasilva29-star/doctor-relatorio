@@ -427,7 +427,17 @@ function agDe(m, suf, dia){
 }
 function gerDe(m, suf){
   for (var i = 0; i < REF.length; i++) if (REF[i].m === m && REF[i].suf === suf && REF[i].ger) return REF[i].ger;
+  if (ehNum(suf)) return 'WhatsApp ' + suf.slice(2) + ' · sem anúncio identificado';
   return 'conta ' + suf;
+}
+/* 16/10/2026: número de WhatsApp de agência (meta_numero_agencia no banco; hoje o 5700 da Doctor → FSX
+   desde 01/10). Quem chega NOVO por ele sem anúncio identificado conta para a agência; no banco vem
+   com suf 'wa' + número (agencia_serie) e via 'numero_' + número (rastro). */
+function ehNum(suf){ return /^wa\d+$/.test(suf || ''); }
+function numDaAg(m, ag, dia){
+  for (var i = 0; i < REF.length; i++) { var r = REF[i];
+    if (r.m === m && ehNum(r.suf) && r.ag === ag && (!r.de || dia >= r.de) && (!r.ate || dia <= r.ate)) return r.suf.slice(2); }
+  return '';
 }
 
 /* ---------- filtros ---------- */
@@ -658,7 +668,7 @@ function linhaAg(o, classe, attrs, rotulo){
 }
 function linhaConta(c){
   var fora = VENDA_FORA[c.suf];
-  var rot = (S.marca === 'todas' ? (c.m === 'doctor' ? 'Doctor · ' : 'Acesso · ') : '') + esc(gerDe(c.m, c.suf)) + ' <span class="dim">' + esc(c.suf) + '</span>';
+  var rot = (S.marca === 'todas' ? (c.m === 'doctor' ? 'Doctor · ' : 'Acesso · ') : '') + esc(gerDe(c.m, c.suf)) + (ehNum(c.suf) ? '' : ' <span class="dim">' + esc(c.suf) + '</span>');
   if (fora) return '<tr class="conta"><td>' + rot + '</td><td class="num">' + brl(c.inv) + '</td><td class="num">' + n0(c.r) + '</td>' +
     '<td class="num">' + n0(c.p) + '</td><td class="num">' + pct(c.p, c.r) + '</td><td colspan="5" class="fora" title="A odonto agenda e cobra fora do Feegow">venda fora do Feegow</td><td class="num">—</td></tr>';
   return '<tr class="conta"><td>' + rot + '</td><td class="num">' + brl(c.inv) + '</td><td class="num">' + n0(c.r) + '</td><td class="num">' + n0(c.p) + '</td>' +
@@ -753,9 +763,11 @@ function carregaCriativos(m){
 function listaAds(){
   var m = {};
   function lin(mm, id, ag){
-    var k = mm + '|' + id + '|' + ag, nm = NOME_AD[id] || {nome: 'anúncio ' + id.slice(-6), camp: ''};
-    return m[k] || (m[k] = {k: k, m: mm, id: id, suf: id.slice(-4), ag: ag, nome: nm.nome, camp: nm.camp,
-      tipo: tipoDe(id.slice(-4), nm.camp, nm.nome), inv: 0, imp: 0, cli: 0, conv: 0, dias: {}, r: 0, p: 0,
+    var k = mm + '|' + id + '|' + ag, num = ehNum(id),
+        nm = num ? {nome: gerDe(mm, id), camp: 'Chegou novo pelo número, sem anúncio rastreado'}
+                 : NOME_AD[id] || {nome: 'anúncio ' + id.slice(-6), camp: ''};
+    return m[k] || (m[k] = {k: k, m: mm, id: id, suf: num ? id : id.slice(-4), ag: ag, nome: nm.nome, camp: nm.camp, num: num,
+      tipo: num ? 'WhatsApp ' + id.slice(2) + ' sem anúncio' : tipoDe(id.slice(-4), nm.camp, nm.nome), inv: 0, imp: 0, cli: 0, conv: 0, dias: {}, r: 0, p: 0,
       rec: 0, pag: {}, cats: {}, procs: {}});
   }
   MID.forEach(function(r){ if (!noPer(r)) return; var ag = agDe(r.m, r.suf, r.d);
@@ -763,7 +775,18 @@ function listaAds(){
     o.inv += r.inv; o.imp += r.imp; o.cli += r.cli; o.conv += r.conv; if (r.inv > 0) o.dias[r.d] = 1; });
   ADS.forEach(function(x){ if (!noPer(x)) return; var ag = agDe(x.m, x.a.slice(-4), x.d);
     if (S.ag !== 'todas' && ag !== S.ag) return; var o = lin(x.m, x.a, ag); o.r += x.r; o.p += x.p; });
+  /* número de WhatsApp da agência: leads e pacientes vêm da série da agência (suf 'wa' + número) */
+  SER.forEach(function(x){ if (!ehNum(x.suf) || !noPer(x) || (S.ag !== 'todas' && x.ag !== S.ag)) return;
+    var o = lin(x.m, x.suf, x.ag); o.r += x.r; o.p += x.p; });
   if (Array.isArray(PG)) PG.forEach(function(l){
+    if (l.num && !l.aid && l.g === 'pago' && daMarca(l) && (S.ag === 'todas' || l.ag === S.ag)) {
+      var w = lin(l.m, 'wa' + l.num, l.ag); w.rec += l.pago; w.pag[l.conta] = 1;
+      (l.itens || [['Sem item', 'Pagamento sem item na fatura', l.pago]]).forEach(function(it){
+        var c = it[0] || 'Outros', p = it[1] || 'Item sem nome', v = +it[2] || 0;
+        w.cats[c] = (w.cats[c] || 0) + v;
+        var q = w.procs[p] || (w.procs[p] = {c: c, v: 0, n: 0}); q.v += v; q.n++; });
+      return;
+    }
     if (!l.aid || (l.g !== 'pago' && l.g !== 'reat') || !daMarca(l)) return;
     /* agência pela conta do anúncio no dia da chegada/clique, como a mídia; o banco da Acesso não conhece a vigência da odonto */
     var ag = agDe(l.m, l.aid.slice(-4), l.dc || l.d); if (ag === SEM_AG && l.ag) ag = l.ag;
@@ -833,7 +856,9 @@ function pintaAds(){
     ? 'O recebido por anúncio sai do rastro de pagamentos, que vai até ' + MAX_LISTA + ' dias. Escolha um período menor para ver o recebido e o que foi vendido.'
     : 'Recebido = pagamentos no período dos pacientes que vieram do anúncio (de quem já era da base, a partir do clique), a mesma régua do “Recebido de anúncio”. ' +
       '“Com o que foi recebido” reparte cada pagamento pelos itens da fatura que ele quitou. Paciente de “Meta sem id do anúncio” e Google Ads ' +
-      'fica fora (não tem anúncio para pendurar). Odonto agenda e cobra fora do Feegow.';
+      'fica fora (não tem anúncio para pendurar). ' + REF.filter(function(r){ return ehNum(r.suf) && daMarca(r) && (!r.ate || r.ate >= S.de); }).map(function(r){
+        return 'Quem chegou novo pelo WhatsApp ' + r.suf.slice(2) + ' sem anúncio rastreado' + (r.de ? ' (desde ' + br(r.de) + ')' : '') +
+          ' conta para a ' + esc(r.ag) + ' e aparece no cartão “' + esc(gerDe(r.m, r.suf)) + '”. '; }).join('') + 'Odonto agenda e cobra fora do Feegow.';
   Array.prototype.forEach.call(document.querySelectorAll('#tAds tr.grp'), function(tr){
     tr.addEventListener('click', function(){
       var g = tr.getAttribute('data-g'); S.adsAbertos[g] = !S.adsAbertos[g];
@@ -851,13 +876,13 @@ function pintaAds(){
 function cartaoAd(o, semRec, longo){
   var cr = CRI[o.id] || {};
   var foto = cr.img ? '<img class="adc-foto" alt="" loading="lazy" src="data:image/jpeg;base64,' + cr.img + '">'
-                    : '<div class="adc-foto">' + (CRI_PEDIDO[o.m] ? 'sem miniatura' : 'carregando…') + '</div>';
+                    : '<div class="adc-foto">' + (o.num ? 'WhatsApp ' + esc(o.id.slice(2)) : CRI_PEDIDO[o.m] ? 'sem miniatura' : 'carregando…') + '</div>';
   var nd = Object.keys(o.dias).length;
   var tags = [
     agTag(o.ag === SEM_AG ? '' : o.ag),
     S.marca === 'todas' ? '<span class="tag">' + (o.m === 'doctor' ? 'Doctor' : 'Acesso') + '</span>' : '',
     S.adsGrp === 'ag' ? '<span class="tag">' + esc(o.tipo) + '</span>' : '',
-    nd ? '<span class="tag">' + nd + (nd === 1 ? ' dia no ar' : ' dias no ar') + '</span>' : '<span class="tag">sem gasto no período</span>',
+    o.num ? '<span class="tag">sem anúncio identificado</span>' : nd ? '<span class="tag">' + nd + (nd === 1 ? ' dia no ar' : ' dias no ar') + '</span>' : '<span class="tag">sem gasto no período</span>',
     cr.link ? '<span class="tag"><a href="' + esc(cr.link) + '" target="_blank" rel="noopener">ver publicação ↗</a></span>' : '',
     ACT[o.suf] ? '<span class="tag"><a href="https://adsmanager.facebook.com/adsmanager/manage/ads?act=' + ACT[o.suf] + '&selected_ad_ids=' + esc(o.id) + '" target="_blank" rel="noopener">gerenciador ↗</a></span>' : ''
   ].filter(Boolean).join('');
@@ -866,7 +891,8 @@ function cartaoAd(o, semRec, longo){
     (cr.b.length > 160 ? '<button class="lnk" data-copy="' + esc(o.k) + '">' + (aberta ? 'recolher texto' : 'ver texto completo') + '</button>' : '') : '';
   var rec = o.fora ? '<span class="fora">fora do Feegow</span>' : semRec ? (longo ? '—' : '…') : brl(o.rec);
   var met = [
-    [brl(o.inv), 'Investido'], [n0(o.conv), 'Conversas'], [o.conv ? brl(o.inv / o.conv, 1) : '—', 'Custo/conversa'],
+    [o.num ? '—' : brl(o.inv), 'Investido', 0, o.num ? 'Sem anúncio: não tem investimento próprio' : ''], [o.num ? '—' : n0(o.conv), 'Conversas'],
+    [o.conv ? brl(o.inv / o.conv, 1) : '—', 'Custo/conversa'],
     [n0(o.r), 'Leads', 0, 'Telefones que chegaram pelo anúncio no período'],
     [n0(o.p), 'Pacientes', 0, 'Chegaram pelo anúncio no período e fecharam no Feegow'],
     [o.p && o.inv && !o.fora ? brl(o.inv / o.p) : '—', 'Custo/paciente'],
@@ -962,7 +988,8 @@ function grupoDe(canal){ return (GRUPO_DO[canal] || GRUPOS[1]).id; }
 function abLinha(m, l){
   var reat = l[1] === 'r';
   return {m: m, conta: l[0], reat: reat, ag: reat ? l[12] : l[2], canal: l[3], dia: l[4], fat: +l[5] || 0, pago: +l[6] || 0, ab: +l[7] || 0,
-          sit: l[8], data: l[9], uni: l[10] || '', nome: l[16] || '', g: reat ? 'reat' : grupoDe(l[3])};
+          sit: l[8], data: l[9], uni: l[10] || '', nome: l[16] || '', g: reat ? 'reat' : grupoDe(l[3]),
+          num: !reat && !l[11] && l[3] === 'Meta Ads' && l[2] ? numDaAg(m, l[2], l[4]) : ''};
 }
 /* rastro: [d, conta, pago, fat, canal, ag, aid, dc, via, reat_ag, reat_d, procs, uni, desde, base, nome, itens]
    itens (16/10): só nas linhas de anúncio — [[categoria, procedimento, valor], ...], o pago do dia rateado
@@ -972,10 +999,12 @@ function pgLinha(m, l){
   var reat = l[8] === 'reativacao';
   return {m: m, d: l[0], conta: l[1], pago: +l[2] || 0, canal: l[4], ag: l[5] || '', dc: l[7] || '',
           procs: l[11] || '', uni: l[12] || '', nome: l[15] || '', g: reat ? 'reat' : grupoDe(l[4]),
-          aid: l[6] ? String(l[6]) : '', itens: Array.isArray(l[16]) ? l[16] : null};
+          aid: l[6] ? String(l[6]) : '', itens: Array.isArray(l[16]) ? l[16] : null,
+          num: !l[6] && /^numero_\d+$/.test(l[8] || '') ? l[8].slice(7) : ''};
 }
-function origemTxt(g, canal, ag){
+function origemTxt(g, canal, ag, num){
   if (g === 'reat') return agTag(ag) + ' <span class="dim">já era da base</span>';
+  if (g === 'pago' && num) return agTag(ag) + ' <span class="dim" title="Chegou novo pelo WhatsApp ' + esc(num) + ' sem anúncio identificado">WhatsApp ' + esc(num) + '</span>';
   if (g === 'pago') return ag ? agTag(ag) : esc(NOME_CANAL[canal] || canal);
   return esc(NOME_CANAL[canal] || canal || '—');
 }
@@ -1005,7 +1034,7 @@ function pintaAberto(){
   var mostra = lis.slice(0, S.abN);
   t.innerHTML = '<thead><tr><th>Paciente</th><th>Origem</th><th>Chegou</th><th class="num">Fechado</th><th class="num">Pago</th><th class="num">Em aberto</th>' +
     '<th>Situação</th><th>Data</th><th>Unidade</th></tr></thead><tbody>' + (mostra.map(function(l){
-      return '<tr><td><span class="nome">' + esc(l.nome || '—') + '</span><span class="sub">' + esc(l.conta) + '</span></td><td>' + origemTxt(l.g, l.canal, l.ag) + '</td>' +
+      return '<tr><td><span class="nome">' + esc(l.nome || '—') + '</span><span class="sub">' + esc(l.conta) + '</span></td><td>' + origemTxt(l.g, l.canal, l.ag, l.num) + '</td>' +
         '<td>' + br(l.dia) + '</td><td class="num">' + brl(l.fat) + '</td><td class="num">' + brl(l.pago) + '</td><td class="num b">' + brl(l.ab) + '</td>' +
         '<td><span class="sit ' + esc(l.sit) + '">' + esc(SIT_NOME[l.sit] || l.sit || '—') + '</span></td><td>' + br(l.data) + '</td><td class="dim">' + esc(l.uni) + '</td></tr>';
     }).join('') || '<tr><td colspan="9" class="vazio">Ninguém nesta seleção.</td></tr>') + '</tbody>';
@@ -1031,7 +1060,7 @@ function pintaPagou(){
   t.innerHTML = '<thead><tr><th>Data</th><th>Paciente</th><th>Origem</th><th>Chegou</th><th class="num">Pago</th><th>Procedimentos</th><th>Unidade</th></tr></thead><tbody>' +
     (mostra.map(function(l){
       return '<tr><td>' + br(l.d) + '</td><td><span class="nome">' + esc(l.nome || '—') + '</span><span class="sub">' + esc(l.conta) + '</span></td>' +
-        '<td>' + origemTxt(l.g, l.canal, l.ag) + '</td>' +
+        '<td>' + origemTxt(l.g, l.canal, l.ag, l.num) + '</td>' +
         '<td>' + (l.dc ? br4(l.dc) : '—') + '</td><td class="num b">' + brl(l.pago, 1) + '</td><td><span class="sub" style="color:var(--ink-2)">' + esc(l.procs) + '</span></td>' +
         '<td class="dim">' + esc(l.uni) + '</td></tr>';
     }).join('') || '<tr><td colspan="7" class="vazio">Ninguém nesta seleção.</td></tr>') + '</tbody>';

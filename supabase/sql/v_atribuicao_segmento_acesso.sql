@@ -1,4 +1,5 @@
--- v_atribuicao_segmento — igual nas duas bases (Doctor e Acesso).
+-- v_atribuicao_segmento — ACESSO (dfvmuqxjdcvwskrrdbfm). A da Doctor está em v_atribuicao_segmento_doctor.sql:
+-- mesma regra + o número de WhatsApp de agência (16/10/2026). Até 15/10 as duas eram iguais.
 -- A REGRA DE ORIGEM EM UM LUGAR SÓ. Toda função do dash que diz "de onde veio o paciente e o
 -- dinheiro dele" (canal_serie, agencia_serie, agencia_anuncios, agencia_caixa, jornada_anuncio,
 -- crm_procedimentos, rastro_periodo, aberto_periodo) lê daqui. Mudou a regra, muda aqui.
@@ -39,4 +40,4 @@ where (u.reat_agencia is not null and u.reat_dia is not null
         and u.canal is distinct from 'Meta sem id do anúncio');
 
 comment on view public.v_atribuicao_segmento is
-  'Regra de origem do dash (15/10/2026): chegada até a véspera do clique de reativação; depois, a agência do clique. Ver supabase/sql/v_atribuicao_segmento.sql no repositório doctor-relatorio.';
+  'Regra de origem do dash (15/10/2026): chegada até a véspera do clique de reativação; depois, a agência do clique. Ver supabase/sql/v_atribuicao_segmento_acesso.sql no repositório doctor-relatorio.';

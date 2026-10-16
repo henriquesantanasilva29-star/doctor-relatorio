@@ -255,14 +255,35 @@ o dinheiro ali é o **recebido** no período.
   isso o rastro da Doctor ia de 0,5 s para 10 s. Paciente de "Meta sem id" e Google fica fora (não há
   anúncio para pendurar). Período acima de 93 dias: recebido por anúncio não aparece (aviso na seção).
 
+### Número de WhatsApp de agência: o 5700 conta para a FSX — 16/10/2026
+
+Henrique: "inclua o que está sendo trabalhado no 5700 na FSX também" → escolheu **tudo que chega
+novo no 5700**. Quem chega NOVO pelo número (a 1ª conversa do contato foi no 5700, no dia da
+chegada ±1) e não tem anúncio identificado conta como `Meta Ads` da agência da conta 0397 no dia
+(FSX desde 01/10). Anúncio identificado continua com a agência dele (Vanguarda que cai no 5700
+segue Vanguarda). Não entram: quem já era da base e Base importada. Só na Doctor.
+
+- Tabela `meta_numero_agencia` (número, conta, vigência, nota) — outro número de agência entra
+  com uma linha nova, sem mexer em código.
+- `chegada_por_numero()` + `v_atribuicao_segmento` (Doctor): paciente e dinheiro, com
+  `anuncio_id` nulo e via `numero_5700`. Daí vale para todas as funções que leem a view.
+- `canal_serie`: o contato (leads novos e conversas) vai para `Meta Ads` pela mesma regra.
+- `agencia_serie`: lead do número = telefone cuja 1ª conversa foi no 5700 e que não tem jornada
+  de anúncio (quem tem já conta como lead do anúncio). Sai com `suf = 'wa5700'`, linha própria na
+  agência ("WhatsApp 5700 · sem anúncio identificado"), e entra no `ref`.
+- Tela: linha da conta na agência, cartão próprio na seção de anúncios (sem investimento),
+  "FSX · WhatsApp 5700" na origem de Quem pagou e Fechado e não pago.
+- Efeito em 01-16/10: FSX +6 pacientes (5 Direto, 1 Criado pela equipe), +R$ 585,30 recebidos,
+  +21 leads. Canal total = Feegow total, sem sobra.
+
 ### Regra de origem em um lugar só: `v_atribuicao_segmento` — 14 e 15/10/2026
 
 Regra do Henrique (14/10): **chegou pelo anúncio da agência dentro do período e fechou = paciente
 daquela agência**, mesmo que já estivesse na base. E (15/10): **uma mudança de lógica vale para o
 dash inteiro** — não pode haver um bloco com a regra nova e outro com a velha.
 
-Por isso a regra saiu das funções e foi para uma view, igual nas duas bases
-(`supabase/sql/v_atribuicao_segmento.sql`). Cada paciente do Feegow (`mv_atribuicao_unica`) vira
+Por isso a regra saiu das funções e foi para uma view (`supabase/sql/v_atribuicao_segmento_doctor.sql`
+e `..._acesso.sql`; iguais até 15/10, a da Doctor ganhou o número de WhatsApp de agência em 16/10). Cada paciente do Feegow (`mv_atribuicao_unica`) vira
 um ou dois trechos:
 
 - **chegada** — canal/anúncio/agência por onde chegou, do dia da chegada até a véspera do clique

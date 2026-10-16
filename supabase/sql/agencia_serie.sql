@@ -5,6 +5,11 @@ CREATE OR REPLACE FUNCTION public.agencia_serie(dias integer DEFAULT 400)
  STABLE
  SET search_path TO 'public'
 AS $function$
+-- v8, 16/10/2026 — número de WhatsApp de agência (meta_numero_agencia; hoje o 5700 → conta 0397, FSX,
+--   desde 01/10). Quem chega NOVO pelo número sem anúncio identificado conta para a agência dela:
+--   o paciente/dinheiro já vem assim da v_atribuicao_segmento (anuncio_id nulo, via 'numero_5700');
+--   aqui entra o LEAD (telefone cuja 1ª conversa foi no número e que não tem jornada de anúncio).
+--   As duas coisas saem com suf = 'wa' || número ('wa5700'), linha própria dentro da agência.
 -- v7, 15/10/2026 — paciente e dinheiro pela v_atribuicao_segmento (a regra de origem do dash em um
 --   lugar só). r/p/v/pg/ab/propostas JÁ SOMAM quem chegou pela agência + quem já era da base e
 --   voltou pelo anúncio dela (a partir do clique); xp/xc/xv/xpg dizem quanto disso é desses que
@@ -41,16 +46,43 @@ prim as (
   where jc.anuncio_id is not null and coalesce(jc.tel8,'') <> ''
   order by jc.tel8, jc.visto_em, jc.anuncio_id
 ),
+numl as (
+  -- 1ª conversa do contato foi num número de agência, dentro da vigência, e o telefone não tem
+  -- jornada de anúncio (esse já conta como lead do anúncio). Base importada não é lead novo.
+  select distinct on (right(c.phone_digits, 8))
+         right(c.phone_digits, 8) as tel8, f.d as dia, agencia_no_dia(n.sufixo, f.d) as agencia,
+         'wa' || n.numero as suf,
+         exists (select 1 from helena_cards k where k.contact_ids @> array[c.id]) as card
+  from (select distinct on (s.contact_id) s.contact_id, s.channel_id,
+               (s.created_at_wts at time zone 'America/Manaus')::date d
+        from helena_sessions s where s.created_at_wts is not null
+        order by s.contact_id, s.created_at_wts) f
+  join helena_channels hc on hc.id::text = f.channel_id
+  join meta_numero_agencia n on n.numero = right(hc.phone_digits, 4)
+       and f.d >= n.vigente_de and f.d <= coalesce(n.vigente_ate, 'infinity'::date)
+  join helena_contacts c on c.id = f.contact_id
+  cross join janela w
+  where f.d >= w.de and coalesce(right(c.phone_digits, 8), '') <> ''
+    and (c.created_at_wts at time zone 'America/Manaus')::date between f.d - 1 and f.d + 1
+    and classifica_canal(c.utm, c.origin) <> 'Base importada'
+    and not exists (select 1 from prim p where p.tel8 = right(c.phone_digits, 8))
+  order by right(c.phone_digits, 8), f.d
+),
 lead as (
   select p.dia, p.agencia, right(p.anuncio_id, 4) as suf, count(*)::int r,
          count(*) filter (where p.via = 'evolution')::int rev,
          count(*) filter (where p.card_id is not null)::int k
   from prim p, janela w where p.dia >= w.de group by 1,2,3
+  union all
+  select n.dia, n.agencia, n.suf, count(*)::int, 0, count(*) filter (where n.card)::int
+  from numl n group by 1,2,3
 ),
 pac as (
   -- trechos da v_atribuicao_segmento que são de anúncio com agência: chegada por anúncio (até a
   -- véspera da reativação, se houve) e reativação (do clique em diante)
-  select s.conta_id, s.dia, s.agencia, right(s.anuncio_id, 4) as suf, s.ate, s.reat, s.paciente
+  select s.conta_id, s.dia, s.agencia,
+         coalesce(right(s.anuncio_id, 4), case when s.via like 'numero\_%' then 'wa' || substr(s.via, 8) end) as suf,
+         s.ate, s.reat, s.paciente
   from v_atribuicao_segmento s, janela w
   where s.canal = 'Meta Ads' and s.agencia is not null and s.dia >= w.de
 ),
@@ -141,6 +173,16 @@ ref as (
     'coleta_desde', to_char(v.primeiro_dia,'YYYY-MM-DD'), 'nota', r.nota
   ) order by r.agencia, r.vigente_de, r.sufixo), '[]'::jsonb) as j
   from periodos r left join visto v on v.sufixo = r.sufixo
+),
+refn as (
+  -- número de WhatsApp de agência: linha 'wa' || número dentro da agência (16/10/2026)
+  select coalesce(jsonb_agg(jsonb_build_object(
+    'ag', agencia_no_dia(n.sufixo, n.vigente_de), 'suf', 'wa' || n.numero, 'conta', null,
+    'ger', 'WhatsApp ' || n.numero || ' · sem anúncio identificado', 'coletada', false,
+    'vig_de', to_char(n.vigente_de,'YYYY-MM-DD'), 'vig_ate', to_char(n.vigente_ate,'YYYY-MM-DD'),
+    'nota', n.nota
+  ) order by n.numero, n.vigente_de), '[]'::jsonb) as j
+  from meta_numero_agencia n
 )
-select jsonb_build_object('serie', (select j from serie), 'ref', (select j from ref));
+select jsonb_build_object('serie', (select j from serie), 'ref', (select j from ref) || (select j from refn));
 $function$;

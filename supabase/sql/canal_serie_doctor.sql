@@ -5,6 +5,9 @@ CREATE OR REPLACE FUNCTION public.canal_serie(dias integer DEFAULT 400)
  STABLE
  SET search_path TO 'public'
 AS $function$
+-- 16/10/2026: número de WhatsApp de agência (meta_numero_agencia; hoje o 5700 → conta 0397, FSX, desde
+-- 01/10). Contato NOVO cuja 1ª conversa foi nesse número e que não tem anúncio identificado conta em
+-- "Meta Ads" (a mesma regra que a v_atribuicao_segmento aplica ao paciente). Base importada fica fora.
 -- 15/10/2026 (tarde): o pagamento segue a FATURA — fatura aberta antes do clique de reativação é da
 -- chegada, mesmo paga depois (antes contava pela data do pagamento e dava à agência do clique um
 -- dinheiro de venda feita antes dele).
@@ -25,7 +28,18 @@ ad1 as (
   select i.anuncio_id, (min(i.data)::timestamp at time zone 'America/Manaus') inicio
   from meta_insights_dia i where i.nivel = 'ad' and i.anuncio_id is not null group by 1
 ),
-cls as (
+prim_num as (
+  -- 1ª conversa de cada contato, quando foi num número de agência dentro da vigência
+  select f.contact_id, f.d
+  from (select distinct on (s.contact_id) s.contact_id, s.channel_id,
+               (s.created_at_wts at time zone 'America/Manaus')::date d
+        from helena_sessions s where s.created_at_wts is not null
+        order by s.contact_id, s.created_at_wts) f
+  join helena_channels hc on hc.id::text = f.channel_id
+  join meta_numero_agencia n on n.numero = right(hc.phone_digits, 4)
+       and f.d >= n.vigente_de and f.d <= coalesce(n.vigente_ate, 'infinity'::date)
+),
+cls0 as (
   select c.id contato_id,
          (c.created_at_wts at time zone 'America/Manaus')::date dia,
          case
@@ -42,6 +56,13 @@ cls as (
   from helena_contacts c
   left join ad1 a1 on a1.anuncio_id = c.utm->>'sourceId'
   where c.created_at_wts is not null
+),
+cls as (
+  select c0.contato_id, c0.dia,
+         case when pn.contact_id is not null and c0.canal not in ('Meta Ads','Google Ads','Base importada')
+                   and pn.d between c0.dia - 1 and c0.dia + 1
+              then 'Meta Ads' else c0.canal end canal
+  from cls0 c0 left join prim_num pn on pn.contact_id = c0.contato_id
 ),
 contato as (
   select cl.dia, cl.canal, cl.contato_id,
