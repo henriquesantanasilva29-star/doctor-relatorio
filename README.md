@@ -214,6 +214,31 @@ portal (Arasys, claro/escuro por `rel_tema`), **só indicadores**, explicação 
   "Quem pagou" na Acesso difere ~R$ 700 da Origem do caixa porque um é lido na hora e o
   outro é a foto das 05:30 (pacientes "sem ligação" que ganharam ligação no dia).
 
+### Anúncios por tipo e por agência, com o que foi recebido — 16/10/2026
+
+Pedido do Henrique: a seção que mostrava os anúncios por tipo, por agência, com as métricas de cada um,
+criativo, copy e o que foi vendido tinha sumido na v2. Voltou na seção **Anúncios**, **sem faturado** —
+o dinheiro ali é o **recebido** no período.
+
+- **Agrupa** por tipo (padrão) ou por agência; o filtro de marca e de agência do topo vale. Cada grupo
+  mostra anúncios, investimento, conversas, leads, pacientes, custo/paciente, recebido, retorno
+  (recebido ÷ investimento, sem odonto) e as 3 categorias que mais entraram. Clicou, abre os cartões.
+- **Cartão do anúncio:** miniatura (`criativos.json`, pedido só quando abre o grupo), nome, campanha,
+  agência, marca, dias no ar, link da publicação e do gerenciador, texto (copy) com "ver texto
+  completo", métricas (investido, conversas, custo/conversa, leads, pacientes, custo/paciente,
+  recebido, retorno, quantos pagaram) e **"Com o que foi recebido"**: categorias com barra e
+  percentual, e "ver procedimentos" (os 12 maiores + o resto somado).
+- **Tipo** sai do nome da campanha: descarta agência, formato, público, data, valor e "AD n" e fica
+  com o primeiro pedaço útil, com apelidos (ULTRASSONOGRAFIA→Ultrassom, CARDIOLOGISTA→Cardiologia,
+  APH→Atendimento pré-hospitalar…). Campanha genérica ("Procedimentos") usa o nome do anúncio — por
+  isso o ultrassom da FSX e o da Vanguarda caem no mesmo grupo. Odonto (0085/0279) é um tipo só.
+- **Recebido por anúncio** sai do `rastro_periodo` (o mesmo de "Quem pagou"), que ganhou o campo
+  `itens` nas linhas de anúncio: cada pagamento do dia rateado pelos itens não cancelados da fatura
+  que ele paga (valor × quantidade − desconto + acréscimo). A soma fecha com o pago no centavo
+  (01–16/10: Doctor R$ 58.181,31; Acesso R$ 35.769,40). `adrow/peso/itens` são MATERIALIZED — sem
+  isso o rastro da Doctor ia de 0,5 s para 10 s. Paciente de "Meta sem id" e Google fica fora (não há
+  anúncio para pendurar). Período acima de 93 dias: recebido por anúncio não aparece (aviso na seção).
+
 ### Regra de origem em um lugar só: `v_atribuicao_segmento` — 14 e 15/10/2026
 
 Regra do Henrique (14/10): **chegou pelo anúncio da agência dentro do período e fechou = paciente

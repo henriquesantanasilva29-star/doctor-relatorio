@@ -127,6 +127,47 @@ tr.residuo td{color:var(--ink-2); font-style:italic}
 .vazio{padding:22px; text-align:center; color:var(--ink-3)}
 .oculto{display:none !important}
 
+/* anúncios: grupo por tipo ou agência, abre nos cartões de cada anúncio */
+.nota{font-size:12px; color:var(--ink-3); margin-top:8px; line-height:1.5}
+tr.grp{cursor:pointer}
+tr.grp td:first-child::before{content:"▸"; display:inline-block; width:14px; color:var(--ink-3)}
+tr.grp.aberto td:first-child::before{content:"▾"}
+tr.grp .cats{display:block; font-size:11.5px; color:var(--ink-3); font-weight:400; max-width:420px; overflow:hidden; text-overflow:ellipsis}
+tr.det > td{padding:0; background:var(--surface-2); white-space:normal}
+tr.det:hover > td{background:var(--surface-2)}
+.adcs{display:grid; gap:10px; padding:12px; position:sticky; left:0; width:min(100%, calc(100vw - 26px))}
+.adc{display:grid; grid-template-columns:120px minmax(0,1fr); gap:16px; background:var(--surface); border:1px solid var(--line); border-radius:10px; padding:14px}
+.adc-foto{width:120px; height:120px; border-radius:8px; object-fit:cover; background:var(--surface-3); display:flex; align-items:center;
+  justify-content:center; text-align:center; font-size:11px; color:var(--ink-3); padding:6px}
+.adc-top{display:flex; flex-wrap:wrap; align-items:center; gap:6px 8px}
+.adc-top .nome{font-size:14px; margin-right:4px}
+.adc .sub{max-width:none; white-space:normal; margin-top:2px}
+.adc-copy{font-size:12.5px; color:var(--ink-2); white-space:pre-line; max-height:3.2em; overflow:hidden; margin-top:8px}
+.adc-copy.aberta{max-height:none}
+.lnk{appearance:none; border:0; background:none; padding:2px 0; cursor:pointer; color:var(--accent); font:inherit; font-size:12px; font-weight:600}
+.tag a{color:inherit; text-decoration:none}
+.adc-met{display:grid; grid-template-columns:repeat(auto-fit,minmax(96px,1fr)); gap:10px 14px; margin-top:12px; padding-top:10px; border-top:1px solid var(--grid)}
+.adc-met .v{display:block; font-weight:700; font-size:14px; font-variant-numeric:tabular-nums; white-space:nowrap}
+.adc-met .k{display:block; font-size:10.5px; color:var(--ink-3); font-family:"JetBrains Mono",ui-monospace,monospace; letter-spacing:.06em; text-transform:uppercase}
+.adc-met .v.dest{color:var(--ok)}
+.adc-rec{margin-top:12px}
+.adc-rec .tit{font-family:"JetBrains Mono",ui-monospace,monospace; font-size:10.5px; letter-spacing:.08em; text-transform:uppercase; color:var(--ink-3); margin-bottom:6px}
+.cat{display:grid; grid-template-columns:minmax(120px,220px) minmax(60px,1fr) 150px; gap:10px; align-items:center; font-size:12.5px; padding:2px 0}
+.cat .val{text-align:right}
+.cat .bar{height:6px; border-radius:3px; background:var(--surface-3); overflow:hidden}
+.cat .bar i{display:block; height:100%; background:var(--ok); border-radius:3px}
+.cat .val{font-variant-numeric:tabular-nums; color:var(--ink); white-space:nowrap}
+.procs{margin-top:6px; font-size:12px}
+.procs td{padding:4px 8px; border-bottom:1px solid var(--grid); white-space:normal}
+.procs td.num{white-space:nowrap}
+@media (max-width:640px){
+  .adcs{padding:8px}
+  .adc{grid-template-columns:1fr; padding:12px; gap:10px}
+  .adc-met{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .cat{grid-template-columns:1fr auto}
+  .cat .bar{display:none}
+}
+
 @media (max-width:640px){
   .wrap{padding:4px 12px 40px}
   .linha-f > .rot{width:100%}
@@ -171,8 +212,10 @@ tr.residuo td{color:var(--ink-2); font-style:italic}
     </section>
 
     <section class="sec" id="sAds">
-      <div class="sec-head"><h2>Anúncios</h2><span class="tot" id="adsTot"></span></div>
-      <div class="card"><div class="tbl-wrap"><table id="tAds"></table></div><div class="mais" id="adsMais"></div></div>
+      <div class="sec-head"><h2>Anúncios</h2><span class="tot" id="adsTot"></span>
+        <div class="acoes"><span id="adsGrp"></span><input class="busca" id="adsBusca" type="search" placeholder="Buscar anúncio, texto ou procedimento"></div></div>
+      <div class="card"><div class="tbl-wrap"><table id="tAds"></table></div></div>
+      <div class="nota" id="adsNota"></div>
     </section>
 
     <section class="sec" id="sAberto">
@@ -295,10 +338,11 @@ function agTag(ag){ return ag ? '<span class="tag ag" style="--chipc:' + agCor(a
 var S = {de: '', ate: '', marca: 'todas', ag: 'todas', presetSel: null,
          abSit: 'todas', abOrig: 'todas', abBusca: '', abN: 40,
          pgOrig: 'todas', pgBusca: '', pgN: 40,
-         adsOrd: 'v', adsDir: -1, adsTodos: false, agAbertas: {}};
+         adsGrp: 'tipo', adsBusca: '', adsAbertos: {}, adsProc: {}, adsCopy: {}, agAbertas: {}};
 var OK = [];                 // marcas que carregaram
 var GERADO = {};
 var CAN = [], MID = [], SER = [], CX = [], ADS = [], REF = [], NOME_AD = {};
+var CRI = {}, CRI_PEDIDO = {};   // criativo do anúncio: texto e miniatura (a miniatura vem à parte, quando abre um grupo)
 var LISTAS = {};             // cache de aberto/rastro por marca|ação|de|ate
 
 /* ---------- carga ---------- */
@@ -338,9 +382,11 @@ function absorve(m, d){
     CAN.push({m: m, d: x.d, c: x.c, ch: x.ch || 0, ct: x.ct || 0, p: x.p || 0, v: x.v || 0, pg: x.pg || 0, ab: x.ab || 0, pgd: x.pgd || 0}); });
   (d.midia || []).forEach(function(r){
     var id = String(r[3]);
-    MID.push({m: m, d: r[0], id: id, suf: id.slice(-4), inv: r[4] || 0, conv: r[7] || 0});
+    MID.push({m: m, d: r[0], id: id, suf: id.slice(-4), inv: r[4] || 0, imp: r[5] || 0, cli: r[6] || 0, conv: r[7] || 0});
     if (!NOME_AD[id] || r[0] > NOME_AD[id].d) NOME_AD[id] = {d: r[0], nome: r[2] || r[1] || id, camp: r[1] || ''};
   });
+  (d.cria || []).forEach(function(c){ var k = String(c.a);
+    CRI[k] = {b: c.b || '', t: c.t || '', cta: c.cta || '', link: c.link || c.u || '', img: (CRI[k] && CRI[k].img) || ''}; });
   (d.agencia_caixa || []).forEach(function(x){
     CX.push({m: m, d: x.d, ag: x.ag === 'Anúncio não identificado' ? SEM_AG : x.ag, dc: x.dc || '', v: (x.pgd || 0) + (x.fora || 0),
              reat: !!x.reat, ch: x.ch || ''}); });
@@ -408,6 +454,7 @@ function inicia(){
     S.de = a; S.ate = b; S.presetSel = null; render(); }); });
   document.getElementById('abBusca').addEventListener('input', function(e){ S.abBusca = e.target.value; S.abN = 40; pintaAberto(); });
   document.getElementById('pgBusca').addEventListener('input', function(e){ S.pgBusca = e.target.value; S.pgN = 40; pintaPagou(); });
+  document.getElementById('adsBusca').addEventListener('input', function(e){ S.adsBusca = e.target.value; pintaAds(); });
   if (OK.length < 2) document.getElementById('lMarca').classList.add('oculto');
   pintaFrescor();
   document.getElementById('carregando').classList.add('oculto');
@@ -515,8 +562,8 @@ function render(){
   document.getElementById('sOrigem').classList.toggle('oculto', !todas);
   if (todas) pintaOrigem(can);
   pintaAgencias(can, ags);
-  pintaAds();
   carregaListas();
+  pintaAds();
 }
 
 function kpi(k, v, d, tit, cor){
@@ -631,44 +678,207 @@ function pintaAgencias(can, ags){
       S.agAbertas[a] = !S.agAbertas[a]; pintaAgencias(porCanal(), porAgencia()); }); });
 }
 
-/* ---------- anúncios ---------- */
-function pintaAds(){
+/* ---------- anúncios ----------
+   16/10/2026, a pedido do Henrique: volta a seção que mostrava os anúncios por TIPO e por AGÊNCIA,
+   cada um com criativo, texto, métricas próprias e com o que foi recebido. Sem faturado: o dinheiro
+   aqui é o RECEBIDO no período (mesma régua do cartão "Recebido de anúncio" — o rastro, pagamento
+   seguindo a fatura), e o que foi vendido sai dos itens das faturas que esses pagamentos quitaram.
+   O tipo sai do nome da campanha (as agências escrevem de jeitos diferentes, então descarta o que é
+   agência, formato, público, data ou valor e fica com o primeiro pedaço útil); campanha genérica
+   ("Procedimentos") olha o nome do anúncio. Odonto é um tipo só (venda fora do Feegow). */
+var ACT = {'0773': '1400309970874524', '0397': '261586969497400', '0085': '3624673681138830', '0418': '261401095311098', '0279': '25208200265508104'};
+var TIPO_IGNORA = {};
+['VG', 'ABO', 'CBO', 'ON', 'MSG', 'MSG-WHATSAPP', 'ENG-WHATSAPP', 'ENGAJAMENTO-WHATSAPP', 'ENGAJAMENTO', 'ENG', 'TRAFEGO', 'WHATS', 'WPP', 'WTZ', 'WTZP',
+ 'WHATSAPP', 'WHASTAPP', 'VIDEO', 'CARD', 'CARROSSEL', 'REELS', 'TOPO', 'CONVERSAS', 'ALL', 'F+Q', 'SEGUIDORES', '45+', 'FSX', 'VX', 'VANGUARDA',
+ 'DOCTOR MAIS', 'DOCTOR', 'ACESSO', 'COMPENSA', 'ABERTO', 'INTERESSE', 'BAIRROS PROX', 'NOVO', 'COPIA'].forEach(function(x){ TIPO_IGNORA[x] = 1; });
+var TIPO_NOME = {RMKT: 'Remarketing', REMARKETING: 'Remarketing', SANGUE: 'Exame de sangue', HIPERBARICA: 'Hiperbárica', ENDOCRINO: 'Endocrinologia',
+  TOXICOLOGICO: 'Toxicológico', OFTALMO: 'Oftalmologia', PROCEDIMENTOS: 'Procedimentos', ULTRASSOM: 'Ultrassom', ULTRASSONOGRAFIA: 'Ultrassom',
+  CARDIOLOGISTA: 'Cardiologia', CONSULTACARDIOLOGICA: 'Cardiologia', CARDIOLOGIA: 'Cardiologia', GINECOLOGISTA: 'Ginecologia', PSIQUIATRA: 'Psiquiatria',
+  PEDIATRIA: 'Pediatria', PEDIATRA: 'Pediatria', ORTOPEDISTA: 'Ortopedia', UROLOGISTA: 'Urologia', GERIATRA: 'Geriatria',
+  APH: 'Atendimento pré-hospitalar', INSTITUCIONAL: 'Institucional', ENDOSCOPIA: 'Endoscopia', 'ENDOSCOPIA/COLONOSCOPIA': 'Endoscopia',
+  GASTROENTEROLOGIA: 'Gastroenterologia'};
+function chaveT(x){ return String(x || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase().replace(/\s+/g, ' ').trim(); }
+function tipoLixo(k){
+  return !k || TIPO_IGNORA[k] || /^\d{1,2}[\/.\-]\d{1,2}([\/.\-]\d{2,4})?$/.test(k) || /^R?\$?\s*[\d.,]+$/.test(k) ||
+    /^(AD|CA|V|AD\.)\s*\d+$/.test(k) || /^\[?AD\.?\s*\d+\]?$/.test(k);
+}
+function pedacoTipo(nome){
+  var cru = String(nome || '').trim();
+  if (/^publica[cç][aã]o do instagram/i.test(cru)) return 'Publicação impulsionada';
+  var col = (cru.match(/\[([^\]]*)\]/g) || []).map(function(x){ return x.slice(1, -1).trim(); });
+  var ped = col.length ? col : cru.split(/\s*\|\s*/);
+  for (var i = 0; i < ped.length; i++) {
+    var p = ped[i].replace(/\s*\(\d+\)\s*$/, '').trim(), k = chaveT(p);
+    if (tipoLixo(k)) continue;
+    return TIPO_NOME[k] || (p.charAt(0).toUpperCase() + p.slice(1).toLowerCase());
+  }
+  return '';
+}
+function tipoDe(suf, camp, nome){
+  if (VENDA_FORA[suf]) return 'Odonto';
+  if (!camp) return 'Sem campanha na mídia';   /* anúncio que trouxe paciente mas não gastou no período coletado (ou post da página) */
+  var t = pedacoTipo(camp);
+  if (!t || t === 'Procedimentos') { var u = pedacoTipo(nome); if (u) return u; }
+  return t || 'Outros';
+}
+
+function carregaCriativos(m){
+  if (CRI_PEDIDO[m]) return CRI_PEDIDO[m];
+  CRI_PEDIDO[m] = pede(m, {action: 'criativos'}).then(function(r){
+    var j = (r && r.criativos) || {};
+    Object.keys(j).forEach(function(k){ (CRI[k] = CRI[k] || {b: '', t: '', cta: '', link: ''}).img = j[k] || ''; });
+  }).catch(function(){});
+  return CRI_PEDIDO[m];
+}
+
+function listaAds(){
   var m = {};
   function lin(mm, id, ag){
     var k = mm + '|' + id + '|' + ag, nm = NOME_AD[id] || {nome: 'anúncio ' + id.slice(-6), camp: ''};
-    return m[k] || (m[k] = {m: mm, id: id, ag: ag, nome: nm.nome, camp: nm.camp, inv: 0, r: 0, p: 0, v: 0, pg: 0});
+    return m[k] || (m[k] = {k: k, m: mm, id: id, suf: id.slice(-4), ag: ag, nome: nm.nome, camp: nm.camp,
+      tipo: tipoDe(id.slice(-4), nm.camp, nm.nome), inv: 0, imp: 0, cli: 0, conv: 0, dias: {}, r: 0, p: 0,
+      rec: 0, pag: {}, cats: {}, procs: {}});
   }
   MID.forEach(function(r){ if (!noPer(r)) return; var ag = agDe(r.m, r.suf, r.d);
-    if (S.ag !== 'todas' && ag !== S.ag) return; lin(r.m, r.id, ag).inv += r.inv; });
+    if (S.ag !== 'todas' && ag !== S.ag) return; var o = lin(r.m, r.id, ag);
+    o.inv += r.inv; o.imp += r.imp; o.cli += r.cli; o.conv += r.conv; if (r.inv > 0) o.dias[r.d] = 1; });
   ADS.forEach(function(x){ if (!noPer(x)) return; var ag = agDe(x.m, x.a.slice(-4), x.d);
-    if (S.ag !== 'todas' && ag !== S.ag) return; var o = lin(x.m, x.a, ag);
-    o.r += x.r; o.p += x.p; o.v += x.v; o.pg += x.pg; });
-  var lista = Object.keys(m).map(function(k){ var o = m[k]; o.fora = !!VENDA_FORA[o.id.slice(-4)];
-    o.ret = o.fora || o.inv < 0.5 ? -1 : o.v / o.inv; return o; })
-    .filter(function(o){ return o.inv > 0.5 || o.r || o.p; });
-  var k = S.adsOrd, dir = S.adsDir;
-  lista.sort(function(a, b){
-    var va = k === 'nome' ? semAcento(a.nome) : a[k], vb = k === 'nome' ? semAcento(b.nome) : b[k];
-    return (va < vb ? -1 : va > vb ? 1 : 0) * dir || b.inv - a.inv; });
-  var inv = soma(lista, 'inv'), vv = soma(lista, 'v');
-  document.getElementById('adsTot').innerHTML = '<b>' + n0(lista.length) + '</b> anúncios · <b>' + brl(inv) + '</b> investidos · <b>' + brl(vv) + '</b> faturados';
-  var mostra = S.adsTodos ? lista : lista.slice(0, 15);
-  function th(id, rot, num, tit){ return '<th' + (num ? ' class="num' : ' class="') + (S.adsOrd === id ? ' ord' + (S.adsDir > 0 ? ' asc' : '') : '') + '" data-ord="' + id + '"' + (tit ? ' title="' + tit + '"' : '') + '>' + rot + '</th>'; }
-  document.getElementById('tAds').innerHTML = '<thead><tr>' + th('nome', 'Anúncio') + '<th>Agência</th>' + th('inv', 'Investimento', 1) + th('r', 'Leads', 1) +
-    th('p', 'Pacientes', 1) + th('v', 'Faturado', 1) + th('pg', 'Já pago', 1) + th('ret', 'Retorno', 1, 'Faturado ÷ investimento') + '</tr></thead><tbody>' +
-    (mostra.map(function(o){
-      return '<tr><td><span class="nome">' + esc(o.nome) + '</span><span class="sub">' + esc(o.camp) + (S.marca === 'todas' ? ' · ' + (o.m === 'doctor' ? 'Doctor' : 'Acesso') : '') + '</span></td>' +
-        '<td>' + agTag(o.ag === SEM_AG ? '' : o.ag) + '</td><td class="num">' + brl(o.inv) + '</td><td class="num">' + n0(o.r) + '</td><td class="num">' + n0(o.p) + '</td>' +
-        (o.fora ? '<td class="fora" colspan="3">venda fora do Feegow</td>'
-          : '<td class="num b">' + brl(o.v) + '</td><td class="num">' + brl(o.pg) + '</td><td class="num">' + (o.inv > 0.5 ? vezes(o.v, o.inv) : '—') + '</td>') + '</tr>';
-    }).join('') || '<tr><td colspan="8" class="vazio">Nenhum anúncio no período.</td></tr>') + '</tbody>';
-  document.getElementById('adsMais').innerHTML = lista.length > 15
-    ? '<button class="btn" id="adsBtn">' + (S.adsTodos ? 'Mostrar os 15 primeiros' : 'Ver todos (' + lista.length + ')') + '</button>' : '';
-  document.getElementById('adsMais').classList.toggle('oculto', lista.length <= 15);
-  var b = document.getElementById('adsBtn'); if (b) b.addEventListener('click', function(){ S.adsTodos = !S.adsTodos; pintaAds(); });
-  Array.prototype.forEach.call(document.querySelectorAll('#tAds th[data-ord]'), function(t){
-    t.addEventListener('click', function(){ var id = t.getAttribute('data-ord');
-      if (S.adsOrd === id) S.adsDir = -S.adsDir; else { S.adsOrd = id; S.adsDir = id === 'nome' ? 1 : -1; } pintaAds(); }); });
+    if (S.ag !== 'todas' && ag !== S.ag) return; var o = lin(x.m, x.a, ag); o.r += x.r; o.p += x.p; });
+  if (Array.isArray(PG)) PG.forEach(function(l){
+    if (!l.aid || (l.g !== 'pago' && l.g !== 'reat') || !daMarca(l)) return;
+    /* agência pela conta do anúncio no dia da chegada/clique, como a mídia; o banco da Acesso não conhece a vigência da odonto */
+    var ag = agDe(l.m, l.aid.slice(-4), l.dc || l.d); if (ag === SEM_AG && l.ag) ag = l.ag;
+    if (S.ag !== 'todas' && ag !== S.ag) return;
+    var o = lin(l.m, l.aid, ag);
+    o.rec += l.pago; o.pag[l.conta] = 1;
+    (l.itens || [['Sem item', 'Pagamento sem item na fatura', l.pago]]).forEach(function(it){
+      var c = it[0] || 'Outros', p = it[1] || 'Item sem nome', v = +it[2] || 0;
+      o.cats[c] = (o.cats[c] || 0) + v;
+      var q = o.procs[p] || (o.procs[p] = {c: c, v: 0, n: 0}); q.v += v; q.n++; });
+  });
+  return Object.keys(m).map(function(k){ var o = m[k]; o.fora = !!VENDA_FORA[o.suf]; o.npag = Object.keys(o.pag).length; return o; })
+    .filter(function(o){ return o.inv > 0.5 || o.r || o.p || o.rec > 0.5; });
+}
+
+function topCats(cats, n){
+  return Object.keys(cats).map(function(c){ return {c: c, v: cats[c]}; }).filter(function(x){ return x.v > 0.5; })
+    .sort(function(a, b){ return b.v - a.v; }).slice(0, n || 99);
+}
+
+function pintaAds(){
+  var lista = listaAds();
+  var semRec = !Array.isArray(PG);
+  var q = semAcento(S.adsBusca).trim();
+  if (q) lista = lista.filter(function(o){
+    var cr = CRI[o.id] || {};
+    return semAcento(o.nome + ' ' + o.camp + ' ' + o.tipo + ' ' + (cr.b || '') + ' ' + Object.keys(o.procs).join(' ')).indexOf(q) >= 0; });
+  /* grupos */
+  var G = {};
+  lista.forEach(function(o){
+    var g = S.adsGrp === 'ag' ? (o.ag || SEM_AG) : o.tipo;
+    var x = G[g] || (G[g] = {g: g, ads: [], inv: 0, conv: 0, r: 0, p: 0, rec: 0, invMed: 0, pMed: 0, fora: 0, cats: {}, pag: {}});
+    x.ads.push(o); x.inv += o.inv; x.conv += o.conv; x.r += o.r; x.p += o.p; x.rec += o.rec;
+    if (o.fora) x.fora++; else { x.invMed += o.inv; x.pMed += o.p; }
+    Object.keys(o.cats).forEach(function(c){ x.cats[c] = (x.cats[c] || 0) + o.cats[c]; });
+    Object.keys(o.pag).forEach(function(c){ x.pag[o.m + c] = 1; });
+  });
+  var grupos = Object.keys(G).map(function(k){ return G[k]; })
+    .sort(function(a, b){ return b.rec - a.rec || b.inv - a.inv; });
+  var tInv = soma(lista, 'inv'), tRec = soma(lista, 'rec');
+  document.getElementById('adsTot').innerHTML = '<b>' + n0(lista.length) + '</b> anúncios · <b>' + brl(tInv) + '</b> investidos · ' +
+    (semRec ? '<span class="dim">recebido carregando…</span>' : '<b>' + brl(tRec) + '</b> recebidos');
+  document.getElementById('adsGrp').innerHTML = chip('Por tipo', S.adsGrp === 'tipo', 'data-g="tipo"') + ' ' + chip('Por agência', S.adsGrp === 'ag', 'data-g="ag"');
+  liga('adsGrp', 'data-g', function(g){ if (S.adsGrp !== g) { S.adsGrp = g; S.adsAbertos = {}; } pintaAds(); });
+  var longo = diasEntre(S.de, S.ate) > MAX_LISTA;
+  function recTxt(v, fora, todosFora){ return todosFora ? '<span class="fora">fora do Feegow</span>' : semRec ? (longo ? '—' : '…') : brl(v); }
+  var cab = '<thead><tr><th>' + (S.adsGrp === 'ag' ? 'Agência' : 'Tipo de anúncio') + '</th><th class="num">Anúncios</th><th class="num">Investimento</th>' +
+    '<th class="num" title="Conversas iniciadas no WhatsApp, pela Meta">Conversas</th><th class="num" title="Telefones que chegaram pelo anúncio">Leads</th>' +
+    '<th class="num" title="Chegaram pelo anúncio e fecharam no Feegow">Pacientes</th><th class="num" title="Sem as contas de odonto">Custo/paciente</th>' +
+    '<th class="num" title="Pagamentos no período dos pacientes destes anúncios">Recebido</th><th class="num" title="Recebido ÷ investimento (sem odonto)">Retorno</th></tr></thead>';
+  var corpo = grupos.map(function(x){
+    var aberto = !!S.adsAbertos[x.g], todosFora = x.fora === x.ads.length;
+    var cats = topCats(x.cats, 3).map(function(c){ return esc(c.c) + ' ' + brl(c.v); }).join(' · ');
+    var rotulo = S.adsGrp === 'ag' ? '<span class="dot" style="background:' + agCor(x.g) + '"></span><span class="nome">' + esc(x.g) + '</span>'
+                                   : '<span class="nome">' + esc(x.g) + '</span>';
+    var recInv = x.invMed;
+    var h = '<tr class="grp' + (aberto ? ' aberto' : '') + '" data-g="' + esc(x.g) + '"><td>' + rotulo + (cats ? '<span class="cats">' + cats + '</span>' : '') + '</td>' +
+      '<td class="num">' + n0(x.ads.length) + '</td><td class="num">' + brl(x.inv) + '</td><td class="num">' + n0(x.conv) + '</td><td class="num">' + n0(x.r) + '</td>' +
+      '<td class="num">' + n0(x.p) + '</td><td class="num">' + (x.pMed && x.invMed ? brl(x.invMed / x.pMed) : '—') + '</td>' +
+      '<td class="num b">' + recTxt(x.rec, 0, todosFora) + '</td><td class="num">' + (todosFora || semRec ? '—' : vezes(x.rec, recInv)) + '</td></tr>';
+    if (aberto) h += '<tr class="det"><td colspan="9"><div class="adcs">' +
+      x.ads.slice().sort(function(a, b){ return b.rec - a.rec || b.inv - a.inv; }).map(function(o){ return cartaoAd(o, semRec, longo); }).join('') + '</div></td></tr>';
+    return h;
+  }).join('');
+  document.getElementById('tAds').innerHTML = cab + '<tbody>' + (corpo || '<tr><td colspan="9" class="vazio">Nenhum anúncio neste filtro.</td></tr>') + '</tbody>';
+  document.getElementById('adsNota').innerHTML = longo
+    ? 'O recebido por anúncio sai do rastro de pagamentos, que vai até ' + MAX_LISTA + ' dias. Escolha um período menor para ver o recebido e o que foi vendido.'
+    : 'Recebido = pagamentos no período dos pacientes que vieram do anúncio (de quem já era da base, a partir do clique), a mesma régua do “Recebido de anúncio”. ' +
+      '“Com o que foi recebido” reparte cada pagamento pelos itens da fatura que ele quitou. Paciente de “Meta sem id do anúncio” e Google Ads ' +
+      'fica fora (não tem anúncio para pendurar). Odonto agenda e cobra fora do Feegow.';
+  Array.prototype.forEach.call(document.querySelectorAll('#tAds tr.grp'), function(tr){
+    tr.addEventListener('click', function(){
+      var g = tr.getAttribute('data-g'); S.adsAbertos[g] = !S.adsAbertos[g];
+      if (S.adsAbertos[g]) {
+        var ms = {}; (G[g] ? G[g].ads : []).forEach(function(o){ ms[o.m] = 1; });
+        Promise.all(Object.keys(ms).map(carregaCriativos)).then(function(){ pintaAds(); });
+      }
+      pintaAds(); }); });
+  Array.prototype.forEach.call(document.querySelectorAll('#tAds [data-copy]'), function(b){
+    b.addEventListener('click', function(e){ e.stopPropagation(); var k = b.getAttribute('data-copy'); S.adsCopy[k] = !S.adsCopy[k]; pintaAds(); }); });
+  Array.prototype.forEach.call(document.querySelectorAll('#tAds [data-proc]'), function(b){
+    b.addEventListener('click', function(e){ e.stopPropagation(); var k = b.getAttribute('data-proc'); S.adsProc[k] = !S.adsProc[k]; pintaAds(); }); });
+}
+
+function cartaoAd(o, semRec, longo){
+  var cr = CRI[o.id] || {};
+  var foto = cr.img ? '<img class="adc-foto" alt="" loading="lazy" src="data:image/jpeg;base64,' + cr.img + '">'
+                    : '<div class="adc-foto">' + (CRI_PEDIDO[o.m] ? 'sem miniatura' : 'carregando…') + '</div>';
+  var nd = Object.keys(o.dias).length;
+  var tags = [
+    agTag(o.ag === SEM_AG ? '' : o.ag),
+    S.marca === 'todas' ? '<span class="tag">' + (o.m === 'doctor' ? 'Doctor' : 'Acesso') + '</span>' : '',
+    S.adsGrp === 'ag' ? '<span class="tag">' + esc(o.tipo) + '</span>' : '',
+    nd ? '<span class="tag">' + nd + (nd === 1 ? ' dia no ar' : ' dias no ar') + '</span>' : '<span class="tag">sem gasto no período</span>',
+    cr.link ? '<span class="tag"><a href="' + esc(cr.link) + '" target="_blank" rel="noopener">ver publicação ↗</a></span>' : '',
+    ACT[o.suf] ? '<span class="tag"><a href="https://adsmanager.facebook.com/adsmanager/manage/ads?act=' + ACT[o.suf] + '&selected_ad_ids=' + esc(o.id) + '" target="_blank" rel="noopener">gerenciador ↗</a></span>' : ''
+  ].filter(Boolean).join('');
+  var aberta = !!S.adsCopy[o.k];
+  var copia = cr.b ? '<div class="adc-copy' + (aberta ? ' aberta' : '') + '">' + esc(cr.b) + '</div>' +
+    (cr.b.length > 160 ? '<button class="lnk" data-copy="' + esc(o.k) + '">' + (aberta ? 'recolher texto' : 'ver texto completo') + '</button>' : '') : '';
+  var rec = o.fora ? '<span class="fora">fora do Feegow</span>' : semRec ? (longo ? '—' : '…') : brl(o.rec);
+  var met = [
+    [brl(o.inv), 'Investido'], [n0(o.conv), 'Conversas'], [o.conv ? brl(o.inv / o.conv, 1) : '—', 'Custo/conversa'],
+    [n0(o.r), 'Leads', 0, 'Telefones que chegaram pelo anúncio no período'],
+    [n0(o.p), 'Pacientes', 0, 'Chegaram pelo anúncio no período e fecharam no Feegow'],
+    [o.p && o.inv && !o.fora ? brl(o.inv / o.p) : '—', 'Custo/paciente'],
+    [rec, 'Recebido', !o.fora && o.rec > 0.5, 'Pagamentos no período dos pacientes deste anúncio — inclui quem chegou antes do período'],
+    [o.fora || semRec ? '—' : vezes(o.rec, o.inv), 'Retorno', 0, 'Recebido ÷ investimento no período'],
+    [o.fora || semRec ? '—' : n0(o.npag), 'Pagaram', 0, 'Pacientes deste anúncio que pagaram algo no período (inclui quem chegou antes)']
+  ].map(function(x){ return '<div' + (x[3] ? ' title="' + esc(x[3]) + '"' : '') + '><span class="v' + (x[2] ? ' dest' : '') + '">' + x[0] + '</span><span class="k">' + x[1] + '</span></div>'; }).join('');
+  var recBloco = '';
+  if (!o.fora && !semRec) {
+    var cats = topCats(o.cats);
+    if (!cats.length) recBloco = '<div class="adc-rec"><div class="tit">Com o que foi recebido</div><div class="dim" style="font-size:12.5px">Nenhum pagamento destes pacientes no período.</div></div>';
+    else {
+      var maxv = cats[0].v;
+      var abre = !!S.adsProc[o.k];
+      var procs = Object.keys(o.procs).map(function(p){ return {p: p, c: o.procs[p].c, v: o.procs[p].v}; }).filter(function(x){ return x.v > 0.005; })
+        .sort(function(a, b){ return b.v - a.v; });
+      recBloco = '<div class="adc-rec"><div class="tit">Com o que foi recebido</div>' +
+        cats.map(function(c){ return '<div class="cat"><span>' + esc(c.c) + '</span><span class="bar"><i style="width:' + Math.max(2, 100 * c.v / maxv).toFixed(1) + '%"></i></span>' +
+          '<span class="val">' + brl(c.v) + ' <span class="dim">· ' + pct(c.v, o.rec) + '</span></span></div>'; }).join('') +
+        '<button class="lnk" data-proc="' + esc(o.k) + '">' + (abre ? 'esconder procedimentos' : 'ver procedimentos (' + procs.length + ')') + '</button>' +
+        (abre ? '<table class="procs"><tbody>' + procs.slice(0, 12).map(function(x){
+          return '<tr><td>' + esc(x.p) + ' <span class="dim">· ' + esc(x.c) + '</span></td><td class="num">' + brl(x.v) + '</td></tr>'; }).join('') +
+          (procs.length > 12 ? '<tr><td class="dim">mais ' + (procs.length - 12) + ' procedimentos</td><td class="num dim">' +
+            brl(procs.slice(12).reduce(function(a, x){ return a + x.v; }, 0)) + '</td></tr>' : '') + '</tbody></table>' : '') +
+        '</div>';
+    }
+  }
+  return '<div class="adc">' + foto + '<div>' +
+    '<div class="adc-top"><span class="nome">' + esc(o.nome) + '</span>' + tags + '</div>' +
+    '<span class="sub">' + esc(o.camp) + '</span>' + copia +
+    '<div class="adc-met">' + met + '</div>' + recBloco + '</div></div>';
 }
 
 /* ---------- listas lidas na hora: fechado e não pago, quem pagou ---------- */
@@ -677,7 +887,7 @@ function carregaListas(){
   var marcas = OK.filter(function(m){ return S.marca === 'todas' || S.marca === m; });
   var chave = marcas.join(',') + '|' + S.de + '|' + S.ate;
   if (chave === listaChave) { pintaAberto(); pintaPagou(); return; }
-  listaChave = chave; AB = PG = null;
+  listaChave = chave; AB = PG = null; pintaAds();
   if (diasEntre(S.de, S.ate) > MAX_LISTA) {
     ['tAb', 'tPg'].forEach(function(id){ document.getElementById(id).innerHTML = '<tbody><tr><td class="vazio">Escolha um período de até ' + MAX_LISTA + ' dias para ver a lista.</td></tr></tbody>'; });
     ['abTot', 'pgTot', 'abSit', 'abOrig', 'pgOrig', 'abMais', 'pgMais'].forEach(function(id){ document.getElementById(id).innerHTML = ''; });
@@ -700,7 +910,7 @@ function carregaListas(){
     Promise.all(marcas.map(function(m){ return busca(m, 'rastro').then(function(r){ return {m: m, r: r}; }); })).then(function(rs){
       if (esta !== listaChave) return;
       PG = []; rs.forEach(function(x){ if (Array.isArray(x.r)) x.r.forEach(function(l){ if ((l[2] || 0) > 0) PG.push(pgLinha(x.m, l)); }); else PG.erro = x.r.erro; });
-      pintaPagou(); });
+      pintaPagou(); pintaAds(); });
   }, 250);
 }
 function grupoDe(canal){ return (GRUPO_DO[canal] || GRUPOS[1]).id; }
@@ -710,12 +920,15 @@ function abLinha(m, l){
   return {m: m, conta: l[0], reat: reat, ag: reat ? l[12] : l[2], canal: l[3], dia: l[4], fat: +l[5] || 0, pago: +l[6] || 0, ab: +l[7] || 0,
           sit: l[8], data: l[9], uni: l[10] || '', nome: l[16] || '', g: reat ? 'reat' : grupoDe(l[3])};
 }
-/* rastro: [d, conta, pago, fat, canal, ag, aid, dc, via, reat_ag, reat_d, procs, uni, desde, base, nome] */
+/* rastro: [d, conta, pago, fat, canal, ag, aid, dc, via, reat_ag, reat_d, procs, uni, desde, base, nome, itens]
+   itens (16/10): só nas linhas de anúncio — [[categoria, procedimento, valor], ...], o pago do dia rateado
+   pelos itens da fatura; a soma fecha com o pago. */
 function pgLinha(m, l){
   /* o banco já diz o dono do dia (v_atribuicao_segmento): quem voltou pelo anúncio vem com via 'reativacao' */
   var reat = l[8] === 'reativacao';
   return {m: m, d: l[0], conta: l[1], pago: +l[2] || 0, canal: l[4], ag: l[5] || '', dc: l[7] || '',
-          procs: l[11] || '', uni: l[12] || '', nome: l[15] || '', g: reat ? 'reat' : grupoDe(l[4])};
+          procs: l[11] || '', uni: l[12] || '', nome: l[15] || '', g: reat ? 'reat' : grupoDe(l[4]),
+          aid: l[6] ? String(l[6]) : '', itens: Array.isArray(l[16]) ? l[16] : null};
 }
 function origemTxt(g, canal, ag){
   if (g === 'reat') return agTag(ag) + ' <span class="dim">já era da base</span>';
