@@ -214,6 +214,22 @@ portal (Arasys, claro/escuro por `rel_tema`), **só indicadores**, explicação 
   "Quem pagou" na Acesso difere ~R$ 700 da Origem do caixa porque um é lido na hora e o
   outro é a foto das 05:30 (pacientes "sem ligação" que ganharam ligação no dia).
 
+### Recebido ao vivo na tela inteira — 16/10/2026
+
+O Henrique viu três números para a mesma coisa na FSX (01–16/10): **Recebido R$ 13.145** no cartão,
+**Quem pagou R$ 15.230** e **Já eram da base R$ 20.010**. Causas: (1) cartões e tabelas liam o
+`dados.json` publicado às 05:30, e dois pagamentos de 16/10 (R$ 1.950 + R$ 134,91) entraram no Feegow
+às 11h18 — "Quem pagou" lê o `rastro_periodo` na hora; (2) o cartão "Já eram da base" mostrava
+**faturado** (inclui conta em aberto), não recebido.
+
+Agora, quando o rastro do período está carregado (até 93 dias), **o recebido de toda a tela sai dele**:
+cartões, barra e tabela de origem, tabela de agências, sobra "Sem agência identificada" e a seção de
+anúncios (`vivo()` em `canais.html`; repinta o topo quando o rastro chega). Para período fechado, rastro e
+foto batem no centavo por canal e por agência (conferido 01–14/10 na Doctor). Período longo ou falha no
+rastro: volta para a foto. O cartão "Já eram da base" passou a mostrar o **recebido** de quem voltou pelo
+anúncio (parte do Recebido, mesmo valor do filtro "Já eram da base" de Quem pagou). Faturado, leads,
+pacientes e investimento continuam vindo da foto das 05:30.
+
 ### Anúncios por tipo e por agência, com o que foi recebido — 16/10/2026
 
 Pedido do Henrique: a seção que mostrava os anúncios por tipo, por agência, com as métricas de cada um,

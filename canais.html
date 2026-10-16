@@ -499,6 +499,7 @@ function agenciasAtivas(){
   var t = {};
   SER.forEach(function(x){ if (noPer(x) && (x.inv > 0.5 || x.r || x.p || x.v)) t[x.ag] = 1; });
   CX.forEach(function(x){ if (noPer(x) && x.ag !== SEM_AG && x.v > 0.5) t[x.ag] = 1; });
+  var V = vivo(); if (V) Object.keys(V.ag).forEach(function(a){ if (V.ag[a].v > 0.5) t[a] = 1; });
   return Object.keys(t).sort(function(a, b){ return (AG_ORDEM.indexOf(a) + 99) % 99 - (AG_ORDEM.indexOf(b) + 99) % 99 || a.localeCompare(b); });
 }
 function porCanal(){
@@ -506,6 +507,12 @@ function porCanal(){
   CAN.forEach(function(x){ if (!noPer(x)) return;
     var o = m[x.c] || (m[x.c] = {c: x.c, ch: 0, ct: 0, p: 0, v: 0, pg: 0, ab: 0, pgd: 0});
     ['ch', 'ct', 'p', 'v', 'pg', 'ab', 'pgd'].forEach(function(k){ o[k] += x[k]; }); });
+  var V = vivo();
+  if (V) {
+    Object.keys(m).forEach(function(c){ m[c].pgd = 0; });
+    Object.keys(V.canal).forEach(function(c){
+      var o = m[c] || (m[c] = {c: c, ch: 0, ct: 0, p: 0, v: 0, pg: 0, ab: 0, pgd: 0}); o.pgd = V.canal[c]; });
+  }
   return m;
 }
 function soma(lista, k){ return lista.reduce(function(a, x){ return a + (x[k] || 0); }, 0); }
@@ -523,7 +530,11 @@ function porAgencia(){
     var kc = x.m + '|' + x.suf, c = o.contas[kc] || (o.contas[kc] = zeroConta(x.m, x.suf));
     somaSerie(o, x); somaSerie(c, x);
     if (!VENDA_FORA[x.suf]) o.invMed += x.inv; });
-  CX.forEach(function(x){ if (!noPer(x) || x.ag === SEM_AG) return;   /* sem agência: vai para a linha de sobra */
+  var V = vivo();
+  if (V) Object.keys(V.ag).forEach(function(a){
+    var o = m[a] || (m[a] = zeroAg()), x = V.ag[a];
+    o.caixa = x.v; o.cxReat = x.reat; o.antes = x.antes; o.npag = Object.keys(x.pac).length; o.npagReat = Object.keys(x.pacReat).length; });
+  else CX.forEach(function(x){ if (!noPer(x) || x.ag === SEM_AG) return;   /* sem agência: vai para a linha de sobra */
     var o = m[x.ag] || (m[x.ag] = zeroAg());
     o.caixa += x.v; if (x.reat) o.cxReat += x.v; if (x.dc && x.dc < S.de) o.antes += x.v; });
   return m;
@@ -546,7 +557,8 @@ function resumoPago(can, ags){
   Object.keys(ags).forEach(function(a){ var o = ags[a];
     R.rAg += o.r; R.pAg += o.p; R.vAg += o.v; R.pgAg += o.pg; R.abAg += o.ab; R.xc += o.xc; R.cxAg += o.caixa;
     R.pFora += o.p - pacMed(o); });
-  R.cxSem = soma(CX.filter(function(x){ return noPer(x) && x.ag === SEM_AG; }), 'v');
+  var V = vivo();
+  R.cxSem = V ? V.sem : soma(CX.filter(function(x){ return noPer(x) && x.ag === SEM_AG; }), 'v');
   R.r = R.rAg + R.rRes; R.pMed = R.p - R.pFora;
   R.caixa = R.cxAg + R.cxSem;
   R.res = {p: R.p - R.pAg, v: R.v - R.vAg, pg: R.pg - R.pgAg, ab: R.ab - R.abAg};
@@ -556,14 +568,18 @@ function resumoPago(can, ags){
 /* ---------- render ---------- */
 function render(){
   pintaFiltros();
+  pintaTopo();
+  carregaListas();
+  pintaAds();
+}
+/* indicadores, origem e agências: repinta também quando o rastro chega (recebido ao vivo) */
+function pintaTopo(){
   var can = porCanal(), ags = porAgencia();
   pintaKpis(can, ags);
   var todas = S.ag === 'todas';
   document.getElementById('sOrigem').classList.toggle('oculto', !todas);
   if (todas) pintaOrigem(can);
   pintaAgencias(can, ags);
-  carregaListas();
-  pintaAds();
 }
 
 function kpi(k, v, d, tit, cor){
@@ -576,7 +592,7 @@ function pintaKpis(can, ags){
   if (S.ag === 'todas') {
     var tot = 0, R = resumoPago(can, ags);
     Object.keys(can).forEach(function(c){ tot += can[c].pgd; });
-    h += kpi('Recebido no período', brl(tot), 'pagamentos no Feegow', 'Tudo o que entrou no Feegow no período, de todas as origens');
+    h += kpi('Recebido no período', brl(tot), vivo() ? 'pagamentos no Feegow · até agora' : 'pagamentos no Feegow', 'Tudo o que entrou no Feegow no período, de todas as origens');
     h += kpi('Recebido de anúncio', brl(R.caixa), pct(R.caixa, tot) + ' do recebido', 'Pagamentos no período de quem chegou por anúncio, ou já era da base e voltou pelo anúncio (a partir do clique)');
     h += kpi('Investimento', brl(R.inv), 'custo por lead ' + (R.r ? brl(R.inv / R.r, 1) : '—'), 'Meta Ads no período');
     h += kpi('Leads de anúncio', n0(R.r), '', 'Telefones que chegaram por anúncio no período');
@@ -586,16 +602,19 @@ function pintaKpis(can, ags){
     h += kpi('Em aberto', brl(R.ab), pct(R.ab, R.v) + ' do faturado', 'Faturado e ainda não pago, de quem chegou pelo anúncio no período');
   } else {
     var o = ags[S.ag] || zeroAg(), cor = agCor(S.ag), pm = pacMed(o);
-    h += kpi('Recebido', brl(o.caixa), o.cxReat > 0.5 ? brl(o.cxReat) + ' de quem já era da base' : brl(o.antes) + ' de quem chegou antes',
-      'Pagamentos no período de pacientes que chegaram pelo anúncio desta agência (de quem já era da base, a partir do clique)', cor);
+    h += kpi('Recebido', brl(o.caixa), o.npag != null ? n0(o.npag) + (o.npag === 1 ? ' paciente pagou' : ' pacientes pagaram') + ' · até agora'
+                                              : (o.cxReat > 0.5 ? brl(o.cxReat) + ' de quem já era da base' : brl(o.antes) + ' de quem chegou antes'),
+      'Pagamentos no período de pacientes que chegaram pelo anúncio desta agência (de quem já era da base, a partir do clique) — o mesmo total de “Quem pagou”', cor);
     h += kpi('Investimento', brl(o.inv), 'custo por lead ' + (o.r ? brl(o.inv / o.r, 1) : '—'), 'Meta Ads das contas desta agência', cor);
     h += kpi('Leads', n0(o.r), '', 'Telefones que chegaram pelo anúncio desta agência no período (inclui quem já era da base)', cor);
     h += kpi('Pacientes', n0(o.p), pct(o.p, o.r) + ' dos leads' + (o.xc ? ' · ' + n0(o.xc) + ' já eram da base' : ''), 'Chegaram pelo anúncio desta agência no período e fecharam', cor);
     h += kpi('Faturado', brl(o.v), 'já pago ' + brl(o.pg), '', cor);
     h += kpi('Retorno', vezes(o.v, o.invMed), 'custo por paciente ' + (pm ? brl(o.invMed / pm, 1) : '—'), 'Faturado ÷ investimento, sem as contas de odonto', cor);
     h += kpi('Em aberto', brl(o.ab), pct(o.ab, o.v) + ' do faturado', '', cor);
-    h += o.xp ? kpi('Já eram da base', brl(o.xv), n0(o.xc) + ' de ' + n0(o.xp) + ' fecharam · já no faturado', 'Pacientes que já eram da clínica, clicaram no anúncio desta agência e fecharam — contam como dela', cor)
-              : kpi('Já eram da base', brl(o.cxReat), 'pagos a partir do clique', 'Pagamentos de quem já era da clínica e voltou pelo anúncio desta agência', cor);
+    /* 16/10: recebido (antes era faturado, e dava um terceiro número na tela) — é parte do Recebido acima */
+    h += kpi('Já eram da base', brl(o.cxReat), (o.xp ? n0(o.xc) + ' de ' + n0(o.xp) + ' fecharam' : 'pagos a partir do clique') +
+      (o.npagReat != null ? ' · ' + n0(o.npagReat) + ' pagaram' : '') + ' · dentro do recebido',
+      'Recebido de quem já era da clínica e voltou pelo anúncio desta agência (a partir do clique). Já está somado no Recebido — é o mesmo valor de “Já eram da base” em Quem pagou.', cor);
   }
   el.innerHTML = h;
 }
@@ -882,7 +901,31 @@ function cartaoAd(o, semRec, longo){
 }
 
 /* ---------- listas lidas na hora: fechado e não pago, quem pagou ---------- */
-var AB = null, PG = null, listaChave = '', listaTimer = null;
+var AB = null, PG = null, PG_CHAVE = '', listaChave = '', listaTimer = null;
+function chaveListas(){
+  return OK.filter(function(m){ return S.marca === 'todas' || S.marca === m; }).join(',') + '|' + S.de + '|' + S.ate;
+}
+/* 16/10/2026: o RECEBIDO da tela inteira sai do rastro lido na hora quando ele está carregado para o
+   período (até 93 dias). O dados.json é a foto das 05:30; pagamento lançado depois disso aparecia em
+   "Quem pagou" e não nos cartões nem nas tabelas — três números diferentes para a mesma coisa. Para um
+   período fechado, rastro e foto batem no centavo por canal e por agência (conferido em 01-14/10), então
+   é só a hora que muda. Sem rastro (período longo ou falha), volta para a foto. */
+function vivo(){
+  if (!Array.isArray(PG) || PG.erro || PG_CHAVE !== chaveListas()) return null;
+  if (vivo.c && vivo.c.pg === PG && vivo.c.de === S.de) return vivo.c;
+  var V = {pg: PG, de: S.de, tot: 0, canal: {}, ag: {}, sem: 0};
+  PG.forEach(function(l){
+    V.tot += l.pago; V.canal[l.canal] = (V.canal[l.canal] || 0) + l.pago;
+    if (l.g !== 'pago' && l.g !== 'reat') return;
+    var a = l.ag;
+    if (!a || a === SEM_AG || a === 'Anúncio não identificado') { V.sem += l.pago; return; }
+    var o = V.ag[a] || (V.ag[a] = {v: 0, reat: 0, antes: 0, pac: {}, pacReat: {}});
+    o.v += l.pago; o.pac[l.m + '|' + l.conta] = 1;
+    if (l.g === 'reat') { o.reat += l.pago; o.pacReat[l.m + '|' + l.conta] = 1; }
+    if (l.dc && l.dc < S.de) o.antes += l.pago;
+  });
+  vivo.c = V; return V;
+}
 function carregaListas(){
   var marcas = OK.filter(function(m){ return S.marca === 'todas' || S.marca === m; });
   var chave = marcas.join(',') + '|' + S.de + '|' + S.ate;
@@ -910,7 +953,8 @@ function carregaListas(){
     Promise.all(marcas.map(function(m){ return busca(m, 'rastro').then(function(r){ return {m: m, r: r}; }); })).then(function(rs){
       if (esta !== listaChave) return;
       PG = []; rs.forEach(function(x){ if (Array.isArray(x.r)) x.r.forEach(function(l){ if ((l[2] || 0) > 0) PG.push(pgLinha(x.m, l)); }); else PG.erro = x.r.erro; });
-      pintaPagou(); pintaAds(); });
+      PG_CHAVE = esta;
+      pintaTopo(); pintaPagou(); pintaAds(); });
   }, 250);
 }
 function grupoDe(canal){ return (GRUPO_DO[canal] || GRUPOS[1]).id; }
