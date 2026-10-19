@@ -255,6 +255,33 @@ o dinheiro ali é o **recebido** no período.
   isso o rastro da Doctor ia de 0,5 s para 10 s. Paciente de "Meta sem id" e Google fica fora (não há
   anúncio para pendurar). Período acima de 93 dias: recebido por anúncio não aparece (aviso na seção).
 
+### Recebido = caixa SEM DOC, a régua do Resumo faturamento — 19/10/2026
+
+O Henrique comparou o "Recebido no período" do Canais (R$ 766.642 em 01–18/10) com o
+"Faturamento do grupo" do Resumo faturamento (R$ 741.240 SEM DOC) e pediu **a mesma lógica de
+cálculo, sem falta**. A diferença era de fonte:
+
+- Resumo faturamento: crédito do caixa (`feegow_movimento`, `cd = 'C'`, forma sem DOC), pela data
+  do movimento (`fn_feegow_dia.cx_sem_doc`, regra do Painel de Indicadores).
+- Canais (até 18/10): pagamentos das faturas (`feegow_invoice_payments`), com DOC pelo valor do
+  Feegow (R$ 22,6 mil) e R$ 2,8 mil de pagamento sem o mesmo lançamento no caixa (quase tudo na
+  Djalma Batista).
+
+Agora `canal_serie`, `agencia_caixa` e `rastro_periodo` (Doctor e Acesso) leem o MESMO caixa: crédito
+sem DOC pela data do movimento. O dono do dinheiro é o paciente da fatura que o movimento quita
+(`numero_invoice` → `feegow_invoices`), com a mesma regra de trecho (chegada/reativação) e o mesmo
+"pagamento segue a fatura". Movimento sem fatura no espelho cairia em "Sem rastreio" sem sair da
+soma (hoje: nenhum). Conferido: 01–18/10 = R$ 741.240,46 (Doctor 253.314,24 + Acesso 487.926,22),
+dia a dia igual à `fn_feegow_dia` nas duas bases, e agências = canais pagos no centavo.
+
+- O caixa do dia entra na carga das 07:05 (feegow-carga-diaria). Por isso a `publica-relatorio`
+  roda também às 07:30 e 07:35 (`publica-relatorio-pos-carga`, cron 164 na Doctor e 191 na
+  Acesso), além das 05:30/05:35. O cartão mostra "lançado até dd/mm" quando o período passa do
+  último dia com caixa.
+- O `feegow_movimento` começa em 02/01/2026: antes disso o Canais não tem recebido (o Resumo
+  faturamento também não).
+- Faturado, já pago e em aberto continuam pela fatura — são outra coisa (venda), não caixa.
+
 ### Número de WhatsApp de agência: o 5700 conta para a FSX — 16/10/2026
 
 Henrique: "inclua o que está sendo trabalhado no 5700 na FSX também" → escolheu **tudo que chega

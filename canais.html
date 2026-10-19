@@ -242,8 +242,11 @@ tr.det:hover > td{background:var(--surface-2)}
    já tinham sido validadas continuam as mesmas, agora em um lugar só:
    · Régua única de origem (mv_atribuicao_unica): o paciente chega no
      primeiro contato; anúncio até 1 dia depois faz dele paciente de anúncio.
-   · Recebido = pagamentos do Feegow no período, pela origem do paciente
-     (soma de todos os canais = Feegow, no centavo).
+   · Recebido = o caixa SEM DOC do Resumo faturamento (19/10/2026, pedido do
+     Henrique: "mesma lógica de cálculo do R$ 741.240"): crédito do caixa do
+     Feegow (feegow_movimento, cd C, forma sem DOC), pela data do movimento, de
+     cada paciente pela fatura que o movimento quita. Soma de todos os canais =
+     "Faturamento do grupo" SEM DOC, no centavo. O caixa chega na carga das 07:05.
    · Coorte (leads, pacientes, faturado, já pago, em aberto) = de quem
      chegou no período.
    · Agência pela VIGÊNCIA da conta no dia (meta_agencia_periodo na Doctor;
@@ -602,8 +605,11 @@ function pintaKpis(can, ags){
   if (S.ag === 'todas') {
     var tot = 0, R = resumoPago(can, ags);
     Object.keys(can).forEach(function(c){ tot += can[c].pgd; });
-    h += kpi('Recebido no período', brl(tot), vivo() ? 'pagamentos no Feegow · até agora' : 'pagamentos no Feegow', 'Tudo o que entrou no Feegow no período, de todas as origens');
-    h += kpi('Recebido de anúncio', brl(R.caixa), pct(R.caixa, tot) + ' do recebido', 'Pagamentos no período de quem chegou por anúncio, ou já era da base e voltou pelo anúncio (a partir do clique)');
+    var ult = caixaAte();
+    var hojeM = new Date(Date.now() - 4 * 3600e3).toISOString().slice(0, 10);
+    h += kpi('Recebido no período', brl(tot), (ult && S.ate >= hojeM && ult < hojeM ? 'caixa SEM DOC · até ' + br(ult) : 'caixa SEM DOC · régua do Faturamento'),
+      'A mesma conta do “Faturamento do grupo” (SEM DOC) do Resumo faturamento: crédito do caixa do Feegow, sem a forma DOC, pela data do movimento. O caixa do dia entra na carga das 07:05 do dia seguinte.');
+    h += kpi('Recebido de anúncio', brl(R.caixa), pct(R.caixa, tot) + ' do recebido', 'Caixa SEM DOC no período de quem chegou por anúncio, ou já era da base e voltou pelo anúncio (a partir do clique)');
     h += kpi('Investimento', brl(R.inv), 'custo por lead ' + (R.r ? brl(R.inv / R.r, 1) : '—'), 'Meta Ads no período');
     h += kpi('Leads de anúncio', n0(R.r), '', 'Telefones que chegaram por anúncio no período');
     h += kpi('Pacientes de anúncio', n0(R.p), pct(R.p, R.r) + ' dos leads' + (R.xc ? ' · ' + n0(R.xc) + ' já eram da base' : ''), 'Chegaram pelo anúncio no período e fecharam no Feegow — inclui quem já era da base e voltou pelo anúncio');
@@ -612,9 +618,9 @@ function pintaKpis(can, ags){
     h += kpi('Em aberto', brl(R.ab), pct(R.ab, R.v) + ' do faturado', 'Faturado e ainda não pago, de quem chegou pelo anúncio no período');
   } else {
     var o = ags[S.ag] || zeroAg(), cor = agCor(S.ag), pm = pacMed(o);
-    h += kpi('Recebido', brl(o.caixa), o.npag != null ? n0(o.npag) + (o.npag === 1 ? ' paciente pagou' : ' pacientes pagaram') + ' · até agora'
+    h += kpi('Recebido', brl(o.caixa), o.npag != null ? n0(o.npag) + (o.npag === 1 ? ' paciente pagou' : ' pacientes pagaram') + ' · caixa SEM DOC'
                                               : (o.cxReat > 0.5 ? brl(o.cxReat) + ' de quem já era da base' : brl(o.antes) + ' de quem chegou antes'),
-      'Pagamentos no período de pacientes que chegaram pelo anúncio desta agência (de quem já era da base, a partir do clique) — o mesmo total de “Quem pagou”', cor);
+      'Caixa SEM DOC no período (régua do Faturamento) de pacientes que chegaram pelo anúncio desta agência (de quem já era da base, a partir do clique) — o mesmo total de “Quem pagou”', cor);
     h += kpi('Investimento', brl(o.inv), 'custo por lead ' + (o.r ? brl(o.inv / o.r, 1) : '—'), 'Meta Ads das contas desta agência', cor);
     h += kpi('Leads', n0(o.r), '', 'Telefones que chegaram pelo anúncio desta agência no período (inclui quem já era da base)', cor);
     h += kpi('Pacientes', n0(o.p), pct(o.p, o.r) + ' dos leads' + (o.xc ? ' · ' + n0(o.xc) + ' já eram da base' : ''), 'Chegaram pelo anúncio desta agência no período e fecharam', cor);
@@ -649,7 +655,7 @@ function pintaOrigem(can){
   document.getElementById('tCanais').innerHTML =
     '<thead><tr><th>Origem</th><th class="num" title="Conversas abertas no período">Conversas</th><th class="num" title="Contatos novos no CRM">Leads novos</th>' +
     '<th class="num" title="Viraram paciente (quem chegou no período)">Pacientes</th><th class="num">Faturado</th><th class="num" title="Do faturado acima, quanto já foi pago">Já pago</th>' +
-    '<th class="num">Em aberto</th><th class="num" title="Pagamentos no período, pela origem do paciente">Recebido</th></tr></thead>' +
+    '<th class="num">Em aberto</th><th class="num" title="Caixa SEM DOC no período (régua do Faturamento), pela origem do paciente">Recebido</th></tr></thead>' +
     '<tbody>' + corpo + '</tbody><tfoot><tr><td>Total</td><td class="num">' + n0(T.ch) + '</td><td class="num">' + n0(T.ct) + '</td><td class="num">' + n0(T.p) +
     '</td><td class="num">' + brl(T.v) + '</td><td class="num">' + brl(T.pg) + '</td><td class="num">' + brl(T.ab) + '</td><td class="num">' + brl(T.pgd) + '</td></tr></tfoot>';
 }
@@ -700,7 +706,7 @@ function pintaAgencias(can, ags){
   var cab = '<thead><tr><th>Agência</th><th class="num">Investimento</th><th class="num" title="Telefones que chegaram pelo anúncio da agência">Leads</th>' +
     '<th class="num" title="Chegaram pelo anúncio da agência e fecharam — inclui quem já era da base">Pacientes</th><th class="num">Conversão</th><th class="num">Faturado</th><th class="num" title="Do faturado acima, quanto já foi pago">Já pago</th><th class="num">Em aberto</th>' +
     '<th class="num" title="Sem as contas de odonto">Custo/paciente</th><th class="num" title="Faturado ÷ investimento, sem as contas de odonto">Retorno</th>' +
-    '<th class="num" title="Pagamentos no período de pacientes que a agência trouxe">Recebido</th></tr></thead>';
+    '<th class="num" title="Caixa SEM DOC no período de pacientes que a agência trouxe">Recebido</th></tr></thead>';
   document.getElementById('tAg').innerHTML = cab + '<tbody>' + (corpo || '<tr><td colspan="11" class="vazio">Sem agência neste período.</td></tr>') + '</tbody>' + pe;
   Array.prototype.forEach.call(document.querySelectorAll('#tAg tr.ag'), function(tr){
     tr.addEventListener('click', function(){ if (S.ag !== 'todas') return; var a = tr.getAttribute('data-ag');
@@ -836,7 +842,7 @@ function pintaAds(){
   var cab = '<thead><tr><th>' + (S.adsGrp === 'ag' ? 'Agência' : 'Tipo de anúncio') + '</th><th class="num">Anúncios</th><th class="num">Investimento</th>' +
     '<th class="num" title="Conversas iniciadas no WhatsApp, pela Meta">Conversas</th><th class="num" title="Telefones que chegaram pelo anúncio">Leads</th>' +
     '<th class="num" title="Chegaram pelo anúncio e fecharam no Feegow">Pacientes</th><th class="num" title="Sem as contas de odonto">Custo/paciente</th>' +
-    '<th class="num" title="Pagamentos no período dos pacientes destes anúncios">Recebido</th><th class="num" title="Recebido ÷ investimento (sem odonto)">Retorno</th></tr></thead>';
+    '<th class="num" title="Caixa SEM DOC no período dos pacientes destes anúncios">Recebido</th><th class="num" title="Recebido ÷ investimento (sem odonto)">Retorno</th></tr></thead>';
   var corpo = grupos.map(function(x){
     var aberto = !!S.adsAbertos[x.g], todosFora = x.fora === x.ads.length;
     var cats = topCats(x.cats, 3).map(function(c){ return esc(c.c) + ' ' + brl(c.v); }).join(' · ');
@@ -853,9 +859,9 @@ function pintaAds(){
   }).join('');
   document.getElementById('tAds').innerHTML = cab + '<tbody>' + (corpo || '<tr><td colspan="9" class="vazio">Nenhum anúncio neste filtro.</td></tr>') + '</tbody>';
   document.getElementById('adsNota').innerHTML = longo
-    ? 'O recebido por anúncio sai do rastro de pagamentos, que vai até ' + MAX_LISTA + ' dias. Escolha um período menor para ver o recebido e o que foi vendido.'
-    : 'Recebido = pagamentos no período dos pacientes que vieram do anúncio (de quem já era da base, a partir do clique), a mesma régua do “Recebido de anúncio”. ' +
-      '“Com o que foi recebido” reparte cada pagamento pelos itens da fatura que ele quitou. Paciente de “Meta sem id do anúncio” e Google Ads ' +
+    ? 'O recebido por anúncio sai do rastro do caixa, que vai até ' + MAX_LISTA + ' dias. Escolha um período menor para ver o recebido e o que foi vendido.'
+    : 'Recebido = caixa SEM DOC no período (a régua do Faturamento) dos pacientes que vieram do anúncio (de quem já era da base, a partir do clique), a mesma do “Recebido de anúncio”. ' +
+      '“Com o que foi recebido” reparte cada entrada do caixa pelos itens da fatura que ela quitou. Paciente de “Meta sem id do anúncio” e Google Ads ' +
       'fica fora (não tem anúncio para pendurar). ' + REF.filter(function(r){ return ehNum(r.suf) && daMarca(r) && (!r.ate || r.ate >= S.de); }).map(function(r){
         return 'Quem chegou novo pelo WhatsApp ' + r.suf.slice(2) + ' sem anúncio rastreado' + (r.de ? ' (desde ' + br(r.de) + ')' : '') +
           ' conta para a ' + esc(r.ag) + ' e aparece no cartão “' + esc(gerDe(r.m, r.suf)) + '”. '; }).join('') + 'Odonto agenda e cobra fora do Feegow.';
@@ -896,7 +902,7 @@ function cartaoAd(o, semRec, longo){
     [n0(o.r), 'Leads', 0, 'Telefones que chegaram pelo anúncio no período'],
     [n0(o.p), 'Pacientes', 0, 'Chegaram pelo anúncio no período e fecharam no Feegow'],
     [o.p && o.inv && !o.fora ? brl(o.inv / o.p) : '—', 'Custo/paciente'],
-    [rec, 'Recebido', !o.fora && o.rec > 0.5, 'Pagamentos no período dos pacientes deste anúncio — inclui quem chegou antes do período'],
+    [rec, 'Recebido', !o.fora && o.rec > 0.5, 'Caixa SEM DOC no período dos pacientes deste anúncio — inclui quem chegou antes do período'],
     [o.fora || semRec ? '—' : vezes(o.rec, o.inv), 'Retorno', 0, 'Recebido ÷ investimento no período'],
     [o.fora || semRec ? '—' : n0(o.npag), 'Pagaram', 0, 'Pacientes deste anúncio que pagaram algo no período (inclui quem chegou antes)']
   ].map(function(x){ return '<div' + (x[3] ? ' title="' + esc(x[3]) + '"' : '') + '><span class="v' + (x[2] ? ' dest' : '') + '">' + x[0] + '</span><span class="k">' + x[1] + '</span></div>'; }).join('');
@@ -951,6 +957,14 @@ function vivo(){
     if (l.dc && l.dc < S.de) o.antes += l.pago;
   });
   vivo.c = V; return V;
+}
+/* 19/10/2026: último dia com caixa no período — o caixa do dia entra na carga das 07:05 do dia
+   seguinte, então "hoje" ainda não tem caixa (nem no Resumo faturamento). */
+function caixaAte(){
+  var u = '';
+  if (vivo()) PG.forEach(function(l){ if (l.d > u) u = l.d; });
+  else CAN.forEach(function(x){ if (noPer(x) && x.pgd > 0.005 && x.d > u) u = x.d; });
+  return u;
 }
 function carregaListas(){
   var marcas = OK.filter(function(m){ return S.marca === 'todas' || S.marca === m; });

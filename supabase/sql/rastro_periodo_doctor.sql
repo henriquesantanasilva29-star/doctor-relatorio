@@ -7,6 +7,11 @@ CREATE OR REPLACE FUNCTION public.rastro_periodo(p_de date, p_ate date)
  STABLE
  SET search_path TO 'public'
 AS $function$
+-- 19/10/2026: PAGO = a régua do Resumo faturamento (o "SEM DOC" da meta). Crédito do caixa
+-- (feegow_movimento, cd 'C', forma sem DOC) pela data do movimento — antes eram os pagamentos das
+-- faturas (feegow_invoice_payments), que traziam o DOC pelo valor do Feegow e pagamento sem caixa.
+-- O dono do dinheiro é o paciente da fatura que o movimento quita (numero_invoice); movimento sem
+-- fatura no espelho fica sem paciente ('Sem rastreio'), mas não sai da soma.
 -- 12/10/2026: NOME do paciente no fim (mesma fonte do aberto_periodo v4: Feegow e, na falta, CRM pela identidade do Feegow).
 -- 15/10/2026: canal/ag/aid/dc/via pela v_atribuicao_segmento (quem voltou pelo anúncio: via 'reativacao').
 -- [d, conta, pago, fat, canal, ag, aid, dc, via, reat_ag, reat_d, procs, uni, desde, base, nome, itens]
@@ -18,12 +23,19 @@ AS $function$
 -- 15/10/2026 (tarde): o pagamento segue a FATURA — fatura aberta a partir do clique de reativação
 -- é do trecho de reativação; a de antes, mesmo paga depois, é da chegada. Uma linha por
 -- (paciente, dia, trecho).
-with pag as (
-  select f.conta_id, p.data_pagamento d, (s.conta_id is not null) reat, sum(p.valor_brl) pago,
-         array_agg(distinct f.invoice_id) inv, min(f.unidade_id) uni
-  from feegow_invoice_payments p join feegow_invoices f on f.invoice_id = p.invoice_id
+with mov as materialized (
+  -- o caixa SEM DOC do Resumo faturamento (fn_feegow_dia.cx_sem_doc), linha a linha
+  select m.data d, m.valor, m.unidade_id,
+         case when m.numero_invoice ~ '^[0-9]+$' then m.numero_invoice::bigint end invoice_id
+  from feegow_movimento m
+  where m.cd = 'C' and coalesce(m.forma, '') !~* 'doc' and m.data between p_de and p_ate
+),
+pag as (
+  select f.conta_id, mv.d, (s.conta_id is not null) reat, sum(mv.valor) pago,
+         array_agg(distinct f.invoice_id) filter (where f.invoice_id is not null) inv, min(mv.unidade_id) uni
+  from mov mv left join feegow_invoices f on f.invoice_id = mv.invoice_id
   left join v_atribuicao_segmento s on s.conta_id = f.conta_id and s.reat and f.data_invoice >= s.dia
-  where p.data_pagamento between p_de and p_ate group by 1,2,3
+  group by 1,2,3
 ),
 fat as (
   select f.conta_id, f.data_invoice d, (s.conta_id is not null) reat, sum(f.valor_brl) fat,
@@ -74,15 +86,15 @@ peso as materialized (
   left join feegow_procedures_official o on o.procedimento_id = it.procedimento_id
 ),
 itens as materialized (
-  -- os pagamentos do dia das faturas da linha são exatamente o `pago` dela: as faturas de `inv` são
+  -- os créditos do caixa do dia das faturas da linha são exatamente o `pago` dela: as faturas de `inv` são
   -- todas do mesmo trecho (chegada ou reativação), que é como a linha foi montada.
   select z.conta, z.d, z.reat, jsonb_agg(jsonb_build_array(z.cat, z.nome, round(z.valor,2)::float8) order by z.valor desc) it
   from (
     select a.conta, a.d, a.reat, coalesce(w.cat,'Sem item') cat, coalesce(w.nome,'Pagamento sem item na fatura') nome,
-           sum(p.valor_brl * coalesce(w.fr,1)) valor
+           sum(p.valor * coalesce(w.fr,1)) valor
     from adrow a
     cross join lateral unnest(a.inv) i(invoice_id)
-    join feegow_invoice_payments p on p.invoice_id = i.invoice_id and p.data_pagamento = a.d
+    join mov p on p.invoice_id = i.invoice_id and p.d = a.d
     left join peso w on w.invoice_id = p.invoice_id
     group by 1,2,3,4,5
   ) z

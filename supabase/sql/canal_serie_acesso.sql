@@ -50,14 +50,16 @@ cheg as (
   group by 1,2
 ),
 caixa as (
-  select p.data_pagamento as dia, coalesce(s.canal, 'Sem rastreio (pré-CRM)') as canal,
-         count(*)::int nqd, round(sum(p.valor_brl),2)::float8 pgd
-  from feegow_invoice_payments p
-  join feegow_invoices f on f.invoice_id = p.invoice_id
+  -- 19/10/2026: RECEBIDO = régua do Resumo faturamento (o "SEM DOC" da meta): crédito do caixa
+  -- (feegow_movimento, cd 'C', forma sem DOC) pela data do movimento; dono = paciente da fatura.
+  select m.data as dia, coalesce(s.canal, 'Sem rastreio (pré-CRM)') as canal,
+         count(*)::int nqd, round(sum(m.valor),2)::float8 pgd
+  from feegow_movimento m
+  left join feegow_invoices f on f.invoice_id = (case when m.numero_invoice ~ '^[0-9]+$' then m.numero_invoice::bigint end)
   left join v_atribuicao_segmento s on s.conta_id = f.conta_id
        and ((not s.reat and (s.ate is null or f.data_invoice < s.ate))
             or (s.reat and f.data_invoice >= s.dia))
-  where p.data_pagamento is not null and p.data_pagamento >= (current_date - dias)
+  where m.cd = 'C' and coalesce(m.forma, '') !~* 'doc' and m.data >= (current_date - dias)
   group by 1,2
 ),
 pacd as (select dia, canal, count(*) filter (where paciente)::int p from pac group by 1,2),

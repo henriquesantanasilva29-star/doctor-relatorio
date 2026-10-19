@@ -5,6 +5,8 @@ CREATE OR REPLACE FUNCTION public.agencia_caixa(dias integer)
  LANGUAGE sql
  STABLE
 AS $function$
+-- 19/10/2026: o dinheiro é o caixa SEM DOC do Resumo faturamento (feegow_movimento, cd 'C', forma sem
+-- DOC, data do movimento), o mesmo da canal_serie; o dono é o paciente da fatura que o movimento quita.
 -- 15/10/2026 (tarde): o pagamento segue a FATURA — fatura aberta antes do clique de reativação é da
 -- chegada, mesmo paga depois (antes contava pela data do pagamento e dava à agência do clique um
 -- dinheiro de venda feita antes dele).
@@ -20,17 +22,17 @@ AS $function$
 -- "Anúncio não identificado". `dc` = dia em que o paciente chegou. `fora` vai sempre 0.
 with janela as (select (current_date - dias)::date as de),
 z as (
-  select p.data_pagamento as dia, p.valor_brl as v, s.reat,
+  select m.data as dia, m.valor as v, s.reat,
          case when s.canal = 'Meta Ads' then coalesce(s.agencia, 'Não identificada')
               else 'Anúncio não identificado' end as ag,
          case when s.canal = 'Meta Ads' then s.dia end as dc
-  from feegow_invoice_payments p
-  join feegow_invoices f on f.invoice_id = p.invoice_id
+  from feegow_movimento m
+  join feegow_invoices f on f.invoice_id = (case when m.numero_invoice ~ '^[0-9]+$' then m.numero_invoice::bigint end)
   join v_atribuicao_segmento s on s.conta_id = f.conta_id
        and ((not s.reat and (s.ate is null or f.data_invoice < s.ate))
             or (s.reat and f.data_invoice >= s.dia))
   cross join janela w
-  where p.data_pagamento is not null and p.data_pagamento >= w.de
+  where m.cd = 'C' and coalesce(m.forma, '') !~* 'doc' and m.data >= w.de
     and s.canal in ('Meta Ads', 'Meta sem id do anúncio', 'Google Ads')
 )
 select coalesce(jsonb_agg(
