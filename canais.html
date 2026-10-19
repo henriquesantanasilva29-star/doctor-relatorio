@@ -450,13 +450,19 @@ function inicia(){
   S.ult = ult; S.pri = pri;
   var meses = {}; dias.forEach(function(d){ meses[d.slice(0, 7)] = 1; });
   var nomes = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
-  S.presets = [{r: '7 dias', de: novaData(ult, -6), ate: ult}, {r: '30 dias', de: novaData(ult, -29), ate: ult}];
+  /* 19/10/2026: os atalhos de período terminam no último dia FECHADO (ontem), como o Resumo
+     faturamento e o Resumo reunião — o caixa de hoje só entra na carga das 07:05 de amanhã, e o
+     "Outubro" daqui tem de dar o mesmo número de lá. Hoje continua escolhível nas datas. */
+  var hojeM = new Date(Date.now() - 4 * 3600e3).toISOString().slice(0, 10);
+  var fech = ult < hojeM ? ult : novaData(hojeM, -1);
+  S.presets = [{r: '7 dias', de: novaData(fech, -6), ate: fech}, {r: '30 dias', de: novaData(fech, -29), ate: fech}];
   Object.keys(meses).sort().slice(-3).forEach(function(ym){
     var a = +ym.slice(0, 4), mm = +ym.slice(5, 7);
     var fim = new Date(Date.UTC(a, mm, 0)).toISOString().slice(0, 10);
-    S.presets.push({r: nomes[mm - 1], de: ym + '-01', ate: fim < ult ? fim : ult});
+    if (ym + '-01' > fech) return;            /* dia 1: o mês ainda não tem dia fechado */
+    S.presets.push({r: nomes[mm - 1], de: ym + '-01', ate: fim < fech ? fim : fech});
   });
-  S.presets.push({r: 'Tudo', de: pri, ate: ult});
+  S.presets.push({r: 'Tudo', de: pri, ate: fech});
   var atual = S.presets[S.presets.length - 2];
   S.de = atual.de; S.ate = atual.ate; S.presetSel = atual.r;
   document.getElementById('fDe').min = pri; document.getElementById('fDe').max = ult;

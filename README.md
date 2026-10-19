@@ -278,6 +278,9 @@ dia a dia igual à `fn_feegow_dia` nas duas bases, e agências = canais pagos no
   roda também às 07:30 e 07:35 (`publica-relatorio-pos-carga`, cron 164 na Doctor e 191 na
   Acesso), além das 05:30/05:35. O cartão mostra "lançado até dd/mm" quando o período passa do
   último dia com caixa.
+- Os atalhos de período (7 dias, 30 dias, mês, Tudo) terminam ONTEM, o último dia fechado, como
+  o Resumo faturamento e o Resumo reunião (o "Outubro" de lá era 01–18/10 e o daqui ia até hoje,
+  com R$ 1.261 de caixa parcial da Acesso no dia 19). Hoje segue escolhível nas datas.
 - O `feegow_movimento` começa em 02/01/2026: antes disso o Canais não tem recebido (o Resumo
   faturamento também não).
 - Faturado, já pago e em aberto continuam pela fatura — são outra coisa (venda), não caixa.
