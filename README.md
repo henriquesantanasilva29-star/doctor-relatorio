@@ -274,10 +274,19 @@ sem DOC pela data do movimento. O dono do dinheiro é o paciente da fatura que o
 soma (hoje: nenhum). Conferido: 01–18/10 = R$ 741.240,46 (Doctor 253.314,24 + Acesso 487.926,22),
 dia a dia igual à `fn_feegow_dia` nas duas bases, e agências = canais pagos no centavo.
 
-- O caixa do dia entra na carga das 07:05 (feegow-carga-diaria). Por isso a `publica-relatorio`
-  roda também às 07:30 e 07:35 (`publica-relatorio-pos-carga`, cron 164 na Doctor e 191 na
-  Acesso), além das 05:30/05:35. O cartão mostra "lançado até dd/mm" quando o período passa do
-  último dia com caixa.
+- **As duas telas rodam juntas** (pedido do Henrique, 19/10: "têm que rodar no mesmo horário e
+  exibir todos os números igualmente"):
+  - o caixa do Canais lê a mesma tabela, na hora, que o Resumo faturamento (rastro, até 93 dias);
+  - o `dados.json` é republicado assim que termina QUALQUER carga do Feegow — a diária das 07:05
+    ou um "Atualizar do Feegow" no meio do dia: `publica_apos_carga()` a cada 5 min
+    (`publica-relatorio-apos-carga`) compara o último lote da `feegow_carga_fila` com
+    `relatorio_publica_carga` e chama a `publica-relatorio` uma vez por carga nova. A das 05:30
+    continua (mídia e CRM);
+  - a tela mostra o mesmo carimbo de lá, "Carga de dd/mm, hh:mm" (painel-canais v6 devolve
+    `carga` no "dados" e no "rastro", a mesma leitura da feegow-relatorios; com as duas bases,
+    a mais atrasada) e o caixa com centavos (R$ 741.240,46);
+  - o cartão mostra "caixa SEM DOC · até dd/mm" quando o período inclui hoje (o caixa de hoje só
+    entra na carga de amanhã).
 - Os atalhos de período (7 dias, 30 dias, mês, Tudo) terminam ONTEM, o último dia fechado, como
   o Resumo faturamento e o Resumo reunião (o "Outubro" de lá era 01–18/10 e o daqui ia até hoje,
   com R$ 1.261 de caixa parcial da Acesso no dia 19). Hoje segue escolhível nas datas.

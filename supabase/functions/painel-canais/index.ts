@@ -1,3 +1,12 @@
+// painel-canais v6 — 19/10/2026
+//
+// v6 (19/10/2026): `carga` em "dados" e "rastro" — a MESMA leitura de frescor do Resumo
+// faturamento (feegow-relatorios): último lote da feegow_carga_fila que não é histórico, quando
+// terminou, quantas fatias faltam e os erros. O Recebido do Canais passou a ser o caixa SEM DOC
+// (feegow_movimento), o mesmo do Resumo faturamento; o Henrique pediu que as duas telas "rodem no
+// mesmo horário e exibam todos os números igualmente", e a tela mostra "Carga de dd/mm, hh:mm"
+// como lá.
+//
 // painel-canais v5 — 08/10/2026
 //
 // A aba "Canais · pago × orgânico" dentro do portal de relatórios
@@ -39,7 +48,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
-const VERSAO = 5; // v2 (07/10): login único · v3: painel "canais" · v4: rastro · v5: aberto
+const VERSAO = 6; // v2 (07/10): login único · v3: painel "canais" · v4: rastro · v5: aberto · v6: carga
 const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
   { auth: { persistSession: false } });
 
@@ -126,6 +135,21 @@ function negaSessaoUnica(r: { status: number; erro: string }, J: (o: unknown, s?
 
 const DATA = /^\d{4}-\d{2}-\d{2}$/;
 
+/* v6: frescor do caixa — copiado da feegow-relatorios (a régua do Resumo faturamento). */
+async function lerCarga() {
+  const { data: ult } = await sb.from("feegow_carga_fila")
+    .select("lote,status,fim_em,relatorio,data_ini,data_fim,erro")
+    .not("lote", "like", "historico%").order("id", { ascending: false }).limit(50);
+  const lote = ult && ult.length ? (ult[0] as any).lote : null;
+  const doLote = (ult ?? []).filter((x: any) => x.lote === lote);
+  return {
+    lote,
+    terminou_em: doLote.filter((x: any) => x.fim_em).map((x: any) => x.fim_em).sort().slice(-1)[0] ?? null,
+    pendentes: doLote.filter((x: any) => x.status === "pendente" || x.status === "rodando").length,
+    erros: doLote.filter((x: any) => x.status === "erro").map((x: any) => `${x.relatorio} ${x.data_ini}: ${String(x.erro ?? "").slice(0, 120)}`),
+  };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
   if (req.method === "GET") return J({ ok: true, funcao: "painel-canais", versao: VERSAO, somente_leitura: true });
@@ -170,9 +194,9 @@ Deno.serve(async (req) => {
     if (!DATA.test(de) || !DATA.test(ate) || de > ate) return J({ error: "período inválido (de, ate em AAAA-MM-DD)" }, 400);
     const dias = (Date.parse(ate) - Date.parse(de)) / 86_400_000;
     if (dias > 93) return J({ error: "o rastro vai até 93 dias por vez; encurte o período" }, 400);
-    const { data, error } = await sb.rpc("rastro_periodo", { p_de: de, p_ate: ate });
+    const [{ data, error }, carga] = await Promise.all([sb.rpc("rastro_periodo", { p_de: de, p_ate: ate }), lerCarga()]);
     if (error) return J({ error: `não consegui ler o rastro: ${error.message}` }, 500);
-    return J({ ok: true, versao: VERSAO, de, ate, rastro: data ?? [] });
+    return J({ ok: true, versao: VERSAO, de, ate, carga, lido_em: new Date().toISOString(), rastro: data ?? [] });
   }
 
   // ------------------------------------------------- aberto (v5, 08/10/2026)
@@ -213,5 +237,5 @@ Deno.serve(async (req) => {
   const saida: Record<string, unknown> = {};
   for (const k of BLOCOS) if (tudo[k] !== undefined) saida[k] = tudo[k];
 
-  return J({ ok: true, versao: VERSAO, quem, atualizado_em: data.atualizado_em, ...saida });
+  return J({ ok: true, versao: VERSAO, quem, atualizado_em: data.atualizado_em, carga: await lerCarga(), ...saida });
 });
