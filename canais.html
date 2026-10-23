@@ -133,6 +133,8 @@ tr.grp{cursor:pointer}
 tr.grp td:first-child::before{content:"▸"; display:inline-block; width:14px; color:var(--ink-3)}
 tr.grp.aberto td:first-child::before{content:"▾"}
 tr.grp .cats{display:block; font-size:11.5px; color:var(--ink-3); font-weight:400; max-width:420px; overflow:hidden; text-overflow:ellipsis}
+#tAds td.pub{white-space:normal; min-width:260px; max-width:440px}   /* por público: o nome do conjunto quebra linha */
+#tAds td.pub .cats{white-space:nowrap}
 tr.det > td{padding:0; background:var(--surface-2); white-space:normal}
 tr.det:hover > td{background:var(--surface-2)}
 .adcs{display:grid; gap:10px; padding:12px; position:sticky; left:0; width:min(100%, calc(100vw - 26px))}
@@ -345,6 +347,7 @@ var S = {de: '', ate: '', marca: 'todas', ag: 'todas', presetSel: null,
 var OK = [];                 // marcas que carregaram
 var GERADO = {};
 var CAN = [], MID = [], SER = [], CX = [], ADS = [], REF = [], NOME_AD = {};
+var CONJ = {};               // público (conjunto) de cada anúncio: {id do anúncio: {id, nome}} — painel-canais v8
 var CRI = {}, CRI_PEDIDO = {};   // criativo do anúncio: texto e miniatura (a miniatura vem à parte, quando abre um grupo)
 var LISTAS = {};             // cache de aberto/rastro por marca|ação|de|ate
 
@@ -399,6 +402,7 @@ function absorve(m, d){
     MID.push({m: m, d: r[0], id: id, suf: id.slice(-4), inv: r[4] || 0, imp: r[5] || 0, cli: r[6] || 0, conv: r[7] || 0});
     if (!NOME_AD[id] || r[0] > NOME_AD[id].d) NOME_AD[id] = {d: r[0], nome: r[2] || r[1] || id, camp: r[1] || ''};
   });
+  (d.conjuntos || []).forEach(function(r){ CONJ[String(r[0])] = {id: String(r[1] || ''), nome: String(r[2] || '')}; });
   (d.cria || []).forEach(function(c){ var k = String(c.a);
     CRI[k] = {b: c.b || '', t: c.t || '', cta: c.cta || '', link: c.link || c.u || '', img: (CRI[k] && CRI[k].img) || ''}; });
   (d.agencia_caixa || []).forEach(function(x){
@@ -800,7 +804,9 @@ function listaAds(){
     var k = mm + '|' + id + '|' + ag, num = ehNum(id),
         nm = num ? {nome: gerDe(mm, id), camp: 'Chegou novo pelo número, sem anúncio rastreado'}
                  : NOME_AD[id] || {nome: 'anúncio ' + id.slice(-6), camp: ''};
+    var cj = num ? null : CONJ[id];
     return m[k] || (m[k] = {k: k, m: mm, id: id, suf: num ? id : id.slice(-4), ag: ag, nome: nm.nome, camp: nm.camp, num: num,
+      conj: cj ? cj.nome : '', conjId: cj ? cj.id : '',
       tipo: num ? 'WhatsApp ' + id.slice(2) + ' sem anúncio' : tipoDe(id.slice(-4), nm.camp, nm.nome), inv: 0, imp: 0, cli: 0, conv: 0, dias: {}, r: 0, p: 0,
       rec: 0, pag: {}, cats: {}, procs: {}});
   }
@@ -847,13 +853,16 @@ function pintaAds(){
   var q = semAcento(S.adsBusca).trim();
   if (q) lista = lista.filter(function(o){
     var cr = CRI[o.id] || {};
-    return semAcento(o.nome + ' ' + o.camp + ' ' + o.tipo + ' ' + (cr.b || '') + ' ' + Object.keys(o.procs).join(' ')).indexOf(q) >= 0; });
+    return semAcento(o.nome + ' ' + o.camp + ' ' + o.conj + ' ' + o.tipo + ' ' + (cr.b || '') + ' ' + Object.keys(o.procs).join(' ')).indexOf(q) >= 0; });
   /* grupos */
-  var G = {};
+  var G = {}, PUB = S.adsGrp === 'pub';
   lista.forEach(function(o){
-    var g = S.adsGrp === 'ag' ? (o.ag || SEM_AG) : o.tipo;
-    var x = G[g] || (G[g] = {g: g, ads: [], inv: 0, conv: 0, r: 0, p: 0, rec: 0, invMed: 0, pMed: 0, fora: 0, cats: {}, pag: {}});
-    x.ads.push(o); x.inv += o.inv; x.conv += o.conv; x.r += o.r; x.p += o.p; x.rec += o.rec;
+    /* 23/10/2026: por público = conjunto de anúncios (painel-canais v8). A chave leva a marca e o id do conjunto,
+       porque o mesmo nome de público aparece em contas e marcas diferentes. */
+    var g = PUB ? (o.num ? o.m + '|' + o.id : o.m + '|' + (o.conjId || 'sem')) : S.adsGrp === 'ag' ? (o.ag || SEM_AG) : o.tipo;
+    var x = G[g] || (G[g] = {g: g, ads: [], inv: 0, conv: 0, r: 0, p: 0, rec: 0, invMed: 0, pMed: 0, fora: 0, cats: {}, pag: {},
+      rot: PUB ? (o.num ? o.tipo : o.conj || 'Sem conjunto na mídia') : g, m: o.m, ags: {}});
+    x.ads.push(o); x.inv += o.inv; x.conv += o.conv; x.r += o.r; x.p += o.p; x.rec += o.rec; x.ags[o.ag || SEM_AG] = 1;
     if (o.fora) x.fora++; else { x.invMed += o.inv; x.pMed += o.p; }
     Object.keys(o.cats).forEach(function(c){ x.cats[c] = (x.cats[c] || 0) + o.cats[c]; });
     Object.keys(o.pag).forEach(function(c){ x.pag[o.m + c] = 1; });
@@ -863,11 +872,13 @@ function pintaAds(){
   var tInv = soma(lista, 'inv'), tRec = soma(lista, 'rec');
   document.getElementById('adsTot').innerHTML = '<b>' + n0(lista.length) + '</b> anúncios · <b>' + brl(tInv) + '</b> investidos · ' +
     (semRec ? '<span class="dim">recebido carregando…</span>' : '<b>' + brl(tRec, 1) + '</b> recebidos');
-  document.getElementById('adsGrp').innerHTML = chip('Por tipo', S.adsGrp === 'tipo', 'data-g="tipo"') + ' ' + chip('Por agência', S.adsGrp === 'ag', 'data-g="ag"');
+  document.getElementById('adsGrp').innerHTML = chip('Por tipo', S.adsGrp === 'tipo', 'data-g="tipo"') + ' ' + chip('Por agência', S.adsGrp === 'ag', 'data-g="ag"') +
+    ' ' + chip('Por público', PUB, 'data-g="pub"');
   liga('adsGrp', 'data-g', function(g){ if (S.adsGrp !== g) { S.adsGrp = g; S.adsAbertos = {}; } pintaAds(); });
   var longo = diasEntre(S.de, S.ate) > MAX_LISTA;
   function recTxt(v, fora, todosFora){ return todosFora ? '<span class="fora">fora do Feegow</span>' : semRec ? (longo ? '—' : '…') : brl(v, 1); }
-  var cab = '<thead><tr><th>' + (S.adsGrp === 'ag' ? 'Agência' : 'Tipo de anúncio') + '</th><th class="num">Anúncios</th><th class="num">Investimento</th>' +
+  var cab = '<thead><tr><th' + (PUB ? ' title="Conjunto de anúncios, com o nome que a agência deu. Abaixo, os anúncios que rodaram nele no período."' : '') + '>' +
+    (S.adsGrp === 'ag' ? 'Agência' : PUB ? 'Público (conjunto)' : 'Tipo de anúncio') + '</th><th class="num">Anúncios</th><th class="num">Investimento</th>' +
     '<th class="num" title="Conversas iniciadas no WhatsApp, pela Meta">Conversas</th><th class="num" title="Telefones que chegaram pelo anúncio">Leads</th>' +
     '<th class="num" title="Chegaram pelo anúncio e fecharam no Feegow">Pacientes</th><th class="num" title="Sem as contas de odonto">Custo/paciente</th>' +
     '<th class="num" title="Caixa SEM DOC no período dos pacientes destes anúncios">Recebido</th><th class="num" title="Recebido ÷ investimento (sem odonto)">Retorno</th></tr></thead>';
@@ -875,9 +886,14 @@ function pintaAds(){
     var aberto = !!S.adsAbertos[x.g], todosFora = x.fora === x.ads.length;
     var cats = topCats(x.cats, 3).map(function(c){ return esc(c.c) + ' ' + brl(c.v); }).join(' · ');
     var rotulo = S.adsGrp === 'ag' ? '<span class="dot" style="background:' + agCor(x.g) + '"></span><span class="nome">' + esc(x.g) + '</span>'
-                                   : '<span class="nome">' + esc(x.g) + '</span>';
+      : PUB ? '<span class="nome">' + esc(x.rot) + '</span> ' + Object.keys(x.ags).filter(function(a){ return a !== SEM_AG; }).map(agTag).join(' ') +
+              (S.marca === 'todas' ? ' <span class="tag">' + (x.m === 'doctor' ? 'Doctor' : 'Acesso') + '</span>' : '') +
+              (function(){ var ns = x.ads.slice().sort(function(a, b){ return b.inv - a.inv || b.rec - a.rec; })
+                .map(function(o){ return o.nome; }).filter(function(n, i, a){ return a.indexOf(n) === i; }).join(' · ');
+                return '<span class="cats" title="' + esc(ns) + '">' + esc(ns) + '</span>'; })()
+      : '<span class="nome">' + esc(x.g) + '</span>';
     var recInv = x.invMed;
-    var h = '<tr class="grp' + (aberto ? ' aberto' : '') + '" data-g="' + esc(x.g) + '"><td>' + rotulo + (cats ? '<span class="cats">' + cats + '</span>' : '') + '</td>' +
+    var h = '<tr class="grp' + (aberto ? ' aberto' : '') + '" data-g="' + esc(x.g) + '"><td' + (PUB ? ' class="pub"' : '') + '>' + rotulo + (cats && !PUB ? '<span class="cats">' + cats + '</span>' : '') + '</td>' +
       '<td class="num">' + n0(x.ads.length) + '</td><td class="num">' + brl(x.inv) + '</td><td class="num">' + n0(x.conv) + '</td><td class="num">' + n0(x.r) + '</td>' +
       '<td class="num">' + n0(x.p) + '</td><td class="num">' + (x.pMed && x.invMed ? brl(x.invMed / x.pMed) : '—') + '</td>' +
       '<td class="num b">' + recTxt(x.rec, 0, todosFora) + '</td><td class="num">' + (todosFora || semRec ? '—' : vezes(x.rec, recInv)) + '</td></tr>';
@@ -890,7 +906,9 @@ function pintaAds(){
     ? 'O recebido por anúncio sai do rastro do caixa, que vai até ' + MAX_LISTA + ' dias. Escolha um período menor para ver o recebido e o que foi vendido.'
     : 'Recebido = caixa SEM DOC no período (a régua do Faturamento) dos pacientes que vieram do anúncio (de quem já era da base, a partir do clique), a mesma do “Recebido de anúncio”. ' +
       '“Com o que foi recebido” reparte cada entrada do caixa pelos itens da fatura que ela quitou. Paciente de “Meta sem id do anúncio” e Google Ads ' +
-      'fica fora (não tem anúncio para pendurar). ' + REF.filter(function(r){ return ehNum(r.suf) && daMarca(r) && (!r.ate || r.ate >= S.de); }).map(function(r){
+      'fica fora (não tem anúncio para pendurar). ' +
+      (PUB ? 'Público = conjunto de anúncios, com o nome que a agência deu na Meta. A segmentação detalhada (idade, raio, interesses) e o orçamento ' +
+        'configurado do conjunto não ficam na nossa base. ' : '') + REF.filter(function(r){ return ehNum(r.suf) && daMarca(r) && (!r.ate || r.ate >= S.de); }).map(function(r){
         return 'Quem chegou novo pelo WhatsApp ' + r.suf.slice(2) + ' sem anúncio rastreado' + (r.de ? ' (desde ' + br(r.de) + ')' : '') +
           ' conta para a ' + esc(r.ag) + ' e aparece no cartão “' + esc(gerDe(r.m, r.suf)) + '”. '; }).join('') + 'Odonto agenda e cobra fora do Feegow.';
   Array.prototype.forEach.call(document.querySelectorAll('#tAds tr.grp'), function(tr){
@@ -915,7 +933,7 @@ function cartaoAd(o, semRec, longo){
   var tags = [
     agTag(o.ag === SEM_AG ? '' : o.ag),
     S.marca === 'todas' ? '<span class="tag">' + (o.m === 'doctor' ? 'Doctor' : 'Acesso') + '</span>' : '',
-    S.adsGrp === 'ag' ? '<span class="tag">' + esc(o.tipo) + '</span>' : '',
+    S.adsGrp !== 'tipo' ? '<span class="tag">' + esc(o.tipo) + '</span>' : '',
     o.num ? '<span class="tag">sem anúncio identificado</span>' : nd ? '<span class="tag">' + nd + (nd === 1 ? ' dia no ar' : ' dias no ar') + '</span>' : '<span class="tag">sem gasto no período</span>',
     cr.link ? '<span class="tag"><a href="' + esc(cr.link) + '" target="_blank" rel="noopener">ver publicação ↗</a></span>' : '',
     ACT[o.suf] ? '<span class="tag"><a href="https://adsmanager.facebook.com/adsmanager/manage/ads?act=' + ACT[o.suf] + '&selected_ad_ids=' + esc(o.id) + '" target="_blank" rel="noopener">gerenciador ↗</a></span>' : ''
@@ -956,7 +974,7 @@ function cartaoAd(o, semRec, longo){
   }
   return '<div class="adc">' + foto + '<div>' +
     '<div class="adc-top"><span class="nome">' + esc(o.nome) + '</span>' + tags + '</div>' +
-    '<span class="sub">' + esc(o.camp) + '</span>' + copia +
+    '<span class="sub">' + esc(o.camp) + (o.conj && S.adsGrp !== 'pub' ? ' · público: ' + esc(o.conj) : '') + '</span>' + copia +
     '<div class="adc-met">' + met + '</div>' + recBloco + '</div></div>';
 }
 

@@ -1,4 +1,17 @@
-// painel-canais v6 — 19/10/2026
+// painel-canais v8 — 23/10/2026
+//
+// v8 (23/10/2026): "dados" devolve também `conjuntos` — o público (conjunto de anúncios) de cada anúncio,
+// [id do anúncio, id do conjunto, nome do conjunto], lido na hora pela conjunto_anuncios() (meta_insights_dia,
+// nome mais recente do conjunto). É o agrupamento "Por público" da seção Anúncios, pedido do Henrique em 23/10
+// depois do relatório de anúncios para a Vanguarda. Se a leitura falhar, "dados" sai sem `conjuntos` e a
+// página agrupa esses anúncios em "Sem conjunto" — o resto da aba não depende disso.
+//
+// v7 (21/10/2026): a aba Canais mostra a MARCA INTEIRA (canais, mídia, jornada, agências, caixa por agência,
+// rastro e contas em aberto de todas as unidades desta base). Pedido do Sant'Ana em 21/10: quem tem acesso a
+// uma unidade só não pode ver as outras. Até a v6 o login único conferia só o painel "canais"; agora, além do
+// painel, a pessoa precisa enxergar TODAS as unidades desta marca na tela de acessos (Acesso: 20, 21, 55;
+// Doctor: 0, 2, 4) — ou ser master/superADM / "Relatórios: operação inteira". Sem isso: 403 sem_unidade.
+// (O token antigo já exigia administrador.)
 //
 // v6 (19/10/2026): `carga` em "dados" e "rastro" — a MESMA leitura de frescor do Resumo
 // faturamento (feegow-relatorios): último lote da feegow_carga_fila que não é histórico, quando
@@ -38,7 +51,7 @@
 // a autenticação é feita aqui dentro.
 //
 // USO (POST, JSON)
-//   { sessao, device_id, action: "dados" }      -> blocos de marketing do dados.json
+//   { sessao, device_id, action: "dados" }      -> blocos de marketing do dados.json (+ conjuntos, v8)
 //   { sessao, device_id, action: "criativos" }  -> miniaturas dos anúncios (criativos.json)
 //   { sessao, device_id, action: "rastro", de, ate } -> pagamentos por paciente (até 93 dias)
 //   { sessao, device_id, action: "aberto", de, ate } -> conta aberta por paciente (até 93 dias)
@@ -48,7 +61,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
-const VERSAO = 6; // v2 (07/10): login único · v3: painel "canais" · v4: rastro · v5: aberto · v6: carga
+const VERSAO = 8; // v2 (07/10): login único · v3: painel "canais" · v4: rastro · v5: aberto · v6: carga · v7: marca inteira · v8: conjuntos
 const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
   { auth: { persistSession: false } });
 
@@ -85,6 +98,8 @@ const BLOCOS = [
 const PAINEL_LOGIN_URL = "https://myiqdeonxuznvhtsvfxg.supabase.co/functions/v1/painel-login";
 const BASE_AQUI = (Deno.env.get("SUPABASE_URL") ?? "").includes("dfvmuqxjdcvwskrrdbfm") ? "acesso" : "doctor";
 const TODAS_UNIDADES = ["20", "21", "55", "0", "2", "4", "cc_doctor", "cc_acesso"];
+// v7: as unidades físicas desta marca — a aba Canais é da marca inteira
+const UNIDADES_DA_MARCA = BASE_AQUI === "acesso" ? ["20", "21", "55"] : ["0", "2", "4"];
 type SessaoUnica = { nome: string; crm_user_id: string; nivel: string; tudo: boolean; admin: boolean;
                      modulos: string[]; equipes: string[]; unidades: string[] };
 const _cacheSessao = new Map<string, { ate: number; j: any }>();
@@ -165,6 +180,10 @@ Deno.serve(async (req) => {
     if (!temPainel(su, "canais")) {
       return J({ error: "A aba Canais precisa ser liberada na tela de acessos (painel Canais de marketing).", sem_acesso: true }, 403);
     }
+    /* v7: Canais é da marca inteira — quem não vê todas as unidades desta marca não abre */
+    if (!su.admin && !UNIDADES_DA_MARCA.every((u) => su.unidades.includes(u))) {
+      return J({ error: "A aba Canais mostra a marca inteira, e o seu acesso não inclui todas as unidades desta marca.", sem_unidade: true }, 403);
+    }
     quem = { nome: su.nome, email: null, admin: true };
   } else {
     if (!body.token) return J({ error: "Entre pelo portal de relatórios.", relogar: true }, 401);
@@ -237,5 +256,9 @@ Deno.serve(async (req) => {
   const saida: Record<string, unknown> = {};
   for (const k of BLOCOS) if (tudo[k] !== undefined) saida[k] = tudo[k];
 
-  return J({ ok: true, versao: VERSAO, quem, atualizado_em: data.atualizado_em, carga: await lerCarga(), ...saida });
+  /* v8: público (conjunto) de cada anúncio, lido na hora; falha aqui não derruba a aba */
+  const [carga, cj] = await Promise.all([lerCarga(), sb.rpc("conjunto_anuncios")]);
+  if (!cj.error && Array.isArray(cj.data)) saida.conjuntos = cj.data.map((r: any) => [String(r.a), String(r.cid ?? ""), String(r.conj ?? "")]);
+
+  return J({ ok: true, versao: VERSAO, quem, atualizado_em: data.atualizado_em, carga, ...saida });
 });

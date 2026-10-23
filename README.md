@@ -255,6 +255,36 @@ o dinheiro ali é o **recebido** no período.
   isso o rastro da Doctor ia de 0,5 s para 10 s. Paciente de "Meta sem id" e Google fica fora (não há
   anúncio para pendurar). Período acima de 93 dias: recebido por anúncio não aparece (aviso na seção).
 
+### Anúncios por público (conjunto) — 23/10/2026
+
+Pedido do Henrique depois do relatório de anúncios de julho a outubro feito para a reunião com a Vanguarda:
+a parte de **públicos** daquele relatório tinha de estar no painel. A seção **Anúncios** ganhou um terceiro
+agrupamento, **Por público**, ao lado de "Por tipo" e "Por agência".
+
+- **Público = conjunto de anúncios** da Meta, com o nome que a agência deu. Cada linha mostra o conjunto, a
+  agência (pode aparecer VX e FSX juntas na odonto e na FarMelhor, porque a agência do recebido segue o dia da
+  chegada do paciente), a marca (com as duas marcas no filtro) e, embaixo, os anúncios que rodaram nele no
+  período. As colunas são as mesmas dos outros agrupamentos (anúncios, investimento, conversas, leads,
+  pacientes, custo/paciente, recebido, retorno); clicou, abre os cartões.
+- A chave do grupo é **marca + id do conjunto**: o mesmo nome de público existe em contas e marcas diferentes.
+  O WhatsApp 5700 sem anúncio fica numa linha própria, como nos outros agrupamentos.
+- Nos agrupamentos por tipo e por agência, o cartão do anúncio passou a dizer o público ("· público: …") e a
+  busca acha pelo nome do público.
+- **De onde vem:** `conjunto_anuncios()` (`supabase/sql/conjunto_anuncios.sql`, nas duas bases) lê a
+  `meta_insights_dia` e devolve, por anúncio, o conjunto e o nome mais recente dele (um anúncio tem um
+  conjunto só; um conjunto da Acesso foi renomeado). Só a `service_role` executa. A `painel-canais` **v8**
+  devolve isso no "dados" como `conjuntos: [[id do anúncio, id do conjunto, nome]]`, lido na hora. Se a leitura
+  falhar, o "dados" sai sem `conjuntos` e a página põe esses anúncios em "Sem conjunto na mídia" — o resto não
+  depende disso.
+- **Não está na base:** a segmentação detalhada (idade, raio, interesses) e o orçamento configurado do
+  conjunto. A coleta da Meta grava o resultado diário por anúncio, não a configuração do conjunto (a nota da
+  seção diz isso).
+- A `painel-canais` publicada já era a **v7** (21/10, marca inteira) e o repositório tinha a v6: a v7 entrou
+  aqui como base e a v8 foi feita em cima dela. As duas bases rodam o mesmo arquivo.
+- **Conferência (01–22/10, dados reais, sem nomes):** os totais da seção são iguais nos três agrupamentos
+  (149 anúncios, R$ 15.093 investidos, R$ 150.759 recebidos); "00 - Aberto em Manaus" (Doctor, Vanguarda)
+  dá R$ 751,80 e 301 conversas, igual à `meta_insights_dia`. Claro, escuro e celular sem erro de JS.
+
 ### Recebido = caixa SEM DOC, a régua do Resumo faturamento — 19/10/2026
 
 O Henrique comparou o "Recebido no período" do Canais (R$ 766.642 em 01–18/10) com o
