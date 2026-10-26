@@ -1,6 +1,8 @@
 <!DOCTYPE html>
 <html lang="pt-BR" data-theme="dark"><head>
 <meta charset="UTF-8">
+<!-- CSP (23/10/2026): cada script desta página é liberado pelo hash dele. Mudou qualquer script? Rode csp_23out/csp_portal.py neste arquivo antes de subir; sem isso o navegador bloqueia o script e a página quebra. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'sha256-xiO58266mL8NA+jv7Ep1ftr11r7tIJJvCuCATxcOzcU=' 'sha256-nqcVhrNqCbzRga/KDxOFr4ZgFSynpFRMeLo1V3Ejf10=' 'sha256-7ZNBMw0ohvzGBOBPg+7B64eocm8L4imGsEEQ9JodZzw='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob:; connect-src 'self' https://myiqdeonxuznvhtsvfxg.supabase.co https://dfvmuqxjdcvwskrrdbfm.supabase.co; frame-src 'self'; worker-src 'none'; object-src 'none'; base-uri 'none'; form-action 'self'" data-csp="portal">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="robots" content="noindex,nofollow">
 <title>Canais · Grupo Job</title>
@@ -201,7 +203,7 @@ tr.det:hover > td{background:var(--surface-2)}
     <div class="kpis" id="kpis"></div>
 
     <section class="sec" id="sOrigem">
-      <div class="sec-head"><h2>Origem do recebido</h2></div>
+      <div class="sec-head"><h2 id="hOrigem">Origem do recebido</h2></div>
       <div class="card">
         <div class="barra" id="barra"></div><div class="leg" id="leg"></div>
         <div class="tbl-wrap"><table id="tCanais"></table></div>
@@ -309,6 +311,15 @@ var NOME_CANAL = {'Sem rastreio (pré-CRM)': 'Sem ligação com o CRM', 'Direto 
 var AG_COR = {'Vanguarda': 'var(--ag-vanguarda)', 'FSX': 'var(--ag-fsx)', 'VX': 'var(--ag-vx)'};
 var AG_ORDEM = ['Vanguarda', 'FSX', 'VX'];
 var SEM_AG = 'Não identificada';
+/* 26/10/2026, pedido do Henrique: "Orgânico" na linha de Agência mostra o lado não pago — os canais do grupo
+   "Não pago" (Direto / sem origem, Social orgânico, Site e busca). Sem agências e sem anúncios nessa visão. */
+var ORG = 'organico';
+var ORG_TONS = ['var(--g-naopago)', 'color-mix(in srgb, var(--g-naopago) 62%, var(--surface))', 'color-mix(in srgb, var(--g-naopago) 34%, var(--surface))'];
+function ehOrg(c){ return (GRUPO_DO[c] || GRUPOS[1]).id === 'naopago'; }
+/* quem entra nas listas com o filtro do topo: todas, uma agência ou o orgânico */
+function naSelecao(l){ return S.ag === 'todas' || (S.ag === ORG ? l.g === 'naopago' : l.ag === S.ag); }
+/* filtro de origem das listas: grupo (pago, naopago…) ou, no orgânico, o canal ('c:' + canal) */
+function casaOrig(l, v){ return v === 'todas' || (v.slice(0, 2) === 'c:' ? l.canal === v.slice(2) : l.g === v); }
 /* odonto: venda fora do Feegow — fora do retorno e do custo por paciente */
 var VENDA_FORA = {'0085': 1, '0279': 1};
 /* Acesso: a agência de cada conta pela vigência (a mesma agencia_da_conta do banco da Acesso) */
@@ -513,10 +524,11 @@ function pintaFiltros(){
     OK.map(function(m){ return chip(m === 'doctor' ? 'Doctor' : 'Acesso', S.marca === m, 'data-m="' + m + '"'); })).join(' ');
   liga('fMarca', 'data-m', function(m){ S.marca = m; S.ag = 'todas'; render(); });
   var ags = agenciasAtivas();
-  if (S.ag !== 'todas' && ags.indexOf(S.ag) < 0) S.ag = 'todas';
+  if (S.ag !== 'todas' && S.ag !== ORG && ags.indexOf(S.ag) < 0) S.ag = 'todas';
   document.getElementById('fAg').innerHTML = [chip('Todas', S.ag === 'todas', 'data-a="todas"')].concat(
-    ags.map(function(a){ return chip(a, S.ag === a, 'data-a="' + esc(a) + '"', agCor(a)); })).join(' ');
-  liga('fAg', 'data-a', function(a){ S.ag = a; S.agAbertas = {}; render(); });
+    ags.map(function(a){ return chip(a, S.ag === a, 'data-a="' + esc(a) + '"', agCor(a)); }),
+    [chip('Orgânico', S.ag === ORG, 'data-a="' + ORG + '" title="Quem chegou sem anúncio: Direto / sem origem, Social orgânico e Site e busca"', 'var(--g-naopago)')]).join(' ');
+  liga('fAg', 'data-a', function(a){ if (S.ag !== a) { S.abOrig = 'todas'; S.pgOrig = 'todas'; } S.ag = a; S.agAbertas = {}; render(); });
 }
 function pintaFrescor(){
   var hoje = new Date(Date.now() - 4 * 3600e3).toISOString().slice(0, 10);
@@ -621,10 +633,12 @@ function render(){
 function pintaTopo(){
   var can = porCanal(), ags = porAgencia();
   pintaKpis(can, ags);
-  var todas = S.ag === 'todas';
-  document.getElementById('sOrigem').classList.toggle('oculto', !todas);
-  if (todas) pintaOrigem(can);
-  pintaAgencias(can, ags);
+  var todas = S.ag === 'todas', org = S.ag === ORG;
+  document.getElementById('sOrigem').classList.toggle('oculto', !todas && !org);
+  document.getElementById('sAg').classList.toggle('oculto', org);
+  document.getElementById('sAds').classList.toggle('oculto', org);
+  if (todas || org) pintaOrigem(can);
+  if (!org) pintaAgencias(can, ags);
 }
 
 function kpi(k, v, d, tit, cor){
@@ -648,6 +662,20 @@ function pintaKpis(can, ags){
     h += kpi('Faturado', brl(R.v), 'já pago ' + brl(R.pg), 'Contas abertas no Feegow por quem chegou pelo anúncio no período (de quem já era da base, só a partir do clique)');
     h += kpi('Retorno', vezes(R.vMeta, R.invMed), 'custo por paciente ' + (R.pMed ? brl(R.invMed / R.pMed, 1) : '—'), 'Faturado do Meta ÷ investimento (sem as contas de odonto, que vendem fora do Feegow)');
     h += kpi('Em aberto', brl(R.ab), pct(R.ab, R.v) + ' do faturado', 'Faturado e ainda não pago, de quem chegou pelo anúncio no período');
+  } else if (S.ag === ORG) {
+    var O = {ch: 0, ct: 0, p: 0, v: 0, pg: 0, ab: 0, pgd: 0}, totR = 0, Ra = resumoPago(can, ags), cO = 'var(--g-naopago)';
+    Object.keys(can).forEach(function(c){ totR += can[c].pgd; if (!ehOrg(c)) return;
+      Object.keys(O).forEach(function(k){ O[k] += can[c][k] || 0; }); });
+    h += kpi('Recebido orgânico', brl(O.pgd, 1), pct(O.pgd, totR) + ' do recebido · caixa SEM DOC',
+      'Caixa SEM DOC no período (régua do Faturamento) de quem chegou sem anúncio: Direto / sem origem, Social orgânico e Site e busca', cO);
+    h += kpi('Conversas', n0(O.ch), 'abertas no período', 'Conversas abertas no período nos canais sem anúncio', cO);
+    h += kpi('Leads novos', n0(O.ct), 'contatos novos no CRM', 'Contatos novos no CRM que chegaram sem anúncio', cO);
+    h += kpi('Pacientes', n0(O.p), pct(O.p, O.ct) + ' dos leads novos', 'Chegaram sem anúncio no período e fecharam no Feegow', cO);
+    h += kpi('Faturado', brl(O.v), 'já pago ' + brl(O.pg), 'Contas no Feegow de quem chegou sem anúncio no período', cO);
+    h += kpi('Faturado por paciente', O.p ? brl(O.v / O.p) : '—', '', '', cO);
+    h += kpi('Em aberto', brl(O.ab), pct(O.ab, O.v) + ' do faturado', 'Faturado e ainda não pago, de quem chegou sem anúncio no período', cO);
+    h += kpi('Orgânico × anúncio', vezes(O.pgd, Ra.caixa), 'do recebido de anúncio (' + brl(Ra.caixa) + ')',
+      'Recebido orgânico ÷ recebido de anúncio no período. Pacientes: ' + n0(O.p) + ' orgânicos × ' + n0(Ra.p) + ' de anúncio.', cO);
   } else {
     var o = ags[S.ag] || zeroAg(), cor = agCor(S.ag), pm = pacMed(o);
     h += kpi('Recebido', brl(o.caixa, 1), o.npag != null ? n0(o.npag) + (o.npag === 1 ? ' paciente pagou' : ' pacientes pagaram') + ' · caixa SEM DOC'
@@ -668,6 +696,8 @@ function pintaKpis(can, ags){
 }
 
 function pintaOrigem(can){
+  if (S.ag === ORG) return pintaOrigemOrg(can);
+  document.getElementById('hOrigem').textContent = 'Origem do recebido';
   var tot = 0, porG = {};
   Object.keys(can).forEach(function(c){ tot += can[c].pgd; var g = (GRUPO_DO[c] || GRUPOS[1]).id; porG[g] = (porG[g] || 0) + can[c].pgd; });
   document.getElementById('barra').innerHTML = GRUPOS.filter(function(g){ return porG[g.id] > 0; }).map(function(g){
@@ -690,6 +720,36 @@ function pintaOrigem(can){
     '<th class="num">Em aberto</th><th class="num" title="Caixa SEM DOC no período (régua do Faturamento), pela origem do paciente">Recebido</th></tr></thead>' +
     '<tbody>' + corpo + '</tbody><tfoot><tr><td>Total</td><td class="num">' + n0(T.ch) + '</td><td class="num">' + n0(T.ct) + '</td><td class="num">' + n0(T.p) +
     '</td><td class="num">' + brl(T.v) + '</td><td class="num">' + brl(T.pg) + '</td><td class="num">' + brl(T.ab) + '</td><td class="num">' + brl(T.pgd, 1) + '</td></tr></tfoot>';
+}
+
+/* orgânico: a mesma tabela da origem, só com os canais sem anúncio; a barra reparte o recebido orgânico por canal */
+function pintaOrigemOrg(can){
+  document.getElementById('hOrigem').textContent = 'Orgânico por canal';
+  var tot = 0;
+  Object.keys(can).forEach(function(c){ tot += can[c].pgd; });
+  var lin = Object.keys(can).filter(ehOrg).map(function(c){ return can[c]; }).filter(function(o){ return o.pgd > 0.5 || o.ch || o.ct || o.v; })
+    .sort(function(a, b){ return b.pgd - a.pgd || b.ch - a.ch; });
+  var T = {ch: 0, ct: 0, p: 0, v: 0, pg: 0, ab: 0, pgd: 0};
+  lin.forEach(function(o){ Object.keys(T).forEach(function(k){ T[k] += o[k]; }); });
+  var cor = function(i){ return ORG_TONS[Math.min(i, ORG_TONS.length - 1)]; };
+  document.getElementById('barra').innerHTML = lin.filter(function(o){ return o.pgd > 0.5; }).map(function(o, i){
+    return '<i style="flex:' + o.pgd.toFixed(2) + ';background:' + cor(i) + '" title="' + esc(NOME_CANAL[o.c] || o.c) + ': ' + brl(o.pgd, 1) + '"></i>'; }).join('');
+  document.getElementById('leg').innerHTML = lin.filter(function(o){ return o.pgd > 0.5; }).map(function(o, i){
+    return '<span><span class="dot" style="background:' + cor(i) + '"></span>' + esc(NOME_CANAL[o.c] || o.c) + ' <b>' + brl(o.pgd, 1) + '</b> · ' + pct(o.pgd, T.pgd) + ' do orgânico</span>'; }).join('') +
+    '<span class="dim">Orgânico = ' + pct(T.pgd, tot) + ' do recebido do período</span>';
+  var corpo = lin.map(function(o, i){
+    return '<tr><td><span class="dot" style="background:' + cor(i) + '"></span>' + esc(NOME_CANAL[o.c] || o.c) + '</td>' +
+      '<td class="num">' + n0(o.ch) + '</td><td class="num">' + n0(o.ct) + '</td><td class="num">' + n0(o.p) + '</td>' +
+      '<td class="num">' + (o.ct ? pct(o.p, o.ct) : '—') + '</td><td class="num">' + brl(o.v) + '</td><td class="num">' + brl(o.pg) + '</td>' +
+      '<td class="num">' + brl(o.ab) + '</td><td class="num b">' + brl(o.pgd, 1) + '</td></tr>'; }).join('');
+  document.getElementById('tCanais').innerHTML =
+    '<thead><tr><th>Canal</th><th class="num" title="Conversas abertas no período">Conversas</th><th class="num" title="Contatos novos no CRM">Leads novos</th>' +
+    '<th class="num" title="Viraram paciente (quem chegou no período)">Pacientes</th><th class="num" title="Pacientes ÷ leads novos">Conversão</th><th class="num">Faturado</th>' +
+    '<th class="num" title="Do faturado acima, quanto já foi pago">Já pago</th><th class="num">Em aberto</th>' +
+    '<th class="num" title="Caixa SEM DOC no período (régua do Faturamento), pela origem do paciente">Recebido</th></tr></thead>' +
+    '<tbody>' + (corpo || '<tr><td colspan="9" class="vazio">Nada orgânico no período.</td></tr>') + '</tbody><tfoot><tr><td>Total orgânico</td><td class="num">' + n0(T.ch) +
+    '</td><td class="num">' + n0(T.ct) + '</td><td class="num">' + n0(T.p) + '</td><td class="num">' + (T.ct ? pct(T.p, T.ct) : '—') + '</td><td class="num">' + brl(T.v) +
+    '</td><td class="num">' + brl(T.pg) + '</td><td class="num">' + brl(T.ab) + '</td><td class="num">' + brl(T.pgd, 1) + '</td></tr></tfoot>';
 }
 
 function celsAg(x){ /* x: inv, r, p, v, pg, ab, cpp, ret, caixa (null = "—") */
@@ -848,6 +908,7 @@ function topCats(cats, n){
 }
 
 function pintaAds(){
+  if (S.ag === ORG) return;   /* orgânico: sem anúncios (a seção fica oculta) */
   var lista = listaAds();
   var semRec = !Array.isArray(PG);
   var q = semAcento(S.adsBusca).trim();
@@ -1068,22 +1129,28 @@ function origemTxt(g, canal, ag, num){
   if (g === 'pago') return ag ? agTag(ag) : esc(NOME_CANAL[canal] || canal);
   return esc(NOME_CANAL[canal] || canal || '—');
 }
+/* chips de origem das listas: os grupos, ou os canais quando o topo está no orgânico */
+function opsOrig(org, gT){
+  if (!org) return ORIG.filter(function(o){ return gT[o.id]; });
+  return Object.keys(gT).sort(function(a, b){ return gT[b] - gT[a]; }).map(function(k){ return {id: k, nome: NOME_CANAL[k.slice(2)] || k.slice(2) || '—'}; });
+}
 var ORIG = [{id: 'pago', nome: 'Anúncio'}, {id: 'naopago', nome: 'Não pago'}, {id: 'fora', nome: 'Equipe e base'}, {id: 'sem', nome: 'Sem ligação'}, {id: 'reat', nome: 'Já eram da base'}];
 
 function pintaAberto(){
   var t = document.getElementById('tAb');
   if (AB === null) return;
   if (AB.erro && !AB.length) { t.innerHTML = '<tbody><tr><td class="vazio">Não consegui ler: ' + esc(AB.erro) + '</td></tr></tbody>'; return; }
-  var base = AB.filter(function(l){ return S.ag === 'todas' || l.ag === S.ag; });
-  var orig = base.filter(function(l){ return S.abOrig === 'todas' || l.g === S.abOrig; });
+  var org = S.ag === ORG;
+  var base = AB.filter(naSelecao);
+  var orig = base.filter(function(l){ return casaOrig(l, S.abOrig); });
   var sitT = {}; orig.forEach(function(l){ var o = sitT[l.sit] || (sitT[l.sit] = {n: 0, v: 0}); o.n++; o.v += l.ab; });
   document.getElementById('abSit').innerHTML = [chip('Todas', S.abSit === 'todas', 'data-s="todas"', null, n0(orig.length))].concat(SIT.map(function(s){
     var o = sitT[s.id] || {n: 0, v: 0};
     return chip(s.nome + ' ' + brl(o.v), S.abSit === s.id, 'data-s="' + s.id + '" title="' + esc(s.tit) + '"', null, n0(o.n)); })).join(' ');
   liga('abSit', 'data-s', function(s){ S.abSit = s; S.abN = 40; pintaAberto(); });
-  var gT = {}; base.forEach(function(l){ gT[l.g] = (gT[l.g] || 0) + 1; });
-  document.getElementById('abOrig').innerHTML = [chip('Toda origem', S.abOrig === 'todas', 'data-o="todas"')].concat(ORIG.filter(function(o){ return gT[o.id]; })
-    .map(function(o){ return chip(o.nome, S.abOrig === o.id, 'data-o="' + o.id + '"', null, n0(gT[o.id])); })).join(' ');
+  var gT = {}; base.forEach(function(l){ var k = org ? 'c:' + l.canal : l.g; gT[k] = (gT[k] || 0) + 1; });
+  document.getElementById('abOrig').innerHTML = [chip('Toda origem', S.abOrig === 'todas', 'data-o="todas"')].concat(opsOrig(org, gT)
+    .map(function(o){ return chip(o.nome, S.abOrig === o.id, 'data-o="' + esc(o.id) + '"', null, n0(gT[o.id])); })).join(' ');
   liga('abOrig', 'data-o', function(o){ S.abOrig = o; S.abN = 40; pintaAberto(); });
   var q = semAcento(S.abBusca).trim();
   var lis = orig.filter(function(l){ return (S.abSit === 'todas' || l.sit === S.abSit) &&
@@ -1105,13 +1172,14 @@ function pintaPagou(){
   var t = document.getElementById('tPg');
   if (PG === null) return;
   if (PG.erro && !PG.length) { t.innerHTML = '<tbody><tr><td class="vazio">Não consegui ler: ' + esc(PG.erro) + '</td></tr></tbody>'; return; }
-  var base = PG.filter(function(l){ return S.ag === 'todas' || l.ag === S.ag; });
-  var gT = {}; base.forEach(function(l){ gT[l.g] = (gT[l.g] || 0) + l.pago; });
-  document.getElementById('pgOrig').innerHTML = [chip('Toda origem', S.pgOrig === 'todas', 'data-o="todas"')].concat(ORIG.filter(function(o){ return gT[o.id]; })
-    .map(function(o){ return chip(o.nome, S.pgOrig === o.id, 'data-o="' + o.id + '"', null, brl(gT[o.id], 1)); })).join(' ');
+  var org = S.ag === ORG;
+  var base = PG.filter(naSelecao);
+  var gT = {}; base.forEach(function(l){ var k = org ? 'c:' + l.canal : l.g; gT[k] = (gT[k] || 0) + l.pago; });
+  document.getElementById('pgOrig').innerHTML = [chip('Toda origem', S.pgOrig === 'todas', 'data-o="todas"')].concat(opsOrig(org, gT)
+    .map(function(o){ return chip(o.nome, S.pgOrig === o.id, 'data-o="' + esc(o.id) + '"', null, brl(gT[o.id], 1)); })).join(' ');
   liga('pgOrig', 'data-o', function(o){ S.pgOrig = o; S.pgN = 40; pintaPagou(); });
   var q = semAcento(S.pgBusca).trim();
-  var lis = base.filter(function(l){ return (S.pgOrig === 'todas' || l.g === S.pgOrig) &&
+  var lis = base.filter(function(l){ return casaOrig(l, S.pgOrig) &&
     (!q || semAcento(l.nome).indexOf(q) >= 0 || String(l.conta).indexOf(q) >= 0 || semAcento(l.procs).indexOf(q) >= 0); })
     .sort(function(a, b){ return a.d < b.d ? 1 : a.d > b.d ? -1 : b.pago - a.pago; });
   var pac = {}; lis.forEach(function(l){ pac[l.m + l.conta] = 1; });

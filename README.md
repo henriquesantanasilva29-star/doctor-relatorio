@@ -285,6 +285,29 @@ agrupamento, **Por público**, ao lado de "Por tipo" e "Por agência".
   (149 anúncios, R$ 15.093 investidos, R$ 150.759 recebidos); "00 - Aberto em Manaus" (Doctor, Vanguarda)
   dá R$ 751,80 e 301 conversas, igual à `meta_insights_dia`. Claro, escuro e celular sem erro de JS.
 
+### Orgânico na linha de Agência — 26/10/2026
+
+Pedido do Henrique: faltava um jeito de ver o orgânico. A linha **Agência** ganhou **Orgânico** depois das
+agências. Orgânico = os canais que o painel já agrupa como "Não pago": **Direto / sem origem, Social orgânico e
+Site e busca** (quem chegou sem anúncio). "Equipe e base" e "Sem ligação com o CRM" ficam fora.
+
+- **Indicadores:** recebido orgânico (e quanto é do recebido do período), conversas, leads novos, pacientes
+  (% dos leads novos), faturado e já pago, faturado por paciente, em aberto e **orgânico × anúncio** (recebido
+  orgânico ÷ recebido de anúncio; os pacientes dos dois lados no `title`).
+- **Orgânico por canal:** a tabela da origem só com esses canais, com a conversão (pacientes ÷ leads novos);
+  a barra reparte o recebido orgânico por canal.
+- **Fechado e não pago** e **Quem pagou** filtram para o orgânico, e os chips de origem viram os canais.
+- Agências e Anúncios ficam ocultos nessa visão. Tudo sai dos mesmos blocos de antes (`canais` do dados.json e
+  o rastro lido na hora): nada mudou no banco nem na `painel-canais`.
+- **Conferência (01–23/10, dados reais, sem nomes):** recebido orgânico R$ 413.178,33 = total de Quem pagou
+  no orgânico = soma do rastro com origem "Não pago"; Direto / sem origem R$ 403.004,83 e Site e busca
+  R$ 10.173,50. Claro, escuro e celular sem erro de JS.
+
+**CSP:** desde 23/10 a página tem uma `Content-Security-Policy` (meta `data-csp`) que libera cada `<script>`
+pelo hash. Mudou script, recalcule antes de subir: `python3 ferramentas/csp_hash.py canais.html` (troca os
+hashes do `script-src`) e `python3 ferramentas/csp_hash.py canais.html --checa`. Sem isso o navegador bloqueia
+o script e a aba fica em branco.
+
 ### Recebido = caixa SEM DOC, a régua do Resumo faturamento — 19/10/2026
 
 O Henrique comparou o "Recebido no período" do Canais (R$ 766.642 em 01–18/10) com o
