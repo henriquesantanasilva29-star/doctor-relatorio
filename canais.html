@@ -2,7 +2,7 @@
 <html lang="pt-BR" data-theme="dark"><head>
 <meta charset="UTF-8">
 <!-- CSP (23/10/2026): cada script desta página é liberado pelo hash dele. Mudou qualquer script? Rode csp_23out/csp_portal.py neste arquivo antes de subir; sem isso o navegador bloqueia o script e a página quebra. -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'sha256-xiO58266mL8NA+jv7Ep1ftr11r7tIJJvCuCATxcOzcU=' 'sha256-nqcVhrNqCbzRga/KDxOFr4ZgFSynpFRMeLo1V3Ejf10=' 'sha256-7ZNBMw0ohvzGBOBPg+7B64eocm8L4imGsEEQ9JodZzw='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob:; connect-src 'self' https://myiqdeonxuznvhtsvfxg.supabase.co https://dfvmuqxjdcvwskrrdbfm.supabase.co; frame-src 'self'; worker-src 'none'; object-src 'none'; base-uri 'none'; form-action 'self'" data-csp="portal">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'sha256-xiO58266mL8NA+jv7Ep1ftr11r7tIJJvCuCATxcOzcU=' 'sha256-nqcVhrNqCbzRga/KDxOFr4ZgFSynpFRMeLo1V3Ejf10=' 'sha256-gnjXb7I7dU8LCwhey//Glxm+nhUMaDSx5iyplrESmC4='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob:; connect-src 'self' https://myiqdeonxuznvhtsvfxg.supabase.co https://dfvmuqxjdcvwskrrdbfm.supabase.co; frame-src 'self'; worker-src 'none'; object-src 'none'; base-uri 'none'; form-action 'self'" data-csp="portal">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="robots" content="noindex,nofollow">
 <title>Canais · Grupo Job</title>
@@ -80,6 +80,14 @@ button,input{font:inherit}
   letter-spacing:-.02em; white-space:nowrap; font-variant-numeric:tabular-nums}
 .kpi .d{font-size:12.5px; color:var(--ink-2); margin-top:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
 .kpi.dest{border-top:2px solid var(--chipc,var(--accent))}
+/* comparação (27/10/2026) */
+.kpi .c{font-size:11.5px; color:var(--ink-3); margin-top:6px; padding-top:5px; border-top:1px dashed var(--line); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.dl{display:block; font-size:10.5px; font-weight:600; line-height:1.25; white-space:nowrap; font-variant-numeric:tabular-nums}
+.kpi .c .dl,.tot .dl,.leg .dl{display:inline; margin-left:5px}
+.kpi .c .dl{font-size:11.5px}
+.dl.bom{color:var(--ok)} .dl.mau{color:var(--bad)} .dl.neu{color:var(--ink-3)}
+.comp-rot{font-size:12px; color:var(--ink-3)}
+.comp-rot b{color:var(--ink-2); font-weight:600}
 
 /* blocos */
 section.sec{margin-top:30px}
@@ -181,6 +189,7 @@ tr.det:hover > td{background:var(--surface-2)}
   .kpi .v{font-size:20px}
   .busca{width:100%}
   .kpi .d{white-space:normal}
+  .kpi .c{white-space:normal}
   #tAds td:first-child,#tAb td:first-child,#tPg td:nth-child(2){white-space:normal; min-width:170px; max-width:210px}
   .sub{max-width:200px; white-space:nowrap}
   .sec-head .acoes{margin-left:0; width:100%}
@@ -195,6 +204,9 @@ tr.det:hover > td{background:var(--surface-2)}
       <span class="frescor" id="frescor"></span></div>
     <div class="linha-f" id="lMarca"><span class="rot">Marca</span><span id="fMarca"></span></div>
     <div class="linha-f"><span class="rot">Agência</span><span id="fAg"></span></div>
+    <div class="linha-f"><span class="rot">Comparar</span><span id="fComp"></span>
+      <span class="datas oculto" id="compDatas"><input type="date" id="fCDe" aria-label="Comparar de"><span class="dim">a</span><input type="date" id="fCAte" aria-label="Comparar até"></span>
+      <span class="comp-rot" id="compRot"></span></div>
   </div>
   <div id="aviso" class="aviso oculto"></div>
   <div id="carregando" class="carregando">carregando…</div>
@@ -269,6 +281,7 @@ var MAX_LISTA = 93;
 
 /* ---------- sessão do portal (login único) ---------- */
 function lsLe(k){ try { return localStorage.getItem(k) || ''; } catch (e) { return ''; } }
+function lsGrava(k, v){ try { localStorage.setItem(k, v); } catch (e) {} }
 function portalNovo(){ try { return window.parent !== window && typeof window.parent.__portalSessao === 'function'; } catch (e) { return false; } }
 var NO_PORTAL = (function(){ try { return window.parent !== window && window.parent.location.origin === location.origin; } catch (e) { return false; } })();
 function sessaoPortal(){
@@ -354,7 +367,8 @@ function agTag(ag){ return ag ? '<span class="tag ag" style="--chipc:' + agCor(a
 var S = {de: '', ate: '', marca: 'todas', ag: 'todas', presetSel: null,
          abSit: 'todas', abOrig: 'todas', abBusca: '', abN: 40,
          pgOrig: 'todas', pgBusca: '', pgN: 40,
-         adsGrp: 'tipo', adsBusca: '', adsAbertos: {}, adsProc: {}, adsCopy: {}, agAbertas: {}};
+         adsGrp: 'tipo', adsBusca: '', adsAbertos: {}, adsProc: {}, adsCopy: {}, agAbertas: {},
+         comp: ['mes', 'periodo', 'ano', 'nada'].indexOf(lsLe('canais_comp')) >= 0 ? lsLe('canais_comp') : 'mes', compDe: '', compAte: '', priM: {}};
 var OK = [];                 // marcas que carregaram
 var GERADO = {};
 var CAN = [], MID = [], SER = [], CX = [], ADS = [], REF = [], NOME_AD = {};
@@ -474,6 +488,7 @@ function inicia(){
   var dias = CAN.map(function(x){ return x.d; }).sort();
   var pri = dias[0], ult = dias[dias.length - 1];
   S.ult = ult; S.pri = pri;
+  CAN.forEach(function(x){ if (!S.priM[x.m] || x.d < S.priM[x.m]) S.priM[x.m] = x.d; });   /* início do dado de cada marca (comparação) */
   var meses = {}; dias.forEach(function(d){ meses[d.slice(0, 7)] = 1; });
   var nomes = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
   /* 19/10/2026: os atalhos de período terminam no último dia FECHADO (ontem), como o Resumo
@@ -500,6 +515,11 @@ function inicia(){
   document.getElementById('abBusca').addEventListener('input', function(e){ S.abBusca = e.target.value; S.abN = 40; pintaAberto(); });
   document.getElementById('pgBusca').addEventListener('input', function(e){ S.pgBusca = e.target.value; S.pgN = 40; pintaPagou(); });
   document.getElementById('adsBusca').addEventListener('input', function(e){ S.adsBusca = e.target.value; pintaAds(); });
+  ['fCDe', 'fCAte'].forEach(function(id){ var el = document.getElementById(id); el.min = pri; el.max = ult;
+    el.addEventListener('change', function(){
+      var a = document.getElementById('fCDe').value, b = document.getElementById('fCAte').value;
+      if (!a || !b) return; if (a > b) { var t = a; a = b; b = t; }
+      S.compDe = a; S.compAte = b; render(); }); });
   if (OK.length < 2) document.getElementById('lMarca').classList.add('oculto');
   pintaFrescor();
   document.getElementById('carregando').classList.add('oculto');
@@ -621,12 +641,117 @@ function resumoPago(can, ags){
   return R;
 }
 
+/* ---------- comparação (27/10/2026) ----------
+   Pedido do Henrique depois da gerencial de outubro, que comparava 1–23/10 com meses fechados: cada número da
+   aba mostra a variação contra um período de comparação. Padrão = os mesmos dias do mês anterior (mês inteiro
+   contra mês inteiro). Tudo que sai da foto (dados.json) se calcula para qualquer período da janela; o recebido
+   ao vivo e o recebido por anúncio precisam do rastro do período de comparação, lido à parte (até 93 dias).
+   Sem esse rastro, o recebido da comparação sai da foto das 05:30 — que para período fechado bate no centavo. */
+var COMP_OPS = [{id: 'mes', r: 'Mesmos dias do mês anterior'}, {id: 'periodo', r: 'Período anterior'}, {id: 'ano', r: 'Ano passado'},
+                {id: 'datas', r: 'Escolher datas'}, {id: 'nada', r: 'Sem comparação'}];
+var CP = {pg: null, chave: '', pedido: '', erro: ''};
+function fimMes(s){ var y = +s.slice(0, 4), m = +s.slice(5, 7); return s.slice(0, 8) + String(new Date(Date.UTC(y, m, 0)).getUTCDate()).padStart(2, '0'); }
+function menosMeses(s, n){
+  var y = +s.slice(0, 4), m = +s.slice(5, 7) - n, d = +s.slice(8, 10);
+  while (m < 1) { m += 12; y--; }
+  var ult = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  return y + '-' + String(m).padStart(2, '0') + '-' + String(Math.min(d, ult)).padStart(2, '0');
+}
+function periodoComp(){
+  if (!S.de || !S.ate || S.comp === 'nada') return null;
+  var de = S.de, ate = S.ate, n = diasEntre(de, ate);
+  if (S.comp === 'datas') return S.compDe && S.compAte && S.compDe <= S.compAte ? {de: S.compDe, ate: S.compAte} : null;
+  if (S.comp === 'ano') return {de: menosMeses(de, 12), ate: menosMeses(ate, 12)};
+  if (S.comp === 'mes' && n <= 31) {
+    if (de.slice(8) === '01' && ate === fimMes(ate) && de.slice(0, 7) === ate.slice(0, 7)) { var d1 = menosMeses(de, 1); return {de: d1, ate: fimMes(d1)}; }
+    return {de: menosMeses(de, 1), ate: menosMeses(ate, 1)};
+  }
+  var a = novaData(de, -1); return {de: novaData(a, -(n - 1)), ate: a};   /* período anterior do mesmo tamanho (e "mês" com mais de 31 dias) */
+}
+function marcasSel(){ return OK.filter(function(m){ return S.marca === 'todas' || S.marca === m; }); }
+function chaveComp(P){ return marcasSel().join(',') + '|' + P.de + '|' + P.ate; }
+function compTemRec(){ var P = periodoComp(); return !!(P && CP.pg && CP.chave === chaveComp(P)); }
+/* nenhuma das marcas escolhidas tem dado no período de comparação: não mostra variação nenhuma */
+function compSemDado(){ var P = periodoComp(); return !!P && marcasSel().every(function(m){ return !S.priM[m] || P.ate < S.priM[m]; }); }
+/* roda fn com o período de comparação no lugar do escolhido (e com o rastro dele, se já chegou) */
+function noComp(fn){
+  var P = periodoComp(); if (!P || compSemDado()) return null;
+  var s = {de: S.de, ate: S.ate, pg: PG, pk: PG_CHAVE, vc: vivo.c};
+  var ok = !!(CP.pg && CP.chave === chaveComp(P));
+  S.de = P.de; S.ate = P.ate;
+  PG = ok ? CP.pg : null; PG_CHAVE = ok ? chaveListas() : ''; vivo.c = null;
+  try { return fn(); } finally { S.de = s.de; S.ate = s.ate; PG = s.pg; PG_CHAVE = s.pk; vivo.c = s.vc; }
+}
+function carregaComp(){
+  var P = periodoComp();
+  if (!P || !OK.length || compSemDado() || diasEntre(P.de, P.ate) > MAX_LISTA) return;
+  var k = chaveComp(P);
+  if (CP.chave === k || CP.pedido === k) return;
+  CP.pedido = k; CP.erro = '';
+  Promise.all(marcasSel().map(function(m){
+    var lk = m + '|rastro|' + P.de + '|' + P.ate;
+    if (LISTAS[lk]) return Promise.resolve({m: m, r: LISTAS[lk]});
+    return pede(m, {action: 'rastro', de: P.de, ate: P.ate}).then(function(j){ LISTAS[lk] = j.rastro || []; return {m: m, r: LISTAS[lk]}; })
+      .catch(function(e){ return {m: m, r: {erro: e.message}}; });
+  })).then(function(rs){
+    if (CP.pedido !== k) return;
+    var L = [], erro = '';
+    rs.forEach(function(x){ if (Array.isArray(x.r)) x.r.forEach(function(l){ if ((l[2] || 0) > 0) L.push(pgLinha(x.m, l)); }); else erro = x.r.erro || 'erro'; });
+    CP.pedido = '';
+    if (erro) { CP.erro = erro; pintaComp(); return; }
+    CP.pg = L; CP.chave = k;
+    pintaComp(); pintaTopo(); pintaAds();
+  });
+}
+/* variação: a = atual, b = comparação; bom = 1 (subir é bom), -1 (cair é bom), 0 (neutro); pp = diferença em pontos (taxas) */
+function vari(a, b, bom, pp){
+  if (a == null || b == null || !isFinite(a) || !isFinite(b) || !periodoComp() || compSemDado()) return '';
+  var cls, txt;
+  if (pp) {
+    var d = (a - b) * 100;
+    if (Math.abs(d) < 0.05) return '<span class="dl neu">=</span>';
+    cls = !bom ? 'neu' : ((d > 0) === (bom > 0) ? 'bom' : 'mau');
+    return '<span class="dl ' + cls + '">' + (d > 0 ? '▲ ' : '▼ ') + Math.abs(d).toFixed(1).replace('.', ',') + ' p.p.</span>';
+  }
+  if (Math.abs(b) < 0.005) return Math.abs(a) > 0.005 ? '<span class="dl neu" title="Nada no período de comparação">novo</span>' : '';
+  var v = a / b - 1;
+  if (Math.abs(v) < 0.0005) return '<span class="dl neu">=</span>';
+  cls = !bom ? 'neu' : ((v > 0) === (bom > 0) ? 'bom' : 'mau');
+  var p = Math.abs(v * 100);
+  txt = p >= 999.5 ? '999+' : p < 10 ? p.toFixed(1).replace('.', ',') : String(Math.round(p));
+  return '<span class="dl ' + cls + '">' + (v > 0 ? '▲ ' : '▼ ') + txt + '%</span>';
+}
+function brC(P){ return P.de.slice(0, 4) === P.ate.slice(0, 4) && P.ate.slice(0, 4) === S.ate.slice(0, 4) ? br(P.de) + ' a ' + br(P.ate) : br4(P.de) + ' a ' + br4(P.ate); }
+function pintaComp(){
+  document.getElementById('fComp').innerHTML = COMP_OPS.map(function(o){ return chip(o.r, S.comp === o.id, 'data-c="' + o.id + '"'); }).join(' ');
+  liga('fComp', 'data-c', function(c){
+    if (c === 'datas' && !S.compDe) { var p0 = periodoComp() || {de: S.de, ate: S.ate}; S.compDe = p0.de; S.compAte = p0.ate; }
+    S.comp = c; if (c !== 'datas') lsGrava('canais_comp', c); render(); });
+  document.getElementById('compDatas').classList.toggle('oculto', S.comp !== 'datas');
+  if (S.comp === 'datas') { document.getElementById('fCDe').value = S.compDe; document.getElementById('fCAte').value = S.compAte; }
+  var P = periodoComp(), rot = '';
+  if (P) {
+    rot = 'contra <b>' + brC(P) + '</b>';
+    var semM = marcasSel().filter(function(m){ return S.priM[m] && P.de < S.priM[m]; });
+    if (compSemDado()) rot += ' · sem dado nesse período';
+    else if (semM.length) rot += ' · ' + semM.map(function(m){ return (m === 'doctor' ? 'Doctor' : 'Acesso') + ' só tem dado a partir de ' + br4(S.priM[m]); }).join(' · ');
+    if (!compSemDado()) {
+      if (diasEntre(P.de, P.ate) > MAX_LISTA) rot += ' · recebido por anúncio sem comparação (mais de ' + MAX_LISTA + ' dias)';
+      else if (CP.erro) rot += ' · não consegui ler o caixa da comparação (' + esc(CP.erro) + ')';
+      else if (!compTemRec()) rot += ' · <span class="dim">lendo o caixa da comparação…</span>';
+    }
+  }
+  document.getElementById('compRot').innerHTML = rot;
+}
+
 /* ---------- render ---------- */
 function render(){
   pintaFiltros();
+  pintaComp();
   pintaFrescor();
   pintaTopo();
   carregaListas();
+  carregaComp();
   pintaAds();
 }
 /* indicadores, origem e agências: repinta também quando o rastro chega (recebido ao vivo) */
@@ -641,58 +766,75 @@ function pintaTopo(){
   if (!org) pintaAgencias(can, ags);
 }
 
-function kpi(k, v, d, tit, cor){
+function kpi(k, v, d, tit, cor, c){
   return '<div class="kpi' + (cor ? ' dest' : '') + '"' + (cor ? ' style="--chipc:' + cor + '"' : '') + (tit ? ' title="' + esc(tit) + '"' : '') + '>' +
-    '<div class="k">' + esc(k) + '</div><div class="v">' + v + '</div>' + (d ? '<div class="d">' + d + '</div>' : '') + '</div>';
+    '<div class="k">' + esc(k) + '</div><div class="v">' + v + '</div>' + (d ? '<div class="d">' + d + '</div>' : '') + (c || '') + '</div>';
 }
-function pintaKpis(can, ags){
-  var el = document.getElementById('kpis'), h = '';
-  var inv = soma(MID.filter(noPer), 'inv');
+function ctxKpi(can, ags){
+  can = can || porCanal(); ags = ags || porAgencia();
+  var R = resumoPago(can, ags), tot = 0, O = {ch: 0, ct: 0, p: 0, v: 0, pg: 0, ab: 0, pgd: 0};
+  Object.keys(can).forEach(function(c){ tot += can[c].pgd; if (ehOrg(c)) Object.keys(O).forEach(function(k){ O[k] += can[c][k] || 0; }); });
+  return {can: can, ags: ags, R: R, tot: tot, O: O};
+}
+/* os cartões de cada visão: valor numérico, formato, texto de apoio e se subir é bom (1), ruim (-1) ou neutro (0) */
+function defsKpi(x){
+  var L = [], R = x.R, O = x.O;
+  function add(k, val, fmt, d, tit, bom, cor){ L.push({k: k, val: val, fmt: fmt, d: d, tit: tit, bom: bom, cor: cor}); }
+  var b1 = function(v){ return brl(v, 1); }, b0 = function(v){ return brl(v); };
+  var xv = function(v){ return v == null ? '—' : v.toFixed(1).replace('.', ',') + '×'; };
+  var raz = function(a, b){ return b > 0.5 ? a / b : null; };
   if (S.ag === 'todas') {
-    var tot = 0, R = resumoPago(can, ags);
-    Object.keys(can).forEach(function(c){ tot += can[c].pgd; });
     var ult = caixaAte();
     var hojeM = new Date(Date.now() - 4 * 3600e3).toISOString().slice(0, 10);
-    h += kpi('Recebido no período', brl(tot, 1), (ult && S.ate >= hojeM && ult < hojeM ? 'caixa SEM DOC · até ' + br(ult) : 'caixa SEM DOC · régua do Faturamento'),
-      'A mesma conta do “Faturamento do grupo” (SEM DOC) do Resumo faturamento: crédito do caixa do Feegow, sem a forma DOC, pela data do movimento. O caixa do dia entra na carga das 07:05 do dia seguinte.');
-    h += kpi('Recebido de anúncio', brl(R.caixa, 1), pct(R.caixa, tot) + ' do recebido', 'Caixa SEM DOC no período de quem chegou por anúncio, ou já era da base e voltou pelo anúncio (a partir do clique)');
-    h += kpi('Investimento', brl(R.inv), 'custo por lead ' + (R.r ? brl(R.inv / R.r, 1) : '—'), 'Meta Ads no período');
-    h += kpi('Leads de anúncio', n0(R.r), '', 'Telefones que chegaram por anúncio no período');
-    h += kpi('Pacientes de anúncio', n0(R.p), pct(R.p, R.r) + ' dos leads' + (R.xc ? ' · ' + n0(R.xc) + ' já eram da base' : ''), 'Chegaram pelo anúncio no período e fecharam no Feegow — inclui quem já era da base e voltou pelo anúncio');
-    h += kpi('Faturado', brl(R.v), 'já pago ' + brl(R.pg), 'Contas abertas no Feegow por quem chegou pelo anúncio no período (de quem já era da base, só a partir do clique)');
-    h += kpi('Retorno', vezes(R.vMeta, R.invMed), 'custo por paciente ' + (R.pMed ? brl(R.invMed / R.pMed, 1) : '—'), 'Faturado do Meta ÷ investimento (sem as contas de odonto, que vendem fora do Feegow)');
-    h += kpi('Em aberto', brl(R.ab), pct(R.ab, R.v) + ' do faturado', 'Faturado e ainda não pago, de quem chegou pelo anúncio no período');
+    add('Recebido no período', x.tot, b1, (ult && S.ate >= hojeM && ult < hojeM ? 'caixa SEM DOC · até ' + br(ult) : 'caixa SEM DOC · régua do Faturamento'),
+      'A mesma conta do “Faturamento do grupo” (SEM DOC) do Resumo faturamento: crédito do caixa do Feegow, sem a forma DOC, pela data do movimento. O caixa do dia entra na carga das 07:05 do dia seguinte.', 1);
+    add('Recebido de anúncio', R.caixa, b1, pct(R.caixa, x.tot) + ' do recebido', 'Caixa SEM DOC no período de quem chegou por anúncio, ou já era da base e voltou pelo anúncio (a partir do clique)', 1);
+    add('Investimento', R.inv, b0, 'custo por lead ' + (R.r ? brl(R.inv / R.r, 1) : '—'), 'Meta Ads no período', 0);
+    add('Leads de anúncio', R.r, n0, '', 'Telefones que chegaram por anúncio no período', 1);
+    add('Pacientes de anúncio', R.p, n0, pct(R.p, R.r) + ' dos leads' + (R.xc ? ' · ' + n0(R.xc) + ' já eram da base' : ''), 'Chegaram pelo anúncio no período e fecharam no Feegow — inclui quem já era da base e voltou pelo anúncio', 1);
+    add('Faturado', R.v, b0, 'já pago ' + brl(R.pg), 'Contas abertas no Feegow por quem chegou pelo anúncio no período (de quem já era da base, só a partir do clique)', 1);
+    add('Retorno', raz(R.vMeta, R.invMed), xv, 'custo por paciente ' + (R.pMed ? brl(R.invMed / R.pMed, 1) : '—'), 'Faturado do Meta ÷ investimento (sem as contas de odonto, que vendem fora do Feegow)', 1);
+    add('Em aberto', R.ab, b0, pct(R.ab, R.v) + ' do faturado', 'Faturado e ainda não pago, de quem chegou pelo anúncio no período', -1);
   } else if (S.ag === ORG) {
-    var O = {ch: 0, ct: 0, p: 0, v: 0, pg: 0, ab: 0, pgd: 0}, totR = 0, Ra = resumoPago(can, ags), cO = 'var(--g-naopago)';
-    Object.keys(can).forEach(function(c){ totR += can[c].pgd; if (!ehOrg(c)) return;
-      Object.keys(O).forEach(function(k){ O[k] += can[c][k] || 0; }); });
-    h += kpi('Recebido orgânico', brl(O.pgd, 1), pct(O.pgd, totR) + ' do recebido · caixa SEM DOC',
-      'Caixa SEM DOC no período (régua do Faturamento) de quem chegou sem anúncio: Direto / sem origem, Social orgânico e Site e busca', cO);
-    h += kpi('Conversas', n0(O.ch), 'abertas no período', 'Conversas abertas no período nos canais sem anúncio', cO);
-    h += kpi('Leads novos', n0(O.ct), 'contatos novos no CRM', 'Contatos novos no CRM que chegaram sem anúncio', cO);
-    h += kpi('Pacientes', n0(O.p), pct(O.p, O.ct) + ' dos leads novos', 'Chegaram sem anúncio no período e fecharam no Feegow', cO);
-    h += kpi('Faturado', brl(O.v), 'já pago ' + brl(O.pg), 'Contas no Feegow de quem chegou sem anúncio no período', cO);
-    h += kpi('Faturado por paciente', O.p ? brl(O.v / O.p) : '—', '', '', cO);
-    h += kpi('Em aberto', brl(O.ab), pct(O.ab, O.v) + ' do faturado', 'Faturado e ainda não pago, de quem chegou sem anúncio no período', cO);
-    h += kpi('Orgânico × anúncio', vezes(O.pgd, Ra.caixa), 'do recebido de anúncio (' + brl(Ra.caixa) + ')',
-      'Recebido orgânico ÷ recebido de anúncio no período. Pacientes: ' + n0(O.p) + ' orgânicos × ' + n0(Ra.p) + ' de anúncio.', cO);
+    var cO = 'var(--g-naopago)';
+    add('Recebido orgânico', O.pgd, b1, pct(O.pgd, x.tot) + ' do recebido · caixa SEM DOC',
+      'Caixa SEM DOC no período (régua do Faturamento) de quem chegou sem anúncio: Direto / sem origem, Social orgânico e Site e busca', 1, cO);
+    add('Conversas', O.ch, n0, 'abertas no período', 'Conversas abertas no período nos canais sem anúncio', 1, cO);
+    add('Leads novos', O.ct, n0, 'contatos novos no CRM', 'Contatos novos no CRM que chegaram sem anúncio', 1, cO);
+    add('Pacientes', O.p, n0, pct(O.p, O.ct) + ' dos leads novos', 'Chegaram sem anúncio no período e fecharam no Feegow', 1, cO);
+    add('Faturado', O.v, b0, 'já pago ' + brl(O.pg), 'Contas no Feegow de quem chegou sem anúncio no período', 1, cO);
+    add('Faturado por paciente', O.p ? O.v / O.p : null, function(v){ return v == null ? '—' : brl(v); }, '', '', 1, cO);
+    add('Em aberto', O.ab, b0, pct(O.ab, O.v) + ' do faturado', 'Faturado e ainda não pago, de quem chegou sem anúncio no período', -1, cO);
+    add('Orgânico × anúncio', raz(O.pgd, R.caixa), xv, 'do recebido de anúncio (' + brl(R.caixa) + ')',
+      'Recebido orgânico ÷ recebido de anúncio no período. Pacientes: ' + n0(O.p) + ' orgânicos × ' + n0(R.p) + ' de anúncio.', 0, cO);
   } else {
-    var o = ags[S.ag] || zeroAg(), cor = agCor(S.ag), pm = pacMed(o);
-    h += kpi('Recebido', brl(o.caixa, 1), o.npag != null ? n0(o.npag) + (o.npag === 1 ? ' paciente pagou' : ' pacientes pagaram') + ' · caixa SEM DOC'
-                                              : (o.cxReat > 0.5 ? brl(o.cxReat, 1) + ' de quem já era da base' : brl(o.antes, 1) + ' de quem chegou antes'),
-      'Caixa SEM DOC no período (régua do Faturamento) de pacientes que chegaram pelo anúncio desta agência (de quem já era da base, a partir do clique) — o mesmo total de “Quem pagou”', cor);
-    h += kpi('Investimento', brl(o.inv), 'custo por lead ' + (o.r ? brl(o.inv / o.r, 1) : '—'), 'Meta Ads das contas desta agência', cor);
-    h += kpi('Leads', n0(o.r), '', 'Telefones que chegaram pelo anúncio desta agência no período (inclui quem já era da base)', cor);
-    h += kpi('Pacientes', n0(o.p), pct(o.p, o.r) + ' dos leads' + (o.xc ? ' · ' + n0(o.xc) + ' já eram da base' : ''), 'Chegaram pelo anúncio desta agência no período e fecharam', cor);
-    h += kpi('Faturado', brl(o.v), 'já pago ' + brl(o.pg), '', cor);
-    h += kpi('Retorno', vezes(o.v, o.invMed), 'custo por paciente ' + (pm ? brl(o.invMed / pm, 1) : '—'), 'Faturado ÷ investimento, sem as contas de odonto', cor);
-    h += kpi('Em aberto', brl(o.ab), pct(o.ab, o.v) + ' do faturado', '', cor);
+    var o = x.ags[S.ag] || zeroAg(), cor = agCor(S.ag), pm = pacMed(o);
+    add('Recebido', o.caixa, b1, o.npag != null ? n0(o.npag) + (o.npag === 1 ? ' paciente pagou' : ' pacientes pagaram') + ' · caixa SEM DOC'
+                                         : (o.cxReat > 0.5 ? brl(o.cxReat, 1) + ' de quem já era da base' : brl(o.antes, 1) + ' de quem chegou antes'),
+      'Caixa SEM DOC no período (régua do Faturamento) de pacientes que chegaram pelo anúncio desta agência (de quem já era da base, a partir do clique) — o mesmo total de “Quem pagou”', 1, cor);
+    add('Investimento', o.inv, b0, 'custo por lead ' + (o.r ? brl(o.inv / o.r, 1) : '—'), 'Meta Ads das contas desta agência', 0, cor);
+    add('Leads', o.r, n0, '', 'Telefones que chegaram pelo anúncio desta agência no período (inclui quem já era da base)', 1, cor);
+    add('Pacientes', o.p, n0, pct(o.p, o.r) + ' dos leads' + (o.xc ? ' · ' + n0(o.xc) + ' já eram da base' : ''), 'Chegaram pelo anúncio desta agência no período e fecharam', 1, cor);
+    add('Faturado', o.v, b0, 'já pago ' + brl(o.pg), '', 1, cor);
+    add('Retorno', raz(o.v, o.invMed), xv, 'custo por paciente ' + (pm ? brl(o.invMed / pm, 1) : '—'), 'Faturado ÷ investimento, sem as contas de odonto', 1, cor);
+    add('Em aberto', o.ab, b0, pct(o.ab, o.v) + ' do faturado', '', -1, cor);
     /* 16/10: recebido (antes era faturado, e dava um terceiro número na tela) — é parte do Recebido acima */
-    h += kpi('Já eram da base', brl(o.cxReat, 1), (o.xp ? n0(o.xc) + ' de ' + n0(o.xp) + ' fecharam' : 'pagos a partir do clique') +
+    add('Já eram da base', o.cxReat, b1, (o.xp ? n0(o.xc) + ' de ' + n0(o.xp) + ' fecharam' : 'pagos a partir do clique') +
       (o.npagReat != null ? ' · ' + n0(o.npagReat) + ' pagaram' : '') + ' · dentro do recebido',
-      'Recebido de quem já era da clínica e voltou pelo anúncio desta agência (a partir do clique). Já está somado no Recebido — é o mesmo valor de “Já eram da base” em Quem pagou.', cor);
+      'Recebido de quem já era da clínica e voltou pelo anúncio desta agência (a partir do clique). Já está somado no Recebido — é o mesmo valor de “Já eram da base” em Quem pagou.', 1, cor);
   }
-  el.innerHTML = h;
+  return L;
+}
+function pintaKpis(can, ags){
+  var L = defsKpi(ctxKpi(can, ags));
+  var Lc = noComp(function(){ return defsKpi(ctxKpi()); });
+  var P = periodoComp();
+  document.getElementById('kpis').innerHTML = L.map(function(q, i){
+    var c = '';
+    if (Lc && P) { var qc = Lc[i];
+      c = '<div class="c" title="No período de comparação (' + brC(P) + ')">antes ' + qc.fmt(qc.val) + vari(q.val, qc.val, q.bom) + '</div>'; }
+    return kpi(q.k, q.fmt(q.val), q.d, q.tit, q.cor, c);
+  }).join('');
 }
 
 function pintaOrigem(can){
@@ -702,8 +844,12 @@ function pintaOrigem(can){
   Object.keys(can).forEach(function(c){ tot += can[c].pgd; var g = (GRUPO_DO[c] || GRUPOS[1]).id; porG[g] = (porG[g] || 0) + can[c].pgd; });
   document.getElementById('barra').innerHTML = GRUPOS.filter(function(g){ return porG[g.id] > 0; }).map(function(g){
     return '<i style="flex:' + porG[g.id].toFixed(2) + ';background:' + g.cor + '" title="' + esc(g.nome) + ': ' + brl(porG[g.id], 1) + '"></i>'; }).join('');
+  var canC = noComp(porCanal), porGC = {}, totC = 0;
+  if (canC) Object.keys(canC).forEach(function(c){ totC += canC[c].pgd; var g = (GRUPO_DO[c] || GRUPOS[1]).id; porGC[g] = (porGC[g] || 0) + canC[c].pgd; });
+  function vc(c, k, bom){ return canC ? vari(can[c][k], canC[c] ? canC[c][k] : 0, bom) : ''; }
   document.getElementById('leg').innerHTML = GRUPOS.filter(function(g){ return porG[g.id] > 0; }).map(function(g){
-    return '<span><span class="dot" style="background:' + g.cor + '"></span>' + esc(g.nome) + ' <b>' + brl(porG[g.id], 1) + '</b> · ' + pct(porG[g.id], tot) + '</span>'; }).join('');
+    return '<span><span class="dot" style="background:' + g.cor + '"></span>' + esc(g.nome) + ' <b>' + brl(porG[g.id], 1) + '</b> · ' + pct(porG[g.id], tot) +
+      (canC ? vari(porG[g.id], porGC[g.id] || 0, 1) : '') + '</span>'; }).join('');
   var lin = Object.keys(can).map(function(c){ return can[c]; }).filter(function(o){ return o.pgd > 0.5 || o.ch || o.v; });
   var ordG = {}; GRUPOS.forEach(function(g, i){ ordG[g.id] = i; });
   lin.sort(function(a, b){ return (ordG[(GRUPO_DO[a.c] || GRUPOS[1]).id] - ordG[(GRUPO_DO[b.c] || GRUPOS[1]).id]) || b.pgd - a.pgd; });
@@ -711,15 +857,18 @@ function pintaOrigem(can){
   var corpo = lin.map(function(o){ Object.keys(T).forEach(function(k){ T[k] += o[k]; });
     var g = GRUPO_DO[o.c] || GRUPOS[1];
     return '<tr><td><span class="dot" style="background:' + g.cor + '"></span>' + esc(NOME_CANAL[o.c] || o.c) + '</td>' +
-      '<td class="num">' + n0(o.ch) + '</td><td class="num">' + n0(o.ct) + '</td><td class="num">' + n0(o.p) + '</td>' +
-      '<td class="num">' + brl(o.v) + '</td><td class="num">' + brl(o.pg) + '</td><td class="num">' + brl(o.ab) + '</td>' +
-      '<td class="num b">' + brl(o.pgd, 1) + '</td></tr>'; }).join('');
+      '<td class="num">' + n0(o.ch) + vc(o.c, 'ch', 1) + '</td><td class="num">' + n0(o.ct) + vc(o.c, 'ct', 1) + '</td><td class="num">' + n0(o.p) + vc(o.c, 'p', 1) + '</td>' +
+      '<td class="num">' + brl(o.v) + vc(o.c, 'v', 1) + '</td><td class="num">' + brl(o.pg) + '</td><td class="num">' + brl(o.ab) + '</td>' +
+      '<td class="num b">' + brl(o.pgd, 1) + vc(o.c, 'pgd', 1) + '</td></tr>'; }).join('');
+  var TC = null;
+  if (canC) { TC = {ch: 0, ct: 0, p: 0, v: 0, pgd: 0}; Object.keys(canC).forEach(function(c){ Object.keys(TC).forEach(function(k){ TC[k] += canC[c][k] || 0; }); }); }
+  function vt(k){ return TC ? vari(T[k], TC[k], 1) : ''; }
   document.getElementById('tCanais').innerHTML =
     '<thead><tr><th>Origem</th><th class="num" title="Conversas abertas no período">Conversas</th><th class="num" title="Contatos novos no CRM">Leads novos</th>' +
     '<th class="num" title="Viraram paciente (quem chegou no período)">Pacientes</th><th class="num">Faturado</th><th class="num" title="Do faturado acima, quanto já foi pago">Já pago</th>' +
     '<th class="num">Em aberto</th><th class="num" title="Caixa SEM DOC no período (régua do Faturamento), pela origem do paciente">Recebido</th></tr></thead>' +
-    '<tbody>' + corpo + '</tbody><tfoot><tr><td>Total</td><td class="num">' + n0(T.ch) + '</td><td class="num">' + n0(T.ct) + '</td><td class="num">' + n0(T.p) +
-    '</td><td class="num">' + brl(T.v) + '</td><td class="num">' + brl(T.pg) + '</td><td class="num">' + brl(T.ab) + '</td><td class="num">' + brl(T.pgd, 1) + '</td></tr></tfoot>';
+    '<tbody>' + corpo + '</tbody><tfoot><tr><td>Total</td><td class="num">' + n0(T.ch) + vt('ch') + '</td><td class="num">' + n0(T.ct) + vt('ct') + '</td><td class="num">' + n0(T.p) + vt('p') +
+    '</td><td class="num">' + brl(T.v) + vt('v') + '</td><td class="num">' + brl(T.pg) + '</td><td class="num">' + brl(T.ab) + '</td><td class="num">' + brl(T.pgd, 1) + vt('pgd') + '</td></tr></tfoot>';
 }
 
 /* orgânico: a mesma tabela da origem, só com os canais sem anúncio; a barra reparte o recebido orgânico por canal */
@@ -731,38 +880,47 @@ function pintaOrigemOrg(can){
     .sort(function(a, b){ return b.pgd - a.pgd || b.ch - a.ch; });
   var T = {ch: 0, ct: 0, p: 0, v: 0, pg: 0, ab: 0, pgd: 0};
   lin.forEach(function(o){ Object.keys(T).forEach(function(k){ T[k] += o[k]; }); });
+  var canC = noComp(porCanal), TC = null;
+  if (canC) { TC = {ch: 0, ct: 0, p: 0, v: 0, pgd: 0, totR: 0};
+    Object.keys(canC).forEach(function(c){ TC.totR += canC[c].pgd; if (!ehOrg(c)) return; ['ch', 'ct', 'p', 'v', 'pgd'].forEach(function(k){ TC[k] += canC[c][k] || 0; }); }); }
+  function vc(c, k, bom){ return canC ? vari(can[c][k], canC[c] ? canC[c][k] : 0, bom) : ''; }
+  function vt(k){ return TC ? vari(T[k], TC[k], 1) : ''; }
   var cor = function(i){ return ORG_TONS[Math.min(i, ORG_TONS.length - 1)]; };
   document.getElementById('barra').innerHTML = lin.filter(function(o){ return o.pgd > 0.5; }).map(function(o, i){
     return '<i style="flex:' + o.pgd.toFixed(2) + ';background:' + cor(i) + '" title="' + esc(NOME_CANAL[o.c] || o.c) + ': ' + brl(o.pgd, 1) + '"></i>'; }).join('');
   document.getElementById('leg').innerHTML = lin.filter(function(o){ return o.pgd > 0.5; }).map(function(o, i){
-    return '<span><span class="dot" style="background:' + cor(i) + '"></span>' + esc(NOME_CANAL[o.c] || o.c) + ' <b>' + brl(o.pgd, 1) + '</b> · ' + pct(o.pgd, T.pgd) + ' do orgânico</span>'; }).join('') +
-    '<span class="dim">Orgânico = ' + pct(T.pgd, tot) + ' do recebido do período</span>';
+    return '<span><span class="dot" style="background:' + cor(i) + '"></span>' + esc(NOME_CANAL[o.c] || o.c) + ' <b>' + brl(o.pgd, 1) + '</b> · ' + pct(o.pgd, T.pgd) + ' do orgânico' + vc(o.c, 'pgd', 1) + '</span>'; }).join('') +
+    '<span class="dim">Orgânico = ' + pct(T.pgd, tot) + ' do recebido do período' + (TC ? ' (antes ' + pct(TC.pgd, TC.totR) + ')' : '') + '</span>';
   var corpo = lin.map(function(o, i){
     return '<tr><td><span class="dot" style="background:' + cor(i) + '"></span>' + esc(NOME_CANAL[o.c] || o.c) + '</td>' +
-      '<td class="num">' + n0(o.ch) + '</td><td class="num">' + n0(o.ct) + '</td><td class="num">' + n0(o.p) + '</td>' +
-      '<td class="num">' + (o.ct ? pct(o.p, o.ct) : '—') + '</td><td class="num">' + brl(o.v) + '</td><td class="num">' + brl(o.pg) + '</td>' +
-      '<td class="num">' + brl(o.ab) + '</td><td class="num b">' + brl(o.pgd, 1) + '</td></tr>'; }).join('');
+      '<td class="num">' + n0(o.ch) + vc(o.c, 'ch', 1) + '</td><td class="num">' + n0(o.ct) + vc(o.c, 'ct', 1) + '</td><td class="num">' + n0(o.p) + vc(o.c, 'p', 1) + '</td>' +
+      '<td class="num">' + (o.ct ? pct(o.p, o.ct) : '—') + (canC && canC[o.c] && canC[o.c].ct && o.ct ? vari(o.p / o.ct, canC[o.c].p / canC[o.c].ct, 1, true) : '') + '</td><td class="num">' + brl(o.v) + vc(o.c, 'v', 1) + '</td><td class="num">' + brl(o.pg) + '</td>' +
+      '<td class="num">' + brl(o.ab) + '</td><td class="num b">' + brl(o.pgd, 1) + vc(o.c, 'pgd', 1) + '</td></tr>'; }).join('');
   document.getElementById('tCanais').innerHTML =
     '<thead><tr><th>Canal</th><th class="num" title="Conversas abertas no período">Conversas</th><th class="num" title="Contatos novos no CRM">Leads novos</th>' +
     '<th class="num" title="Viraram paciente (quem chegou no período)">Pacientes</th><th class="num" title="Pacientes ÷ leads novos">Conversão</th><th class="num">Faturado</th>' +
     '<th class="num" title="Do faturado acima, quanto já foi pago">Já pago</th><th class="num">Em aberto</th>' +
     '<th class="num" title="Caixa SEM DOC no período (régua do Faturamento), pela origem do paciente">Recebido</th></tr></thead>' +
-    '<tbody>' + (corpo || '<tr><td colspan="9" class="vazio">Nada orgânico no período.</td></tr>') + '</tbody><tfoot><tr><td>Total orgânico</td><td class="num">' + n0(T.ch) +
-    '</td><td class="num">' + n0(T.ct) + '</td><td class="num">' + n0(T.p) + '</td><td class="num">' + (T.ct ? pct(T.p, T.ct) : '—') + '</td><td class="num">' + brl(T.v) +
-    '</td><td class="num">' + brl(T.pg) + '</td><td class="num">' + brl(T.ab) + '</td><td class="num">' + brl(T.pgd, 1) + '</td></tr></tfoot>';
+    '<tbody>' + (corpo || '<tr><td colspan="9" class="vazio">Nada orgânico no período.</td></tr>') + '</tbody><tfoot><tr><td>Total orgânico</td><td class="num">' + n0(T.ch) + vt('ch') +
+    '</td><td class="num">' + n0(T.ct) + vt('ct') + '</td><td class="num">' + n0(T.p) + vt('p') + '</td><td class="num">' + (T.ct ? pct(T.p, T.ct) : '—') +
+    (TC && TC.ct && T.ct ? vari(T.p / T.ct, TC.p / TC.ct, 1, true) : '') + '</td><td class="num">' + brl(T.v) + vt('v') +
+    '</td><td class="num">' + brl(T.pg) + '</td><td class="num">' + brl(T.ab) + '</td><td class="num">' + brl(T.pgd, 1) + vt('pgd') + '</td></tr></tfoot>';
 }
 
-function celsAg(x){ /* x: inv, r, p, v, pg, ab, cpp, ret, caixa (null = "—") */
+function celsAg(x, xc){ /* x: inv, r, p, v, pg, ab, cpp, ret, retN, caixa (null = "—"); xc = o mesmo no período de comparação */
   function f(v, fn){ return v == null ? '—' : fn(v); }
-  return '<td class="num">' + f(x.inv, brl) + '</td><td class="num">' + f(x.r, n0) + '</td><td class="num">' + n0(x.p) + '</td>' +
-    '<td class="num">' + (x.r ? pct(x.p, x.r) : '—') + '</td><td class="num">' + brl(x.v) + '</td><td class="num">' + brl(x.pg) + '</td>' +
-    '<td class="num">' + brl(x.ab) + '</td><td class="num">' + f(x.cpp, brl) + '</td><td class="num b">' + (x.ret || '—') + '</td>' +
-    '<td class="num">' + (x.caixa > 0.5 ? brl(x.caixa, 1) : '—') + '</td>';
+  function d(k, bom){ return xc ? vari(x[k], xc[k], bom) : ''; }
+  return '<td class="num">' + f(x.inv, brl) + d('inv', 0) + '</td><td class="num">' + f(x.r, n0) + d('r', 1) + '</td><td class="num">' + n0(x.p) + d('p', 1) + '</td>' +
+    '<td class="num">' + (x.r ? pct(x.p, x.r) : '—') + (xc && x.r && xc.r ? vari(x.p / x.r, xc.p / xc.r, 1, true) : '') + '</td><td class="num">' + brl(x.v) + d('v', 1) + '</td><td class="num">' + brl(x.pg) + '</td>' +
+    '<td class="num">' + brl(x.ab) + d('ab', -1) + '</td><td class="num">' + f(x.cpp, brl) + (xc && x.cpp != null && xc.cpp != null ? vari(x.cpp, xc.cpp, -1) : '') + '</td><td class="num b">' + (x.ret || '—') +
+    (xc && x.retN != null && xc.retN != null ? vari(x.retN, xc.retN, 1) : '') + '</td>' +
+    '<td class="num">' + (x.caixa > 0.5 ? brl(x.caixa, 1) : '—') + d('caixa', 1) + '</td>';
 }
-function linhaAg(o, classe, attrs, rotulo){
-  var pm = pacMed(o);
-  return '<tr class="' + classe + '" ' + (attrs || '') + '><td>' + rotulo + '</td>' + celsAg({inv: o.inv, r: o.r, p: o.p, v: o.v, pg: o.pg, ab: o.ab,
-    cpp: pm && o.invMed ? o.invMed / pm : null, ret: vezes(o.v, o.invMed), caixa: o.caixa}) + '</tr>';
+function xsAg(o){ var pm = pacMed(o);
+  return {inv: o.inv, r: o.r, p: o.p, v: o.v, pg: o.pg, ab: o.ab, cpp: pm && o.invMed ? o.invMed / pm : null, ret: vezes(o.v, o.invMed),
+          retN: o.invMed > 0.5 ? o.v / o.invMed : null, caixa: o.caixa}; }
+function linhaAg(o, classe, attrs, rotulo, oc){
+  return '<tr class="' + classe + '" ' + (attrs || '') + '><td>' + rotulo + '</td>' + celsAg(xsAg(o), oc ? xsAg(oc) : null) + '</tr>';
 }
 function linhaConta(c){
   var fora = VENDA_FORA[c.suf];
@@ -775,10 +933,11 @@ function linhaConta(c){
 }
 function pintaAgencias(can, ags){
   var nomes = agenciasAtivas().filter(function(a){ return S.ag === 'todas' || a === S.ag; });
-  var corpo = '';
+  var corpo = '', agsC = noComp(porAgencia);
   nomes.forEach(function(a){
     var o = ags[a] || zeroAg(); var aberta = S.ag !== 'todas' || S.agAbertas[a];
-    corpo += linhaAg(o, 'ag' + (aberta ? ' aberto' : ''), 'data-ag="' + esc(a) + '"', '<span class="dot" style="background:' + agCor(a) + '"></span><span class="nome">' + esc(a) + '</span>');
+    corpo += linhaAg(o, 'ag' + (aberta ? ' aberto' : ''), 'data-ag="' + esc(a) + '"', '<span class="dot" style="background:' + agCor(a) + '"></span><span class="nome">' + esc(a) + '</span>',
+      agsC ? (agsC[a] || zeroAg()) : null);
     if (aberta) Object.keys(o.contas).map(function(k){ return o.contas[k]; })
       .sort(function(x, y){ return y.inv - x.inv || y.r - x.r; })
       .filter(function(c){ return c.inv > 0.5 || c.r || c.p; })
@@ -792,8 +951,10 @@ function pintaAgencias(can, ags){
     var res = {inv: null, r: R.rRes || null, p: R.res.p, v: R.res.v, pg: R.res.pg, ab: R.res.ab, cpp: null, ret: '', caixa: R.cxSem};
     if (res.p > 0 || res.v > 0.5 || res.caixa > 0.5 || res.r)
       corpo += '<tr class="residuo"><td title="Anúncio sem código, Google Ads e posts da página">Sem agência identificada</td>' + celsAg(res).replace('<td class="num">' + pct(res.p, res.r) + '</td>', '<td class="num">—</td>') + '</tr>';
-    pe = '<tfoot><tr><td>Total</td>' + celsAg({inv: R.inv, r: R.r, p: R.p, v: R.v, pg: R.pg, ab: R.ab, cpp: R.pMed ? R.invMed / R.pMed : null,
-      ret: vezes(R.vMeta, R.invMed), caixa: R.caixa}) + '</tr></tfoot>';
+    var xR = function(R){ return {inv: R.inv, r: R.r, p: R.p, v: R.v, pg: R.pg, ab: R.ab, cpp: R.pMed ? R.invMed / R.pMed : null,
+      ret: vezes(R.vMeta, R.invMed), retN: R.invMed > 0.5 ? R.vMeta / R.invMed : null, caixa: R.caixa}; };
+    var RC = noComp(function(){ return resumoPago(porCanal(), porAgencia()); });
+    pe = '<tfoot><tr><td>Total</td>' + celsAg(xR(R), RC ? xR(RC) : null) + '</tr></tfoot>';
   }
   var cab = '<thead><tr><th>Agência</th><th class="num">Investimento</th><th class="num" title="Telefones que chegaram pelo anúncio da agência">Leads</th>' +
     '<th class="num" title="Chegaram pelo anúncio da agência e fecharam — inclui quem já era da base">Pacientes</th><th class="num">Conversão</th><th class="num">Faturado</th><th class="num" title="Do faturado acima, quanto já foi pago">Já pago</th><th class="num">Em aberto</th>' +
@@ -907,15 +1068,14 @@ function topCats(cats, n){
     .sort(function(a, b){ return b.v - a.v; }).slice(0, n || 99);
 }
 
-function pintaAds(){
-  if (S.ag === ORG) return;   /* orgânico: sem anúncios (a seção fica oculta) */
-  var lista = listaAds();
-  var semRec = !Array.isArray(PG);
+function filtraBusca(lista){
   var q = semAcento(S.adsBusca).trim();
-  if (q) lista = lista.filter(function(o){
+  if (!q) return lista;
+  return lista.filter(function(o){
     var cr = CRI[o.id] || {};
     return semAcento(o.nome + ' ' + o.camp + ' ' + o.conj + ' ' + o.tipo + ' ' + (cr.b || '') + ' ' + Object.keys(o.procs).join(' ')).indexOf(q) >= 0; });
-  /* grupos */
+}
+function agrupaAds(lista){
   var G = {}, PUB = S.adsGrp === 'pub';
   lista.forEach(function(o){
     /* 23/10/2026: por público = conjunto de anúncios (painel-canais v8). A chave leva a marca e o id do conjunto,
@@ -928,11 +1088,24 @@ function pintaAds(){
     Object.keys(o.cats).forEach(function(c){ x.cats[c] = (x.cats[c] || 0) + o.cats[c]; });
     Object.keys(o.pag).forEach(function(c){ x.pag[o.m + c] = 1; });
   });
+  return G;
+}
+function pintaAds(){
+  if (S.ag === ORG) return;   /* orgânico: sem anúncios (a seção fica oculta) */
+  var lista = filtraBusca(listaAds());
+  var semRec = !Array.isArray(PG);
+  var G = agrupaAds(lista), PUB = S.adsGrp === 'pub';
+  /* comparação: os mesmos grupos e anúncios no período de comparação (o recebido só com o rastro dele) */
+  var listaC = noComp(function(){ return filtraBusca(listaAds()); });
+  var GC = listaC ? agrupaAds(listaC) : null, recC = compTemRec(), adC = null;
+  if (listaC) { adC = {}; listaC.forEach(function(o){ var k = o.m + '|' + o.id, t = adC[k] || (adC[k] = {inv: 0, conv: 0, r: 0, p: 0, rec: 0});
+    t.inv += o.inv; t.conv += o.conv; t.r += o.r; t.p += o.p; t.rec += o.rec; }); }
+  var ZG = {inv: 0, conv: 0, r: 0, p: 0, rec: 0, invMed: 0, pMed: 0};
   var grupos = Object.keys(G).map(function(k){ return G[k]; })
     .sort(function(a, b){ return b.rec - a.rec || b.inv - a.inv; });
   var tInv = soma(lista, 'inv'), tRec = soma(lista, 'rec');
-  document.getElementById('adsTot').innerHTML = '<b>' + n0(lista.length) + '</b> anúncios · <b>' + brl(tInv) + '</b> investidos · ' +
-    (semRec ? '<span class="dim">recebido carregando…</span>' : '<b>' + brl(tRec, 1) + '</b> recebidos');
+  document.getElementById('adsTot').innerHTML = '<b>' + n0(lista.length) + '</b> anúncios · <b>' + brl(tInv) + '</b> investidos' + (listaC ? vari(tInv, soma(listaC, 'inv'), 0) : '') + ' · ' +
+    (semRec ? '<span class="dim">recebido carregando…</span>' : '<b>' + brl(tRec, 1) + '</b> recebidos' + (listaC && recC ? vari(tRec, soma(listaC, 'rec'), 1) : ''));
   document.getElementById('adsGrp').innerHTML = chip('Por tipo', S.adsGrp === 'tipo', 'data-g="tipo"') + ' ' + chip('Por agência', S.adsGrp === 'ag', 'data-g="ag"') +
     ' ' + chip('Por público', PUB, 'data-g="pub"');
   liga('adsGrp', 'data-g', function(g){ if (S.adsGrp !== g) { S.adsGrp = g; S.adsAbertos = {}; } pintaAds(); });
@@ -953,13 +1126,18 @@ function pintaAds(){
                 .map(function(o){ return o.nome; }).filter(function(n, i, a){ return a.indexOf(n) === i; }).join(' · ');
                 return '<span class="cats" title="' + esc(ns) + '">' + esc(ns) + '</span>'; })()
       : '<span class="nome">' + esc(x.g) + '</span>';
-    var recInv = x.invMed;
+    var recInv = x.invMed, xc = GC ? (GC[x.g] || ZG) : null;
+    function dv(k, bom){ return xc ? vari(x[k], xc[k], bom) : ''; }
+    var dCpp = xc && x.pMed && x.invMed && xc.pMed && xc.invMed ? vari(x.invMed / x.pMed, xc.invMed / xc.pMed, -1) : '';
+    var dRec = xc && recC && !todosFora && !semRec ? vari(x.rec, xc.rec, 1) : '';
+    var dRet = xc && recC && !todosFora && !semRec && x.invMed > 0.5 && xc.invMed > 0.5 ? vari(x.rec / x.invMed, xc.rec / xc.invMed, 1) : '';
     var h = '<tr class="grp' + (aberto ? ' aberto' : '') + '" data-g="' + esc(x.g) + '"><td' + (PUB ? ' class="pub"' : '') + '>' + rotulo + (cats && !PUB ? '<span class="cats">' + cats + '</span>' : '') + '</td>' +
-      '<td class="num">' + n0(x.ads.length) + '</td><td class="num">' + brl(x.inv) + '</td><td class="num">' + n0(x.conv) + '</td><td class="num">' + n0(x.r) + '</td>' +
-      '<td class="num">' + n0(x.p) + '</td><td class="num">' + (x.pMed && x.invMed ? brl(x.invMed / x.pMed) : '—') + '</td>' +
-      '<td class="num b">' + recTxt(x.rec, 0, todosFora) + '</td><td class="num">' + (todosFora || semRec ? '—' : vezes(x.rec, recInv)) + '</td></tr>';
+      '<td class="num">' + n0(x.ads.length) + '</td><td class="num">' + brl(x.inv) + dv('inv', 0) + '</td><td class="num">' + n0(x.conv) + dv('conv', 1) + '</td><td class="num">' + n0(x.r) + dv('r', 1) + '</td>' +
+      '<td class="num">' + n0(x.p) + dv('p', 1) + '</td><td class="num">' + (x.pMed && x.invMed ? brl(x.invMed / x.pMed) : '—') + dCpp + '</td>' +
+      '<td class="num b">' + recTxt(x.rec, 0, todosFora) + dRec + '</td><td class="num">' + (todosFora || semRec ? '—' : vezes(x.rec, recInv)) + dRet + '</td></tr>';
     if (aberto) h += '<tr class="det"><td colspan="9"><div class="adcs">' +
-      x.ads.slice().sort(function(a, b){ return b.rec - a.rec || b.inv - a.inv; }).map(function(o){ return cartaoAd(o, semRec, longo); }).join('') + '</div></td></tr>';
+      x.ads.slice().sort(function(a, b){ return b.rec - a.rec || b.inv - a.inv; }).map(function(o){
+        return cartaoAd(o, semRec, longo, adC ? (adC[o.m + '|' + o.id] || {inv: 0, conv: 0, r: 0, p: 0, rec: 0}) : null, recC); }).join('') + '</div></td></tr>';
     return h;
   }).join('');
   document.getElementById('tAds').innerHTML = cab + '<tbody>' + (corpo || '<tr><td colspan="9" class="vazio">Nenhum anúncio neste filtro.</td></tr>') + '</tbody>';
@@ -986,7 +1164,7 @@ function pintaAds(){
     b.addEventListener('click', function(e){ e.stopPropagation(); var k = b.getAttribute('data-proc'); S.adsProc[k] = !S.adsProc[k]; pintaAds(); }); });
 }
 
-function cartaoAd(o, semRec, longo){
+function cartaoAd(o, semRec, longo, oc, recC){
   var cr = CRI[o.id] || {};
   var foto = cr.img ? '<img class="adc-foto" alt="" loading="lazy" src="data:image/jpeg;base64,' + cr.img + '">'
                     : '<div class="adc-foto">' + (o.num ? 'WhatsApp ' + esc(o.id.slice(2)) : CRI_PEDIDO[o.m] ? 'sem miniatura' : 'carregando…') + '</div>';
@@ -1003,6 +1181,12 @@ function cartaoAd(o, semRec, longo){
   var copia = cr.b ? '<div class="adc-copy' + (aberta ? ' aberta' : '') + '">' + esc(cr.b) + '</div>' +
     (cr.b.length > 160 ? '<button class="lnk" data-copy="' + esc(o.k) + '">' + (aberta ? 'recolher texto' : 'ver texto completo') + '</button>' : '') : '';
   var rec = o.fora ? '<span class="fora">fora do Feegow</span>' : semRec ? (longo ? '—' : '…') : brl(o.rec, 1);
+  /* comparação do anúncio: o mesmo anúncio (todas as agências) no período de comparação */
+  var dls = !oc ? [] : [o.num ? '' : vari(o.inv, oc.inv, 0), o.num ? '' : vari(o.conv, oc.conv, 1),
+    o.conv && oc.conv ? vari(o.inv / o.conv, oc.inv / oc.conv, -1) : '', vari(o.r, oc.r, 1), vari(o.p, oc.p, 1),
+    o.p && oc.p && o.inv && oc.inv && !o.fora ? vari(o.inv / o.p, oc.inv / oc.p, -1) : '',
+    recC && !o.fora && !semRec ? vari(o.rec, oc.rec, 1) : '',
+    recC && !o.fora && !semRec && o.inv > 0.5 && oc.inv > 0.5 ? vari(o.rec / o.inv, oc.rec / oc.inv, 1) : '', ''];
   var met = [
     [o.num ? '—' : brl(o.inv), 'Investido', 0, o.num ? 'Sem anúncio: não tem investimento próprio' : ''], [o.num ? '—' : n0(o.conv), 'Conversas'],
     [o.conv ? brl(o.inv / o.conv, 1) : '—', 'Custo/conversa'],
@@ -1012,7 +1196,7 @@ function cartaoAd(o, semRec, longo){
     [rec, 'Recebido', !o.fora && o.rec > 0.5, 'Caixa SEM DOC no período dos pacientes deste anúncio — inclui quem chegou antes do período'],
     [o.fora || semRec ? '—' : vezes(o.rec, o.inv), 'Retorno', 0, 'Recebido ÷ investimento no período'],
     [o.fora || semRec ? '—' : n0(o.npag), 'Pagaram', 0, 'Pacientes deste anúncio que pagaram algo no período (inclui quem chegou antes)']
-  ].map(function(x){ return '<div' + (x[3] ? ' title="' + esc(x[3]) + '"' : '') + '><span class="v' + (x[2] ? ' dest' : '') + '">' + x[0] + '</span><span class="k">' + x[1] + '</span></div>'; }).join('');
+  ].map(function(x, i){ return '<div' + (x[3] ? ' title="' + esc(x[3]) + '"' : '') + '><span class="v' + (x[2] ? ' dest' : '') + '">' + x[0] + '</span><span class="k">' + x[1] + '</span>' + (dls[i] || '') + '</div>'; }).join('');
   var recBloco = '';
   if (!o.fora && !semRec) {
     var cats = topCats(o.cats);
