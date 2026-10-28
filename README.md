@@ -285,6 +285,31 @@ agrupamento, **Por público**, ao lado de "Por tipo" e "Por agência".
   (149 anúncios, R$ 15.093 investidos, R$ 150.759 recebidos); "00 - Aberto em Manaus" (Doctor, Vanguarda)
   dá R$ 751,80 e 301 conversas, igual à `meta_insights_dia`. Claro, escuro e celular sem erro de JS.
 
+### Comparação de períodos — 27/10/2026
+
+Pedido do Henrique depois da gerencial de outubro, que comparava 01–23/10 com meses fechados e fez parecer
+que a hiperbárica tinha caído. A aba ganhou a linha **Comparar** nos filtros, e todo número relevante mostra a
+variação contra o período de comparação.
+
+- **Opções:** *Mesmos dias do mês anterior* (padrão: 01–26/10 contra 01–26/09; mês inteiro contra o mês
+  anterior inteiro; acima de 31 dias vira período anterior), *Período anterior* (mesmo tamanho, logo antes),
+  *Ano passado*, *Escolher datas* e *Sem comparação*. A escolha fica guardada no navegador (`canais_comp`).
+- **Onde aparece:** os 8 cartões de cada visão (Todas, uma agência, Orgânico) com "antes R$ X ▲ y%"; Origem do
+  recebido (legenda por grupo, conversas, leads, pacientes, faturado e recebido por canal, total); Orgânico por
+  canal (com a conversão em pontos percentuais); Agências (cada célula e o total); Anúncios (cabeçalho, grupos por
+  tipo/agência/público e o cartão de cada anúncio). As listas de pacientes não comparam.
+- **Cor:** verde = melhorou, vermelho = piorou, cinza = neutro. Custo e "em aberto" caindo é verde; investimento é
+  neutro. "novo" = não existia no período de comparação (ex.: FSX contra setembro).
+- **Como calcula:** `noComp(fn)` roda as mesmas funções da tela com o período de comparação no lugar do escolhido.
+  A foto (dados.json) cobre a janela de cada marca; o recebido usa o rastro do período de comparação, lido à
+  parte pela `painel-canais` (até 93 dias). Enquanto ele não chega, o recebido da comparação sai da foto das
+  05:30, que para período fechado bate no centavo. Sem dado no período (antes do início da janela) não mostra
+  variação e avisa ao lado das opções. Cuidado com julho da Acesso: o CRM só guarda o anúncio desde 22/07.
+- **Conferência (01–26/10 contra 01–26/09, dados reais, sem nomes):** recebido R$ 1.109.900,45 contra
+  R$ 1.199.809,53 (▼ 7,5%), recebido de anúncio R$ 175.226,20 contra R$ 149.233,03 (▲ 17%), investimento
+  R$ 17.807 contra R$ 19.957 (▼ 11%) — iguais à soma direta do rastro e da mídia. Claro, escuro e celular sem
+  erro de JS; CSP recalculada com `ferramentas/csp_hash.py`.
+
 ### Orgânico na linha de Agência — 26/10/2026
 
 Pedido do Henrique: faltava um jeito de ver o orgânico. A linha **Agência** ganhou **Orgânico** depois das
